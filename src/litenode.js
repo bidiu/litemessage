@@ -6,6 +6,8 @@ const Peer = require('./peer');
 /**
  * Each Litenode should have a UUID created when start up, use this as
  * an application level mechanism that prevents from double connecting.
+ * 
+ * TODO event emitter
  */
 class LiteNode extends EventEmitter {
   constructor({ port } = {}) {
