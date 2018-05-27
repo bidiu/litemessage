@@ -17,7 +17,7 @@ const socketEvents = [
  * TODO what if starting mutiple ndoes,
  *    one node with mutiple sockets to same peer
  * TODO close reason
- * TODO IPV6 address
+ * TODO investigate even emitter memory leak
  */
 class WSServer extends EventEmitter {
   constructor(uuid, { port = 1113 } = {}) {
