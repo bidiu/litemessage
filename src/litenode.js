@@ -4,8 +4,8 @@ const WSServer = require('./wss');
 const Peer = require('./peer');
 
 /**
- * Each Litenode should have a UUID created when start up, use this as a 
- * application level prevention from double connecting.
+ * Each Litenode should have a UUID created when start up, use this as
+ * an application level mechanism that prevents from double connecting.
  */
 class LiteNode extends EventEmitter {
   constructor({ port } = {}) {
