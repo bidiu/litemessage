@@ -63,7 +63,7 @@ class WSServer extends EventEmitter {
     }
 
     let remoteUuid = undefined;
-    let socket = new WebSocket(url, { headers: this.headers });
+    let socket = new WebSocket(url, { headers: this.headers, handshakeTimeout: 10000 });
     socket.on('upgrade', resp => 
       // read uuid from upgrade response header
       remoteUuid = resp.headers[uuidHeaderName]);
@@ -75,9 +75,12 @@ class WSServer extends EventEmitter {
         socket.close(undefined, 'DOUBLE_CONNECT');
         return;
       }
+      socket.removeAllListeners('error');
       this.connectionHandler(socket, false, remoteUuid);
       this.servers[url] = socket;
     });
+    socket.on('error', (err) =>
+      console.log(`Unable to establish connect to ${url}. Details:\n${err}.`));
   }
 
   genHeartbeat() {
@@ -97,6 +100,7 @@ class WSServer extends EventEmitter {
 
   connectionHandler(socket, incoming, remoteUuid) {
     let { remoteAddress, remotePort } = socket._socket;
+    remoteAddress = remoteAddress.replace(/^.*:/, '');
     let url = 'ws://' + remoteAddress + ':' + remotePort;
     socket.alive = true;
     socket.on('message', () => socket.alive = true);
