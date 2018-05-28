@@ -8,6 +8,8 @@ const { getSocketAddress } = require('./utils/network');
  * Each Litenode will have a UUID automatically generated when start up. 
  * Use this UUID as an application-level mechanism to identifing a node.
  * 
+ * TODO polish the close api (right now after closing, you can not use it anymore)
+ * 
  * #### Events
  * - `connection`
  * - `disconnection`
@@ -131,6 +133,14 @@ class LiteNode extends EventEmitter {
     } else {
       console.log(`Disconnected from @${socketAddress} (${code || 'N/A'} | ${reason || 'N/A'}).`);
     }
+  }
+
+  /**
+   * Close this node (both server and outgoing socket connections will
+   * be closed)
+   */
+  close(callback) {
+    this.wss.close(callback);
   }
 }
 

@@ -15,7 +15,7 @@ class FullNode {
     // connect to initial peers
     initPeerUrls.forEach(url => this.litenode.createConnection(url))
 
-    setInterval(() => {
+    this.timer = setInterval(() => {
       console.log(`Right now, there are ${this.peers.length} connected peers.`);
     }, 60000);
   }
@@ -23,6 +23,11 @@ class FullNode {
   get peers() {
     let peers = this.litenode ? Object.values(this.litenode.peers) : [];
     return peers.filter(peer => peer.nodeType === nodeType);
+  }
+
+  close(callback) {
+    clearInterval(this.timer);
+    this.litenode.close(callback);
   }
 }
 

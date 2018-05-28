@@ -67,6 +67,10 @@ class WSServer extends EventEmitter {
     this.timer = setInterval(this.genHeartbeat(), 60000);
   }
 
+  /**
+   * Close this node (both server and outgoing socket connections will
+   * be closed)
+   */
   close(callback) {
     clearInterval(this.timer);
     this.wss.close(callback);
