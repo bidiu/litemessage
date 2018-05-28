@@ -40,6 +40,15 @@ class LiteNode extends EventEmitter {
     this.wss.on('connection', this.connectionHandler);
   }
 
+  /**
+   * Note that you cannot have more than one socket to a single URL.
+   * And also note that error could be thrown if url is invalid.
+   * Failure of connection will only cause some log (won't crash
+   * the application).
+   * 
+   * Right now, there's no way to get notified when it fail to connect
+   * (such as because of timeout) except for a log mentioned before.
+   */
   createConnection(url) {
     return this.wss.createConnection(url);
   }
