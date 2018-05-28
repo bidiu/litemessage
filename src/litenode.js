@@ -12,6 +12,8 @@ const { getSocketAddress } = require('./utils/network');
  * - `connection`
  * - `disconnection`
  * - `message`
+ * - all other events are handled by low level abstraction (you don't need 
+ * to worry about).
  */
 class LiteNode extends EventEmitter {
   /**
