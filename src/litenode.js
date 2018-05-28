@@ -7,6 +7,11 @@ const { getSocketAddress } = require('./utils/network');
 /**
  * Each Litenode will have a UUID automatically generated when start up. 
  * Use this UUID as an application-level mechanism to identifing a node.
+ * 
+ * #### Events
+ * - `connection`
+ * - `disconnection`
+ * - `message`
  */
 class LiteNode extends EventEmitter {
   /**
