@@ -14,6 +14,7 @@ const { getSocketAddress } = require('./utils/network');
  * - `connection`
  * - `disconnection`
  * - `message`
+ * - `message/${message_type}`
  * - all other events are handled by low level abstraction (you don't need 
  * to worry about).
  */
@@ -55,6 +56,10 @@ class LiteNode extends EventEmitter {
     return this.wss.createConnection(url);
   }
 
+  /**
+   * @param {string} msg 
+   * @param {Array<string>} exUuids 
+   */
   broadcast(msg, exUuids = []) {
     let peers = Object.keys(this.peers)
       .filter(uuid => !exUuids.includes(uuid))
@@ -67,6 +72,14 @@ class LiteNode extends EventEmitter {
         console.error(err);
       }
     }
+  }
+
+  /**
+   * @param {Object} jsonObj 
+   * @param {Array<string>} exUuids 
+   */
+  broadcastJson(jsonObj, exUuids) {
+    this.broadcast(JSON.stringify(jsonObj), exUuids);
   }
 
   /**
@@ -119,6 +132,12 @@ class LiteNode extends EventEmitter {
   socketMessageHandler(msg, peer) {
     // notify listeners
     this.emit('message', msg, peer);
+
+    let msgObj = null;
+    try { msgObj = JSON.parse(msg); } catch (e) {}
+    if (msgObj && msgObj['messageType']) {
+      this.emit(`message/${msgObj['messageType']}`, msgObj, peer);
+    }
   }
 
   socketCloseHandler(code, reason, socket, remoteUuid) {
