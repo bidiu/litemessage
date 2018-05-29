@@ -20,6 +20,8 @@ const socketEvents = [
  * both like a server and a client - it will connect to several clients, 
  * and also several servers (P2P network).
  * 
+ * The P2P network is a directed graph.
+ * 
  * TODO proxy for socket
  * TODO close reason doesn't work
  * TODO investigate even emitter memory leak
