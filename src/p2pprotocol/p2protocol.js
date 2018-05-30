@@ -1,3 +1,4 @@
+const P2PProtocolStore = require('./store');
 const {
   messageTypes, messageValidators, fetchPeers, returnPeers
 } = require('./messages');
@@ -13,28 +14,55 @@ class P2PProtocol {
    * @param {*} nodeTypes node types to which a node will try to establish connection
    */
   constructor(node, nodeTypes, { minPeerNum = 30 } = {}) {
+    this.persistPeerUrls = this.persistPeerUrls.bind(this);
     this.fetchPeersHandler = this.fetchPeersHandler.bind(this);
     this.returnPeersHandler = this.returnPeersHandler.bind(this);
 
     this.node = node;
     this.litenode = node.litenode;
-    this.db = node.db;
     this.nodeTypes = nodeTypes;
     this.minPeerNum = minPeerNum;
     this.intervalTimers = [];
+    this.store = new P2PProtocolStore(node.db);
 
     // register message handlers
     this.litenode.on(`message/${messageTypes['fetchPeers']}`, this.fetchPeersHandler);
     this.litenode.on(`message/${messageTypes['returnPeers']}`, this.returnPeersHandler);
 
+    this.connectToLastConnectedPeers();
+
+    // periodically fetch more peers of given node types
     this.intervalTimers.push(
-      // periodically fetch more peers of given node types
       setInterval(() => {
         if (this.node.peers(nodeTypes).length < minPeerNum) {
           this.litenode.broadcastJson(fetchPeers({ nodeTypes }));
         }
       }, 5000)
     );
+
+    // periodically persist peer urls
+    this.intervalTimers.push(
+      setInterval(this.persistPeerUrls, 60000)
+    );
+  }
+
+  async connectToLastConnectedPeers() {
+    try {
+      let peerUrls = await this.store.readCurPeerUrls();
+      peerUrls.forEach(url => this.litenode.createConnection(url));
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  async persistPeerUrls() {
+    try {
+      let peerUrls = this.node.peers(this.nodeTypes)
+        .map(peer => peer.url);
+      await this.store.writeCurPeerUrls(peerUrls);
+    } catch (err) {
+      console.error(err);
+    }
   }
 
   fetchPeersHandler({ messageType, ...payload }, peer) {
