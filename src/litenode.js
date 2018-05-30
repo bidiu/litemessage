@@ -8,7 +8,8 @@ const { getSocketAddress } = require('./utils/network');
  * Each Litenode will have a UUID automatically generated when start up. 
  * Use this UUID as an application-level mechanism to identifing a node.
  * 
- * TODO polish the close api (right now after closing, you can not use it anymore)
+ * TODO polish the close api (right now after closing, you can not use it anymore),
+ *    and also levelup's close callback.
  * 
  * #### Events
  * - `connection`

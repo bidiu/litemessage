@@ -9,17 +9,16 @@ const { pickItems } = require('../utils/common');
  */
 class P2PProtocol {
   /**
-   * @param {*} node        full node, thin node, or...
-   * @param {*} db          level db
-   * @param {*} nodeTypes   node types to which a node will try to establish connection
+   * @param {*} node      full node, thin node, or...
+   * @param {*} nodeTypes node types to which a node will try to establish connection
    */
-  constructor(node, db, nodeTypes, { minPeerNum = 30 } = {}) {
+  constructor(node, nodeTypes, { minPeerNum = 30 } = {}) {
     this.fetchPeersHandler = this.fetchPeersHandler.bind(this);
     this.returnPeersHandler = this.returnPeersHandler.bind(this);
 
     this.node = node;
     this.litenode = node.litenode;
-    this.db = db;
+    this.db = node.db;
     this.nodeTypes = nodeTypes;
     this.minPeerNum = minPeerNum;
     this.intervalTimers = [];

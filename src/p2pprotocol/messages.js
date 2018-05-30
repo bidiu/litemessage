@@ -33,8 +33,13 @@ const returnPeers = ({ nodeTypes, peerUrls = [] } = {}) => ({
   peerUrls
 });
 
-returnPeers.validate = (payload) => {
-  // TODO
+returnPeers.validate = ({ nodeTypes, peerUrls }) => {
+  if (!(nodeTypes instanceof Array) || nodeTypes.length === 0) {
+    throw new Error('p2p/: Invalid message, field nodeTypes.');
+  }
+  if (!(peerUrls instanceof Array)) {
+    throw new Error('p2p/: Invalid message, field peerUrls.');
+  }
 };
 
 

@@ -1,3 +1,6 @@
+const fs = require('fs');
+const leveldown = require('leveldown');
+const levelup = require('levelup');
 const LiteNode = require('./litenode');
 
 const nodeTypes = ['full', 'thin'];
@@ -16,12 +19,14 @@ class FullNode {
   /**
    * Note `port` here must be number (instead of string).
    */
-  constructor(protocolClass, { port, initPeerUrls = [] } = {}) {
+  constructor(protocolClass, dbPath, { port, initPeerUrls = [] } = {}) {
     port = typeof port === 'number' ? (port + '') : undefined;
     // create underlying litenode
     this.litenode = new LiteNode(nodeType, { port });
+    // initialize the db (level db)
+    this.initDb(dbPath);
     // load protocol
-    this.protocol = new protocolClass(this, null, nodeTypes);
+    this.protocol = new protocolClass(this, nodeTypes);
     // connect to initial peers
     initPeerUrls.forEach(url => this.litenode.createConnection(url));
 
@@ -33,6 +38,15 @@ class FullNode {
 
   static get nodeType() {
     return nodeType;
+  }
+
+  initDb(dbPath) {
+    if (fs.existsSync(dbPath) && fs.statSync(dbPath).isDirectory()) {
+      console.log('Using existing LevelDB directory.');
+    } else {
+      console.log('A new LevelDB directory will be created.');
+    }
+    this.db = levelup(leveldown(dbPath));
   }
 
   /**
@@ -50,6 +64,7 @@ class FullNode {
   close(callback) {
     clearInterval(this.timer);
     this.litenode.close(callback);
+    this.db.close();
   }
 
   debugInfo() {
