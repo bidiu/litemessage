@@ -13,7 +13,7 @@ class P2PProtocol {
    * @param {*} node      full node, thin node, or...
    * @param {*} nodeTypes node types to which a node will try to establish connection
    */
-  constructor(node, nodeTypes, { minPeerNum = 30 } = {}) {
+  constructor(node, nodeTypes, { minPeerNum = 8 } = {}) {
     this.persistPeerUrls = this.persistPeerUrls.bind(this);
     this.fetchPeersHandler = this.fetchPeersHandler.bind(this);
     this.returnPeersHandler = this.returnPeersHandler.bind(this);
