@@ -27,7 +27,7 @@ const mine = (content, difficulty) =>
       cp.removeAllListeners();
       cp.kill('SIGTERM');
       reject(new Error('Mining timeouts.'));
-    }, 120000);
+    }, 600000);
 
     cp.on('message', (nonce) => {
       clearTimeout(timer);
