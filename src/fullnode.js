@@ -19,7 +19,8 @@ class FullNode {
   /**
    * Note `port` here must be number (instead of string).
    */
-  constructor(protocolClass, dbPath, { port, initPeerUrls = [] } = {}) {
+  constructor(protocolClass, dbPath, { port = 1113, initPeerUrls = [] } = {}) {
+    this.port = port;
     port = typeof port === 'number' ? (port + '') : undefined;
     // create underlying litenode
     this.litenode = new LiteNode(nodeType, { port });
