@@ -38,7 +38,7 @@ class LiteNode extends EventEmitter {
     this.wss = new WSServer(this.uuid, this.nodeType, { port });
     // when bound to an network interface
     this.wss.on('listening', (port) => {
-      console.log(`Start listening on port ${port}.`);
+      console.log(`${this.uuid}: Start listening on port ${port}.`);
     });
     // when new connection established
     this.wss.on('connection', this.connectionHandler);
