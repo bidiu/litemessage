@@ -1,12 +1,15 @@
 const path = require('path');
 
-// TODO too bad, refactor...
 const isValidJson = (json) => {
-  try {
-    return JSON.parse(json);
-  } catch (err) {
+  if (typeof str != 'string' || !str) {
     return false;
   }
+
+  try {
+    JSON.parse(str);
+    return true;
+  } catch (e) { }
+  return false;
 };
 
 /**
