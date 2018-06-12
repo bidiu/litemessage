@@ -3,6 +3,7 @@ const WSServer = require('./wss');
 const Peer = require('./peer');
 const uuidv1 = require('uuid/v1');
 const { getSocketAddress } = require('./utils/network');
+const { getCurTimestamp } = require('./utils/time');
 
 /**
  * Each Litenode will have a UUID automatically generated when start up. 
@@ -23,7 +24,7 @@ class LiteNode extends EventEmitter {
   /**
    * A UUID will be automatically generated.
    */
-  constructor(nodeType, { port } = {}) {
+  constructor(nodeType, { port, debug = true } = {}) {
     super();
     this.connectionHandler = this.connectionHandler.bind(this);
     this.socketMessageHandler = this.socketMessageHandler.bind(this);
@@ -35,13 +36,46 @@ class LiteNode extends EventEmitter {
     // all sockets from this SHOULD be alive
     // so you MIGHTN'T need to worry about it
     this.peers = {};
+
+    // used for debugging
+    this.debug = debug;
+    this.messageLogs = [];
+
     this.wss = new WSServer(this.uuid, this.nodeType, { port });
     // when bound to an network interface
     this.wss.on('listening', (port) => {
       console.log(`${this.uuid}: Start listening on port ${port}.`);
+      if (this.debug) { console.log('Debug mode is enabled.'); }
     });
     // when new connection established
     this.wss.on('connection', this.connectionHandler);
+  }
+
+  /**
+   * Create a proxy to intercept the `send` function call,
+   * mainly for debugging/logging.
+   */
+  createSocketProxy(socket, remoteUuid) {
+    const messageLogs = this.messageLogs;
+
+    const handler = {
+      get: (socket, propName) => {
+        if (propName !== 'send') { return socket[propName]; }
+        // return the wrapper function as a proxy
+        return function (data, options, callback) {
+          messageLogs.push({
+            peer: remoteUuid,
+            dir: 'outbound',
+            msg: JSON.parse(data),
+            time: getCurTimestamp('s')
+          });
+
+          return socket.send(data, options, callback);
+        };
+      }
+    };
+    // create socket proxy and return
+    return new Proxy(socket, handler);
   }
 
   /**
@@ -122,7 +156,11 @@ class LiteNode extends EventEmitter {
       return;
     }
 
-    // continue the process of connection establishment
+    // continue the process of connection establishment...
+
+    if (this.debug) {
+      socket = this.createSocketProxy(socket, remoteUuid);
+    }
     let newPeer = new Peer(remoteUuid, socket, incoming, remoteDaemonPort, remoteNodeType);
     this.peers[remoteUuid] = newPeer;
     socket.on('message', (msg) => this.socketMessageHandler(msg, newPeer));
@@ -137,6 +175,14 @@ class LiteNode extends EventEmitter {
     let msgObj = null;
     try { msgObj = JSON.parse(msg); } catch (e) {}
     if (msgObj && msgObj['messageType']) {
+      // note that only logs valid procotol messages
+      this.messageLogs.push({
+        peer: peer.uuid,
+        dir: 'inbound',
+        msg: msgObj,
+        time: getCurTimestamp('s')
+      });
+
       this.emit(`message/${msgObj['messageType']}`, msgObj, peer);
     }
   }

@@ -41,5 +41,34 @@ const mine = (content, difficulty) =>
     });
   });
 
+  /**
+   * TODO validate timestamp, sig, pubKey
+   * For timestamp, need to consider how long it takes to
+   * populate the network.
+   */
+const validateLitemsg = (litemessage) => {
+  let { ver, time, litemsg, sig, pubKey, hash } = litemessage;
+
+  if (typeof ver !== 'number') {
+    return false;
+  }
+  if (typeof time !== 'number') {
+    return false;
+  }
+  if (typeof litemsg !== 'string') {
+    return false;
+  }
+  if (hash !== sha256(`${ver}${time}${litemsg}${sig}${pubKey}`)) {
+    return false;
+  }
+  return true;
+};
+
+const validateBlock = (block) => {
+  // TODO
+};
+
 exports.sha256 = sha256;
 exports.mine = mine;
+exports.validateLitemsg = validateLitemsg;
+exports.validateBlock = validateBlock;
