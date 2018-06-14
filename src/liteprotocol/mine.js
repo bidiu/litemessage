@@ -31,7 +31,7 @@ const _mine = (content, difficulty) => {
   let bits = difficulty % 8;
   let nonce = 0;
   while (true) {
-    let buf = Buffer.from(sha256(`${nonce}${content}`), 'hex');
+    let buf = Buffer.from(sha256(`${content}${nonce}`), 'hex');
     let i = 0;
     for (; i < bytes; i++) {
       if (buf[i] !== 0) { break; }
