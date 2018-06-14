@@ -1,12 +1,12 @@
 const path = require('path');
 
 const isValidJson = (json) => {
-  if (typeof str != 'string' || !str) {
+  if (typeof json !== 'string' || !json) {
     return false;
   }
 
   try {
-    JSON.parse(str);
+    JSON.parse(json);
     return true;
   } catch (e) { }
   return false;
@@ -41,7 +41,18 @@ const pickItems = (array, num) => {
   return picked;
 };
 
+const parseChunk = (buffer) => {
+  if (buffer.length % 32) { throw new Error('Invalid chunk buffer.'); }
+
+  let hashes = [];
+  for (let i = 0; i < buffer.length; i += 32) {
+    hashes.push(buffer.slice(i, i + 32).toString('hex'));
+  }
+  return hashes;
+};
+
 exports.isValidJson = isValidJson;
 exports.getAbsRootPath = getAbsRootPath;
 exports.randomInt = randomInt;
 exports.pickItems = pickItems;
+exports.parseChunk = parseChunk;

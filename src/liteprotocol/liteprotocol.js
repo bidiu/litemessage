@@ -1,16 +1,21 @@
 const P2PProtocol = require('../p2pprotocol/p2protocol');
 const LiteProtocolStore = require('./store');
 const Miner = require('./miner');
+const Blockchain = require('../utils/blockchain');
 const createRestServer = require('./rest');
+const createBlock = require('./entities/block');
 const {
-  messageTypes, messageValidators, getBlocks, inv, getData, data,
-  getPendingMsgs
+  messageTypes, messageValidators, getBlocks, 
+  inv, getData, data, getPendingMsgs
 } = require('./messages');
 const { validateBlock, validateLitemsg } = require('../utils/litecrypto');
 const { pickItems } = require('../utils/common');
+const { calcMerkleRoot } = require('../utils/merkle');
+const { getCurTimestamp } = require('../utils/time');
 
 const ver = 1;
-const difficulty = 22;
+const bits = 8;
+const blockLimit = 2048;
 
 class LiteProtocol extends P2PProtocol {
   static get ver() {
@@ -27,23 +32,19 @@ class LiteProtocol extends P2PProtocol {
     this.connectionHandler = this.connectionHandler.bind(this);
 
     this.liteStore = new LiteProtocolStore(node.db);
-    this.miner = new Miner(difficulty);
+    // a blockchain manager
+    this.blockchain = new Blockchain(this.liteStore);
+    this.miner = new Miner();
     // map litemessage id to litemessage itself (pending litemessages)
     this.litemsgPool = {};
 
-    // register message/connection handlers
-    this.litenode.on(`message/${messageTypes.getBlocks}`, this.getBlocksHandler);
-    this.litenode.on(`message/${messageTypes.inv}`, this.invHandler);
-    this.litenode.on(`message/${messageTypes.getData}`, this.getDataHandler);
-    this.litenode.on(`message/${messageTypes.data}`, this.dataHandler);
-    this.litenode.on(`message/${messageTypes.getPendingMsgs}`, this.getPendingMsgsHandler);
-    this.litenode.on('connection', this.connectionHandler);
+    // wait for blockchain initializing itself
+    this.blockchain.on('ready', () => { this.init() });
 
-    // recover state from db
-    this.headBlock = this.liteStore.readHeadBlock();
-
-    // create and run rest server
-    createRestServer(this).listen(node.port + 1);
+    this.blockchain.on('error', err => {
+      console.error(err);
+      process.exit(1);
+    });
 
     // this.msgPoolTimer = setInterval(() => {
     //   if (Object.entries(this.litemsgPool).length > 0) { return; }
@@ -52,6 +53,61 @@ class LiteProtocol extends P2PProtocol {
     //       .forEach(peer => peer.sendJson(getPendingMsgs()))
     //   } catch (err) { console.warn(err); }
     // }, 30000);
+  }
+
+  init() {
+    // register message/connection handlers
+    this.litenode.on(`message/${messageTypes.getBlocks}`, this.getBlocksHandler);
+    this.litenode.on(`message/${messageTypes.inv}`, this.invHandler);
+    this.litenode.on(`message/${messageTypes.getData}`, this.getDataHandler);
+    this.litenode.on(`message/${messageTypes.data}`, this.dataHandler);
+    this.litenode.on(`message/${messageTypes.getPendingMsgs}`, this.getPendingMsgsHandler);
+    this.litenode.on('connection', this.connectionHandler);
+
+    // create and run rest server
+    createRestServer(this).listen(this.node.port + 1);
+
+    // some schedule tasks
+    this.timers = [];
+
+    // schedule mining
+    this.timers.push(
+      setInterval(async () => {
+        if (!this.miner.mining && Object.entries(this.litemsgPool).length) {
+          this.mineNextBlock();
+        }
+
+      }, 1000)
+    );
+  }
+
+  async getNextBlock() {
+    let time = getCurTimestamp();
+    let litemsgs = pickItems(Object.values(this.litemsgPool), blockLimit);
+    let merkleRoot = calcMerkleRoot(litemsgs.map(m => m.hash));
+    let { 
+      height = -1, hash: prevBlock = undefined 
+    } = await this.blockchain.getHeadBlock() || {};
+    height += 1;
+    
+    return createBlock(ver, time, height, prevBlock, merkleRoot, bits, undefined, litemsgs);
+  }
+
+  async mineNextBlock() {
+    let block = await this.getNextBlock();
+    block = await this.miner.mine(block);
+    let headBlockId = this.blockchain.getHeadBlockIdSync();
+
+    if (!headBlockId || block.prevBlock === headBlockId) {
+      console.log(`Successfully mined a new block: ${block.hash}.`);
+      // append the mined block to blockchain
+      this.blockchain.append(block);
+
+      // remove from pending message pool
+      for (let litemsg of block.litemsgs) {
+        delete this.litemsgPool[litemsg.hash];
+      }
+    }
   }
 
   inLitemsgPool(litemsgId) {
@@ -129,6 +185,7 @@ class LiteProtocol extends P2PProtocol {
       let relayLitemsgs = [];
 
       // filter out invalid
+      // TODO need previous block
       blocks = blocks.filter(validateBlock);
       litemsgs = litemsgs.filter(validateLitemsg);
 
