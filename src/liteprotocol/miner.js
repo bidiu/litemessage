@@ -1,42 +1,54 @@
 const { mine } = require('../utils/litecrypto');
+const createBlock = require('./entities/block');
 
 /**
- * mining manager
+ * mining manager : )
  */
 class Miner {
   /**
-   * @param {int} difficulty also called `bits`
-   */
-  constructor(difficulty) {
-    this.difficulty = difficulty;
-  }
-
-  /**
+   * Use `mine` down below; it has easier interface.
+   * 
    * Start mining. If at the point you call this function,
    * a mining is going on, that mining will be canceled
-   * automatically.
+   * automatically (right now doesn't support concurrent
+   * mining).
    * 
-   * You pass a callback, which will be called with mined
-   * nonce. If the mining is canceled before mining the
-   * nonce successfully, callback won't be invoked.
+   * Note that if the mining is canceled, it won't trigger
+   * `resolve` or `reject` of the returned promise.
    */
-  start(content, callback) {
+  calc(content, bits) {
     if (this.mining) { this.cancel(); }
-    this.mining = mine(content, this.difficulty);
-    this.mining
+    this.mining = mine(content, bits);
+    return this.mining
       .then(nonce => {
         this.mining = null;
-        callback(undefined, nonce);
+        return nonce;
       })
       .catch(err => {
         this.mining = null;
-        callback(err);
+        throw err;
       });
   }
 
+  /**
+   * Note that it won't change the orginal block, but return a new
+   * successfully mined block.
+   * 
+   * @param {*} block 
+   */
+  mine(block) {
+    const { ver, time, height, prevBlock, merkleRoot, bits, litemsgs } = block;
+    const content = `${ver}${time}${height}${prevBlock}${merkleRoot}${bits}`;
+    return this.calc(content, bits)
+      .then(nonce => 
+        createBlock(ver, time, height, prevBlock, merkleRoot, bits, nonce, litemsgs));
+  }
+
   cancel() {
-    this.mining.cancel();
-    this.mining = null;
+    if (this.mining) {
+      this.mining.cancel();
+      this.mining = null;
+    }
   }
 }
 

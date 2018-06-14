@@ -8,10 +8,14 @@ const { sha256 } = require('../../utils/litecrypto');
  * @param {*} merkleRoot  merkle root
  * @param {*} bits        difficulty
  * @param {*} nonce       nonce
- * @param {*} litemsgs    an array of litemessage ids
+ * @param {*} litemsgs    an array of litemessages (not ids)
  */
 const createBlock = (ver, time, height, prevBlock, merkleRoot, bits, nonce, litemsgs) => {
-  let hash = sha256(`${ver}${time}${height}${prevBlock}${merkleRoot}${bits}${nonce}`);
+  let hash = undefined;
+  if (typeof nonce === 'number') {
+    // only calculate hash when `nonce` is given
+    hash = sha256(`${ver}${time}${height}${prevBlock}${merkleRoot}${bits}${nonce}`);
+  }
   return { ver, time, height, prevBlock, merkleRoot, bits, nonce, litemsgs, hash };
 };
 
