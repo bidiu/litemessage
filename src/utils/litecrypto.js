@@ -64,7 +64,10 @@ const validateLitemsg = (litemessage) => {
   return true;
 };
 
-const validateBlock = (block) => {
+/**
+ * validation of genesis block should be different from other blocks
+ */
+const validateBlock = (block, prevBlock) => {
   // TODO
 };
 
