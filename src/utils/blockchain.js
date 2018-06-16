@@ -2,7 +2,7 @@ const EventEmitter = require('events');
 
 /**
  * A chunk is a fixed number of consecutive blocks (only block id) grouped
- * together stored in LevelDB in binary formay (not in hex encode), mainly
+ * together stored in LevelDB in binary format (not in hex encode), mainly
  * for efficiency.
  * 
  * NOTE that once a block is stored in LevelDB, you should NEVER change this
@@ -182,6 +182,30 @@ class Blockchain extends EventEmitter {
     return this.store.readBlock(blockId);
   }
 
+  /**
+   * If the given block is not on the main blockchain, the confirmation
+   * count will always be 0.
+   */
+  getConfirmationCntSync(blockId) {
+    if (!this.onMainBranchSync(blockId)) { return null; }
+
+    return this.getCurHeightSync() - this.blockchain.indexOf(blockId);
+  }
+
+  /**
+   * Determine whether the given block is on the main blockchain branch.
+   * The difference from the func `hasBlock` is that this is a synchronous
+   * operation.
+   */
+  onMainBranchSync(blockId) {
+    return this.blockchain.includes(blockId);
+  }
+
+  /**
+   * By default, return true only if the given block is on the main blockchain
+   * branch. If you want it to return true even if the block is off main branch,
+   * set the `inMainBranch` to false.
+   */
   async hasBlock(blockId, inMainBranch = true) {
     if (inMainBranch) {
       return this.blockchain.includes(blockId);

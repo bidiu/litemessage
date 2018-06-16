@@ -15,10 +15,20 @@ class LiteProtocolStore {
   //   return this.db.put(genKey('head_block'), blockId);
   // }
 
+  /**
+   * Note that we don't index litemessage's content, which is part of a block.
+   * So in order to get the content of a litemessage, you must get the the block
+   * where the given litemessage resides first.
+   * 
+   * This function return the block id (no matter the block in the main branch or
+   * not) where the given litemessage resides, or undefined if we don't have the
+   * litemessage in any block.
+   */
   async readLitemsg(litemsgId) {
     try {
       let buf = await this.db.get(genKey(`litemsg_${litemsgId}`));
-      return JSON.parse(buf.toString());
+      return buf.toString();
+
     } catch (err) {
       if (err.notFound) { return undefined; }
       throw err;

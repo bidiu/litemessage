@@ -24,6 +24,7 @@ function logFilter(logs, { peer, dir, type }) {
 function createRestServer(liteProtocol) {
   const app = express();
   const blockchain = liteProtocol.blockchain;
+  const liteStore = liteProtocol.liteStore;
   const leveldb = liteProtocol.liteStore.db;
 
   app.use(logger('dev'));
@@ -37,6 +38,7 @@ function createRestServer(liteProtocol) {
         { '/msgpool': 'pending litemessage pool' },
         { '/blocks': 'get all blocks on the main branch' },
         { '/blocks/:blockId': 'get specified block' },
+        { '/litemsgs/:litemsgId': 'get a litemessage\'s info on blockchain' },
         { '/logs': 'protocol message logs' },
         { '/litedb/:key': 'fetch any leveldb value of a given key' }
       ]
@@ -62,6 +64,28 @@ function createRestServer(liteProtocol) {
       } else {
         res.status(404).json(notfoundPayload);
       }
+
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.get('/litemsgs/:litemsgId', async (req, res, next) => {
+    try {
+      let { litemsgId } = req.params;
+      let at = await liteStore.readLitemsg(litemsgId);
+
+      if (typeof at === 'undefined') {
+        res.status(404).json(notfoundPayload);
+        return;
+      }
+
+      let mainBranch = blockchain.onMainBranchSync(at);
+      let confirmation = mainBranch ?
+        blockchain.getConfirmationCntSync(at) :
+        'N/A';
+      
+      res.status(200).json({ at, mainBranch, confirmation });
 
     } catch (err) {
       next(err);

@@ -14,7 +14,7 @@ const { calcMerkleRoot } = require('../utils/merkle');
 const { getCurTimestamp } = require('../utils/time');
 
 const ver = 1;
-const bits = 8;
+const bits = 22;
 const blockLimit = 2048;
 
 class LiteProtocol extends P2PProtocol {
@@ -99,7 +99,10 @@ class LiteProtocol extends P2PProtocol {
     let headBlockId = this.blockchain.getHeadBlockIdSync();
 
     if (!headBlockId || block.prevBlock === headBlockId) {
-      console.log(`Successfully mined a new block: ${block.hash}.`);
+      let now = getCurTimestamp();
+      let timeTaken = Math.round((now - block.time) / 1000);
+      console.log(`Successfully mined a new block (${timeTaken} s): ${block.hash}.`);
+
       // append the mined block to blockchain
       this.blockchain.append(block);
 
