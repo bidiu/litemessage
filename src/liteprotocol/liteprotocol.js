@@ -45,14 +45,6 @@ class LiteProtocol extends P2PProtocol {
       console.error(err);
       process.exit(1);
     });
-
-    // this.msgPoolTimer = setInterval(() => {
-    //   if (Object.entries(this.litemsgPool).length > 0) { return; }
-    //   try {
-    //     pickItems(node.peers('full'), 8)
-    //       .forEach(peer => peer.sendJson(getPendingMsgs()))
-    //   } catch (err) { console.warn(err); }
-    // }, 30000);
   }
 
   init() {
@@ -67,7 +59,7 @@ class LiteProtocol extends P2PProtocol {
     // create and run rest server
     createRestServer(this).listen(this.node.port + 1);
 
-    // some schedule tasks
+    // some schedule tasks (interval timers)
     this.timers = [];
 
     // schedule mining
@@ -78,6 +70,19 @@ class LiteProtocol extends P2PProtocol {
         }
 
       }, 1000)
+    );
+
+    // schedule getting pending messages
+    this.timers.push(
+      setInterval(() => {
+        if (Object.entries(this.litemsgPool).length > 0) { return; }
+
+        try {
+          pickItems(this.node.peers('full'), 8)
+            .forEach(peer => peer.sendJson(getPendingMsgs()))
+        } catch (err) { console.warn(err); }
+
+      }, 30000)
     );
   }
 
@@ -232,7 +237,9 @@ class LiteProtocol extends P2PProtocol {
   }
 
   close() {
-    clearInterval(this.msgPoolTimer);
+    for (let timer of this.timers) {
+      clearInterval(timer);
+    }
     super.close();
   }
 }

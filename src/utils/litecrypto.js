@@ -66,6 +66,9 @@ const validateLitemsg = (litemessage) => {
 
 /**
  * validation of genesis block should be different from other blocks
+ * 
+ * TODO different prevBLock doesn't mean the block must be invalid -
+ * maybe this node is off main branch.
  */
 const validateBlock = (block, prevBlock) => {
   // TODO
