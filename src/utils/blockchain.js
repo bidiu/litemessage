@@ -131,6 +131,15 @@ class Blockchain extends EventEmitter {
     return length ? this.blockchain[length - 1] : undefined;
   }
 
+  getBlockIdAtSync(height) {
+    let curHeight = this.getCurHeightSync();
+    if (height < 0 || height > curHeight) {
+      throw new Error('Invalid height given.');
+    }
+
+    return this.blockchain[height];
+  }
+
   /**
    * Note that height is 0-based (first block's height is 0).
    * If there's no block yet, `-1` will returned.
@@ -146,6 +155,27 @@ class Blockchain extends EventEmitter {
    */
   getCurHeightSync() {
     return this.blockchain.length - 1;
+  }
+
+  /**
+   * Get a list of block locator hashes, which is used in the
+   * `getBlocks` message that typically exists in blockchain
+   * protocol.
+   */
+  getLocatorsSync() {
+    let locators = [];
+    let height = this.getCurHeightSync();
+    let pow = 0;
+
+    if (height === -1) { return []; }
+
+    while (true) {
+      let i = Math.max(height + 1 - Math.pow(2, pow), 0);
+      locators.push(this.getBlockIdAtSync(i));
+      if (i === 0) { break; }
+      pow += 1;
+    }
+    return locators;
   }
 
   /**

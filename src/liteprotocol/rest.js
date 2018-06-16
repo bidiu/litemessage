@@ -40,7 +40,8 @@ function createRestServer(liteProtocol) {
         { '/blocks/:blockId': 'get specified block' },
         { '/litemsgs/:litemsgId': 'get a litemessage\'s info on blockchain' },
         { '/logs': 'protocol message logs' },
-        { '/litedb/:key': 'fetch any leveldb value of a given key' }
+        { '/litedb/:key': 'fetch any leveldb value of a given key' },
+        { '/locators': 'get the block locator hashes' }
       ]
     });
   });
@@ -115,6 +116,11 @@ function createRestServer(liteProtocol) {
         next(err);
       }
     }
+  });
+
+  app.get('/locators', (req, res) => {
+    let locators = blockchain.getLocatorsSync();
+    res.status(200).json(locators);
   });
 
   return http.createServer(app);
