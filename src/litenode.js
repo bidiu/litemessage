@@ -37,7 +37,7 @@ class LiteNode extends EventEmitter {
     // so you MIGHTN'T need to worry about it
     this.peers = {};
 
-    // used for debugging
+    // used for debugging (view all protocol messages since start)
     this.debug = debug;
     this.messageLogs = [];
 
