@@ -43,12 +43,12 @@ class P2PProtocol {
         if (this.node.peers(nodeTypes).length < minPeerNum) {
           this.litenode.broadcastJson(fetchPeers({ nodeTypes }));
         }
-      }, 5000)
+      }, 60000)
     );
 
     // periodically persist peer urls
     this.intervalTimers.push(
-      setInterval(this.persistPeerUrls, 60000)
+      setInterval(this.persistPeerUrls, 120000)
     );
   }
 
