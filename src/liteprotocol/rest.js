@@ -10,11 +10,12 @@ const notfoundPayload = { 'not-found': true };
 /**
  * filter log entries
  */
-function logFilter(logs, { peer, dir, type }) {
+function logFilter(logs, { peer, dir, type, since }) {
   return logs.filter(log => (
     (!peer || log.peer.startsWith(peer))
     && (!dir || log.dir.startsWith(dir))
     && (!type || log.msg.messageType.startsWith(type))
+    && (!since || log.time > since)
   ));
 }
 
@@ -95,7 +96,12 @@ function createRestServer(liteProtocol) {
 
   app.get('/logs', (req, res) => {
     let logs = liteProtocol.litenode.messageLogs;
-    res.status(200).json(logFilter(logs, req.query));
+    let { peer, dir, type, since } = req.query;
+    if (typeof since === 'string') {
+      since = parseInt(since);
+    }
+
+    res.status(200).json(logFilter(logs, { peer, dir, type, since }));
   });
 
   app.get('/litedb/:key', async (req, res, next) => {
