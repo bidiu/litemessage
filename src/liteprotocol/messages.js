@@ -15,8 +15,10 @@ const getBlocks = ({ blockLocators }) => ({
   blockLocators
 });
 
-getBlocks.validate = () => {
-  // TODO
+getBlocks.validate = ({ blockLocators }) => {
+  if (!(blockLocators instanceof Array)) {
+    throw new Error('lite/: Invalid block locators.');
+  }
 };
 
 
