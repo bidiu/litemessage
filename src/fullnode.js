@@ -22,12 +22,14 @@ class FullNode {
   constructor(protocolClass, dbPath, { port = 1113, initPeerUrls = [] } = {}) {
     this.port = port;
     port = typeof port === 'number' ? (port + '') : undefined;
-    // create underlying litenode
-    this.litenode = new LiteNode(nodeType, { port });
+    this.initPeerUrls = [...initPeerUrls];
     // initialize the db (level db)
     this.initDb(dbPath);
+    // create underlying litenode
+    this.litenode = new LiteNode(nodeType, { port });
     // load protocol
     this.protocol = new protocolClass(this, nodeTypes);
+
     // connect to initial peers
     initPeerUrls.forEach(url => this.litenode.createConnection(url));
 

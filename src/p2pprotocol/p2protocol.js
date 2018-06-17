@@ -1,8 +1,14 @@
+const dns = require('dns');
+const { URL } = require('url');
+const { promisify } = require('util');
 const P2PProtocolStore = require('./store');
 const {
   messageTypes, messageValidators, fetchPeers, returnPeers
 } = require('./messages');
 const { pickItems } = require('../utils/common');
+
+// look up dns records
+const lookup = promisify(dns.lookup);
 
 /**
  * A abstract peer-to-peer protocol. You should NOT bind this protocol directly to 
@@ -48,10 +54,25 @@ class P2PProtocol {
 
   async connectToLastConnectedPeers() {
     try {
-      let peerUrls = await this.store.readCurPeerUrls();
-      peerUrls.forEach(url => this.litenode.createConnection(url));
+      let initUrls = this.node.initPeerUrls;
+      // initial peer urls can be hostnames, so perform dns queries first
+      let addresses = await Promise.all(
+        initUrls.map(url => lookup(new URL(url).hostname, { family: 4 }))
+      );
+
+      initUrls = initUrls.map((url, i) => {
+        url = new URL(url);
+        url.hostname = addresses[i].address
+        return url.toString().replace(/\/$/, '');
+      });
+
+      (await this.store.readCurPeerUrls())
+        .filter(url => !initUrls.includes(url))
+        .forEach(url => this.litenode.createConnection(url));
+
     } catch (err) {
       console.error(err);
+      process.exit(1);
     }
   }
 
