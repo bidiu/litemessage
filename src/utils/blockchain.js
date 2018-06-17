@@ -179,6 +179,30 @@ class Blockchain extends EventEmitter {
   }
 
   /**
+   * Get forked branch based on locators (an array of block hashes) peer provides.
+   * Return an array of block ids (from elder blocks to latest ones).
+   */
+  getForkedBranchSync(locators) {
+    if (this.blockchain.length < locators.length) {
+      return [];
+    }
+
+    let height = this.getCurHeightSync();
+    if (height === -1) { return []; }
+    let i = height;
+
+    for (; i >= 0; i--) {
+      let blockId = this.blockchain[i];
+      if (locators.includes(blockId)) {
+        break;
+      }
+    }
+
+    if (i === height) { return []; }
+    return this.blockchain.slice(i + 1);
+  }
+
+  /**
    * @param {*} height note that height is 0-based index
    */
   async getBlockAt(height) {
@@ -234,10 +258,10 @@ class Blockchain extends EventEmitter {
   /**
    * By default, return true only if the given block is on the main blockchain
    * branch. If you want it to return true even if the block is off main branch,
-   * set the `inMainBranch` to false.
+   * set the `onMainBranch` to false.
    */
-  async hasBlock(blockId, inMainBranch = true) {
-    if (inMainBranch) {
+  async hasBlock(blockId, onMainBranch = true) {
+    if (onMainBranch) {
       return this.blockchain.includes(blockId);
     }
 

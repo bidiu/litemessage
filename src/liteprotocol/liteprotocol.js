@@ -8,9 +8,8 @@ const {
   messageTypes, messageValidators, getBlocks, 
   inv, getData, data, getPendingMsgs
 } = require('./messages');
-const { validateBlock, validateLitemsg } = require('../utils/litecrypto');
+const { verifyBlock, verifyLitemsg, calcMerkleRoot } = require('../utils/litecrypto');
 const { pickItems } = require('../utils/common');
-const { calcMerkleRoot } = require('../utils/merkle');
 const { getCurTimestamp } = require('../utils/time');
 
 const ver = 1;
@@ -115,6 +114,9 @@ class LiteProtocol extends P2PProtocol {
       for (let litemsg of block.litemsgs) {
         delete this.litemsgPool[litemsg.hash];
       }
+
+      // broadcast to peers
+      this.litenode.broadcastJson(inv({ blocks: [block.hash] }));
     }
   }
 
@@ -136,7 +138,19 @@ class LiteProtocol extends P2PProtocol {
   // }
 
   async getBlocksHandler({ messageType, ...payload }, peer) {
-    // TODO
+    try {
+      messageValidators[messageType](payload);
+      let { blockLocators } = payload;
+      let forkedBranch = this.blockchain.getForkedBranchSync(blockLocators);
+
+      if (forkedBranch.length) {
+        // send response based on received locators
+        peer.sendJson(inv({ blocks: forkedBranch }));
+      }
+
+    } catch (err) {
+      console.warn(err);
+    }
   }
 
   async invHandler({ messageType, ...payload }, peer) {
@@ -146,6 +160,15 @@ class LiteProtocol extends P2PProtocol {
       let blocksToGet = [];
       let litemsgsToGet = [];
 
+      // filter out blocks already have 
+      // blocks off main branch also as being haven
+      for (let blockId of blocks) {
+        if (!(await this.blockchain.hasBlock(blockId, false))) {
+          blocksToGet.push(blockId);
+        }
+      }
+
+      // filter out litemessages already have
       for (let litemsgId of litemsgs) {
         if (!(await this.hasLitemsg(litemsgId))) {
           litemsgsToGet.push(litemsgId);
@@ -154,7 +177,9 @@ class LiteProtocol extends P2PProtocol {
 
       if (blocksToGet.length || litemsgsToGet.length) {
         // send response
-        peer.sendJson(getData({ litemsgs: litemsgsToGet }));
+        peer.sendJson(
+          getData({ blocks: blocksToGet, litemsgs: litemsgsToGet })
+        );
       }
 
     } catch (err) {
@@ -166,18 +191,26 @@ class LiteProtocol extends P2PProtocol {
     try {
       messageValidators[messageType](payload);
       let { blocks, litemsgs } = payload;
-      let respBlock = [];
+      let respBlocks = null;
       let respLitemsgs = [];
 
+      // give blocks no matter which branch they are on
+      respBlocks = await Promise.all(
+        blocks.map(blockId => this.blockchain.getBlock(blockId))
+      );
+      respBlocks = respBlocks.filter(block => typeof block !== 'undefined');
+
       for (let litemsgId of litemsgs) {
-        // NOTE: only return litemessages from pool for `getData`
+        // note only return litemessages from pool for `getData`
         let litemsg = this.litemsgPool[litemsgId];
         if (litemsg) { respLitemsgs.push(litemsg); }
       }
 
-      if (respBlock.length || respLitemsgs.length) {
+      if (respBlocks.length || respLitemsgs.length) {
         // send response
-        peer.sendJson(data({ litemsgs: respLitemsgs }));
+        peer.sendJson(
+          data({ blocks: respBlocks, litemsgs: respLitemsgs })
+        );
       }
 
     } catch (err) {
@@ -189,13 +222,15 @@ class LiteProtocol extends P2PProtocol {
     try {
       messageValidators[messageType](payload);
       let { blocks, litemsgs } = payload;
-      let relayBlocks = [];
+      let relayBlocks = []; // always 0 or 1 element
       let relayLitemsgs = [];
 
-      // filter out invalid
-      // TODO need previous block
-      blocks = blocks.filter(validateBlock);
-      litemsgs = litemsgs.filter(validateLitemsg);
+      // filter out invalid blocks and litemessages
+      blocks = blocks.filter(block => verifyBlock(block));
+      litemsgs = litemsgs.filter(litemsg => verifyLitemsg(litemsg));
+
+      // TODO
+      console.log(blocks);
 
       for (let litemsg of litemsgs) {
         if (await this.hasLitemsg(litemsg.hash)) { continue; }
@@ -233,7 +268,10 @@ class LiteProtocol extends P2PProtocol {
   }
 
   connectionHandler(peer) {
-    // TODO
+    if (peer.nodeType === 'full' && this.node.peers('full').length === 1) {
+      let blockLocators = this.blockchain.getLocatorsSync();
+      peer.sendJson(getBlocks({ blockLocators }));
+    }
   }
 
   close() {
