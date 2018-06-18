@@ -15,7 +15,14 @@ const chunkSize = 4;
  * injected with an store (LevelDB) interface implementation for interacting
  * with LevelDB. Take `LiteProtocol` as an example.
  * 
- * This blockchain abstraction here should be protocol-agnostic.
+ * This blockchain abstraction here is (should) be protocol-agnostic.
+ * 
+ * Once assumption using this blockchain abstraction here is that you MUST 
+ * always only persist valid blocks (it doesn't have to be in the main branch 
+ * in the long run, but it must be a valid block). And you append elder blocks 
+ * and then newer blocks to the blockchain, either one by one, or in a batch.
+ * In other words, you MUST always append a block after all its predecessor blocks
+ * have been persisted.
  * 
  * NOTE that both chunk and height (length of blockchain) start at index 0.
  */
