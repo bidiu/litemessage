@@ -20,7 +20,7 @@ const socketEvents = [
  * both like a server and a client - it will connect to several clients, 
  * and also several servers (P2P network).
  * 
- * The P2P network is a directed graph.
+ * The P2P network is a directed graph with bidirectional communication channels.
  * 
  * TODO proxy for socket
  * TODO close reason doesn't work
