@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "bin": {
-    "litenode": "bin/litenode.js"
+    "litenode": "bin/litenode.js",
+    "liteclient": "bin/liteclient.js"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
