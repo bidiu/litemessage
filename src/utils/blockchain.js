@@ -115,9 +115,21 @@ class Blockchain extends EventEmitter {
   /**
    * Append a branch on a specific location on the blockchain, and the 
    * new branch will be the main blockchain branch.
+   * 
+   * TODO update chunk index
    */
   async appendAt(blocks) {
-    // TODO chunks
+    // some cautious checks
+    if (!blocks.length) { return; }
+    if (blocks[blocks.length - 1].height <= this.getCurHeightSync()) {
+      throw new Error('Trying to append a invalid subchain, abort.');
+    }
+
+    let at = blocks[0].height;
+    let blockIds = blocks.map(block => block.hash);
+    this.blockchain.splice(at, Number.MAX_SAFE_INTEGER, ...blockIds);
+    
+    return this.store.appendBlocksAt(blocks);
   }
 
   /**

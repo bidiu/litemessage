@@ -115,12 +115,26 @@ class LiteProtocolStore {
    * another fork.
    * 
    * @param {*} blocks  blocks from another branch to switch
-   * @param {*} at      the common root of two branches, provide
-   *                    `null` if there's no common root (fork from
-   *                    the root)
    */
-  async appendBlocksAt(blocks, at, batchOps) {
-    // TODO
+  async appendBlocksAt(blocks, batchOps) {
+    if (!blocks.length) { return; }
+
+    let headBlock = blocks[blocks.length - 1];
+    let ops = [];
+
+    for (let block of blocks) {
+      if (typeof block.hash !== 'string') { throw new Error('Invalid block hash.'); }
+
+      ops.push({ type: 'put', key: genKey(`block_${block.hash}`), value: JSON.stringify(block) });
+      for (let litemsg of block.litemsgs) {
+        ops.push({ type: 'put', key: genKey(`litemsg_${litemsg.hash}`), value: block.hash });
+      }
+    }
+    ops.push({ type: 'put', key: genKey('head_block'), value: headBlock.hash });
+
+    if (batchOps) { ops = [...ops, ...batchOps]; }
+
+    return this.db.batch(ops);
   }
 }
 

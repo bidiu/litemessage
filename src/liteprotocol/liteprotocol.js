@@ -8,7 +8,9 @@ const {
   messageTypes, messageValidators, getBlocks, 
   inv, getData, data, getPendingMsgs
 } = require('./messages');
-const { verifyBlock, verifyLitemsg, calcMerkleRoot } = require('../utils/litecrypto');
+const {
+  verifyBlock, verifyLitemsg, calcMerkleRoot, verifySubchain
+} = require('../utils/litecrypto');
 const { pickItems } = require('../utils/common');
 const { getCurTimestamp } = require('../utils/time');
 
@@ -120,6 +122,25 @@ class LiteProtocol extends P2PProtocol {
     }
   }
 
+  /**
+   * After receiving blocks from a peer and verifying them, call this
+   * func to remove litemessages (if any) which exist in these blocks
+   * before appending them to the blockchain.
+   * 
+   * @param {*} blocks blocks (already verified) received from a peer
+   */
+  cleanPoolAndRestartMining(blocks) {
+    for (let block of blocks) {
+      for (let litemsg of block.litemsgs) {
+        delete this.litemsgPool[litemsg.hash];
+      }
+    }
+
+    if (Object.entries(this.litemsgPool).length) {
+      this.mineNextBlock();
+    }
+  }
+
   inLitemsgPool(litemsgId) {
     return !!this.litemsgPool[litemsgId];
   }
@@ -218,6 +239,9 @@ class LiteProtocol extends P2PProtocol {
     }
   }
 
+  /**
+   * TODO sync pool and restart mining?
+   */
   async dataHandler({ messageType, ...payload }, peer) {
     try {
       messageValidators[messageType](payload);
@@ -227,11 +251,64 @@ class LiteProtocol extends P2PProtocol {
 
       // filter out invalid blocks and litemessages
       blocks = blocks.filter(block => verifyBlock(block));
+      blocks.sort((a, b) => a.height - b.height);
       litemsgs = litemsgs.filter(litemsg => verifyLitemsg(litemsg));
 
-      // TODO
-      console.log(blocks);
+      let headBlockId = this.blockchain.getHeadBlockIdSync();
 
+      if (blocks.length && blocks[blocks.length - 1].height > this.blockchain.getCurHeightSync()) {
+        if (blocks.length === 1) {
+          let block = blocks[0];
+
+          if (block.prevBlock === headBlockId) {
+            this.cleanPoolAndRestartMining(blocks);
+            this.blockchain.append(block);
+            relayBlocks.push(block);
+          } else {
+            let blockLocators = this.blockchain.getLocatorsSync();
+            peer.sendJson(getBlocks({ blockLocators }));
+          }
+        } else {
+          // Note that `prevBlockId` and `prevBlock` down below refer to same block.
+          // Later, they will be used for traversing backward along the blockchain.
+          let prevBlockId = blocks[0].prevBlock;
+          let prevBlock = prevBlockId ? 
+            (await this.blockchain.getBlock(prevBlockId)) : 
+            undefined;
+
+          if (verifySubchain(blocks, prevBlock)) {
+            // For efficiency, node doesn't fetch blocks on forked branch which it already 
+            // has. The `litemsg_${litemsg_id}` of these mentioned blocks might be records
+            // on the main branch (before appending). So here, suppose the previous
+            // block of appended blocks is not on main branch, we need to extend from
+            // the appended blocks backwards to until a block which is on the main 
+            // branch, or until the genesis block (of the forked branch), whichever reaches
+            // first. And then rewrite all `litemsg_${litemsg_id}` records so that all 
+            // litemessages are correctly indexed after switching to another branch.
+
+            let extendedBlocks = [];
+
+            while (prevBlockId && !this.blockchain.onMainBranchSync(prevBlockId)
+              && headBlockId === this.blockchain.getHeadBlockIdSync()) {
+
+              extendedBlocks.unshift(prevBlock);
+
+              prevBlockId = prevBlock.prevBlock;
+              prevBlock = prevBlockId ?
+                (await this.blockchain.getBlock(prevBlockId)) :
+                undefined;
+            }
+
+            if (headBlockId === this.blockchain.getHeadBlockIdSync()) {
+              this.cleanPoolAndRestartMining(blocks);
+              // switch the blockchain to another branch
+              this.blockchain.appendAt([...extendedBlocks, ...blocks]);
+            }
+          }
+        }
+      }
+
+      // process received litemessages
       for (let litemsg of litemsgs) {
         if (await this.hasLitemsg(litemsg.hash)) { continue; }
 
@@ -242,7 +319,7 @@ class LiteProtocol extends P2PProtocol {
       if (relayBlocks.length || relayLitemsgs.length) {
         // relay (broadcast) data messaage
         this.litenode.broadcastJson(
-          inv({ litemsgs: relayLitemsgs }),
+          inv({ blocks: relayBlocks, litemsgs: relayLitemsgs }),
           [peer.uuid]
         );
       }
