@@ -53,6 +53,12 @@ function createRestServer(liteProtocol) {
 
   app.get('/blocks', async (req, res) => {
     let blocks = await blockchain.getBlocks();
+
+    let { simple } = req.query;
+    if (simple && simple.toLowerCase() === 'true') {
+      blocks = blocks.map(block => ({ [block.height]: block.hash }));
+    }
+
     res.status(200).json(blocks);
   });
 
