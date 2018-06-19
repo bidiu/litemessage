@@ -128,8 +128,16 @@ class Blockchain extends EventEmitter {
     let at = blocks[0].height;
     let blockIds = blocks.map(block => block.hash);
     this.blockchain.splice(at, Number.MAX_SAFE_INTEGER, ...blockIds);
-    
-    return this.store.appendBlocksAt(blocks);
+
+    let chunkAt = Math.floor(at / chunkSize);
+    let ops = [];
+
+    for (let i = chunkAt * chunkSize; i + chunkSize < this.blockchain.length; i += chunkSize) {
+      let buf = Buffer.from(this.blockchain.slice(i, i + chunkSize).join(''), 'hex');
+      ops.push({ type: 'put', key: this.genKey(`chunk_${i / chunkSize}`), value: buf });
+    }
+
+    return this.store.appendBlocksAt(blocks, ops);
   }
 
   /**
