@@ -13,6 +13,7 @@
   "author": "bedew",
   "license": "ISC",
   "dependencies": {
+    "bitcore-lib": "^0.15.0",
     "bluebird": "^3.5.1",
     "body-parser": "^1.18.3",
     "cookie-parser": "^1.4.3",
