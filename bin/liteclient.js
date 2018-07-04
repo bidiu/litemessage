@@ -42,6 +42,9 @@ process.on('unhandledRejection', (reason) => {
   process.exit(1);
 });
 
+// TODO for generating key pairs
+// 
+
 const { port, dbpath } = argv;
 const initPeerUrls = argv._.slice(0, -1);
 const message = argv._[argv._.length - 1];
