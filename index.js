@@ -16,5 +16,5 @@ if (BUILD_TARGET === 'node') {
 } else {
   // browser (umd)
 
-
+  module.exports = exports = { ...exports, ...require('./src/utils/litecrypto') };
 }

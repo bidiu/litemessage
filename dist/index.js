@@ -1,4 +1,4 @@
-/*! v0.2.1-5-gf0d53e6 */
+/*! v0.3.0 */
 module.exports =
 /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
@@ -90,10 +90,26 @@ module.exports =
 /* 0 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const { fork } = __webpack_require__(26);
-const crypto = __webpack_require__(27);
-const path = __webpack_require__(11);
-const Promise = __webpack_require__(28);
+if (true) {
+  // node
+
+  var path = __webpack_require__(11);
+  var crypto = __webpack_require__(26);
+  var { fork } = __webpack_require__(27);
+  var Promise = __webpack_require__(28);
+
+  Promise.config({
+    // enable warnings
+    warnings: true,
+    // enable long stack traces
+    longStackTraces: true,
+    //enable cancellation
+    cancellation: true
+  });
+
+} else { var Buffer, sha256; }
+
+// ********************* requiring ends *********************
 
 const maskTable = Object.freeze([
   0x80, 
@@ -106,20 +122,40 @@ const maskTable = Object.freeze([
   0x01
 ]);
 
-Promise.config({
-  // enable warnings
-  warnings: true,
-  // enable long stack traces
-  longStackTraces: true,
-  //enable cancellation
-  cancellation: true
-});
+if (true) {
+  // node
 
-const sha256 = (content, digest = 'hex') => {
-  return crypto.createHash('sha256')
-    .update(content)
-    .digest(digest);
-};
+  var sha256 = (content, digest = 'hex') => 
+    crypto.createHash('sha256')
+      .update(content)
+      .digest(digest);
+
+  var mine = (content, difficulty) => 
+    new Promise((resolve, reject, onCancel) => {
+      if (typeof difficulty !== 'number') { reject(new Error('Invalid difficulty.')); }
+      let cp = fork(path.join(__dirname, 'mine.js'), [content, difficulty]);
+  
+      let timer = setTimeout(() => {
+        cp.removeAllListeners();
+        cp.kill('SIGTERM');
+        reject(new Error('Mining timeouts.'));
+  
+        // disable timeout in production
+      }, 600000);
+  
+      cp.on('message', (nonce) => {
+        clearTimeout(timer);
+        resolve(nonce);
+      });
+      
+      onCancel(() => {
+        clearTimeout(timer);
+        cp.removeAllListeners();
+        cp.kill('SIGTERM');
+      });
+    });
+
+} else {}
 
 /**
  * @param {Array<string>} leaves  list of litemessage ids
@@ -170,31 +206,6 @@ const leadingZeroBits = (buffer) => {
 
   return bits;
 }
-
-const mine = (content, difficulty) => 
-  new Promise((resolve, reject, onCancel) => {
-    if (typeof difficulty !== 'number') { reject(new Error('Invalid difficulty.')); }
-    let cp = fork(path.join(__dirname, 'mine.js'), [content, difficulty]);
-
-    let timer = setTimeout(() => {
-      cp.removeAllListeners();
-      cp.kill('SIGTERM');
-      reject(new Error('Mining timeouts.'));
-
-      // disable timeout in production
-    }, 600000);
-
-    cp.on('message', (nonce) => {
-      clearTimeout(timer);
-      resolve(nonce);
-    });
-   
-    onCancel(() => {
-      clearTimeout(timer);
-      cp.removeAllListeners();
-      cp.kill('SIGTERM');
-    });
-  });
 
 /**
  * TODO validate timestamp, sig, pubKey
@@ -308,10 +319,16 @@ exports.sha256 = sha256;
 exports.calcMerkleRoot = calcMerkleRoot;
 exports.verifyMerkleRoot = verifyMerkleRoot;
 exports.leadingZeroBits = leadingZeroBits;
-exports.mine = mine;
 exports.verifyLitemsg = verifyLitemsg;
 exports.verifyBlock = verifyBlock;
 exports.verifySubchain = verifySubchain;
+
+if (true) {
+  // node
+
+  exports.mine = mine;
+
+} else {}
 
 
 /***/ }),
@@ -1455,13 +1472,13 @@ module.exports = createLitemsg;
 /* 26 */
 /***/ (function(module, exports) {
 
-module.exports = require("child_process");
+module.exports = require("crypto");
 
 /***/ }),
 /* 27 */
 /***/ (function(module, exports) {
 
-module.exports = require("crypto");
+module.exports = require("child_process");
 
 /***/ }),
 /* 28 */

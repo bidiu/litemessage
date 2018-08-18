@@ -1,7 +1,28 @@
-const { fork } = require('child_process');
-const crypto = require('crypto');
-const path = require('path');
-const Promise = require('bluebird');
+if (BUILD_TARGET === 'node') {
+  // node
+
+  var path = require('path');
+  var crypto = require('crypto');
+  var { fork } = require('child_process');
+  var Promise = require('bluebird');
+
+  Promise.config({
+    // enable warnings
+    warnings: true,
+    // enable long stack traces
+    longStackTraces: true,
+    //enable cancellation
+    cancellation: true
+  });
+
+} else {
+  // browser
+
+  var sha256 = require('js-sha256');
+  var Buffer = require('buffer/').Buffer;
+}
+
+// ********************* requiring ends *********************
 
 const maskTable = Object.freeze([
   0x80, 
@@ -14,20 +35,44 @@ const maskTable = Object.freeze([
   0x01
 ]);
 
-Promise.config({
-  // enable warnings
-  warnings: true,
-  // enable long stack traces
-  longStackTraces: true,
-  //enable cancellation
-  cancellation: true
-});
+if (BUILD_TARGET === 'node') {
+  // node
 
-const sha256 = (content, digest = 'hex') => {
-  return crypto.createHash('sha256')
-    .update(content)
-    .digest(digest);
-};
+  var sha256 = (content, digest = 'hex') => 
+    crypto.createHash('sha256')
+      .update(content)
+      .digest(digest);
+
+  var mine = (content, difficulty) => 
+    new Promise((resolve, reject, onCancel) => {
+      if (typeof difficulty !== 'number') { reject(new Error('Invalid difficulty.')); }
+      let cp = fork(path.join(__dirname, 'mine.js'), [content, difficulty]);
+  
+      let timer = setTimeout(() => {
+        cp.removeAllListeners();
+        cp.kill('SIGTERM');
+        reject(new Error('Mining timeouts.'));
+  
+        // disable timeout in production
+      }, 600000);
+  
+      cp.on('message', (nonce) => {
+        clearTimeout(timer);
+        resolve(nonce);
+      });
+      
+      onCancel(() => {
+        clearTimeout(timer);
+        cp.removeAllListeners();
+        cp.kill('SIGTERM');
+      });
+    });
+
+} else {
+  // browser
+
+  // nothing here
+}
 
 /**
  * @param {Array<string>} leaves  list of litemessage ids
@@ -78,31 +123,6 @@ const leadingZeroBits = (buffer) => {
 
   return bits;
 }
-
-const mine = (content, difficulty) => 
-  new Promise((resolve, reject, onCancel) => {
-    if (typeof difficulty !== 'number') { reject(new Error('Invalid difficulty.')); }
-    let cp = fork(path.join(__dirname, 'mine.js'), [content, difficulty]);
-
-    let timer = setTimeout(() => {
-      cp.removeAllListeners();
-      cp.kill('SIGTERM');
-      reject(new Error('Mining timeouts.'));
-
-      // disable timeout in production
-    }, 600000);
-
-    cp.on('message', (nonce) => {
-      clearTimeout(timer);
-      resolve(nonce);
-    });
-   
-    onCancel(() => {
-      clearTimeout(timer);
-      cp.removeAllListeners();
-      cp.kill('SIGTERM');
-    });
-  });
 
 /**
  * TODO validate timestamp, sig, pubKey
@@ -216,7 +236,17 @@ exports.sha256 = sha256;
 exports.calcMerkleRoot = calcMerkleRoot;
 exports.verifyMerkleRoot = verifyMerkleRoot;
 exports.leadingZeroBits = leadingZeroBits;
-exports.mine = mine;
 exports.verifyLitemsg = verifyLitemsg;
 exports.verifyBlock = verifyBlock;
 exports.verifySubchain = verifySubchain;
+
+if (BUILD_TARGET === 'node') {
+  // node
+
+  exports.mine = mine;
+
+} else {
+  // browser
+
+  // nothing here
+}
