@@ -3,6 +3,10 @@
   "version": "0.2.1",
   "description": "",
   "main": "dist/index.js",
+  "bin": {
+    "litenode": "bin/litenode.js",
+    "liteclient": "bin/liteclient.js"
+  },
   "scripts": {
     "clean": "rimraf ./dist",
     "build-node": "webpack --config webpack.production.js --env.BUILD_TARGET=node",
