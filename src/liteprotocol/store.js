@@ -138,4 +138,4 @@ class LiteProtocolStore {
   }
 }
 
-export default LiteProtocolStore;
+module.exports = LiteProtocolStore;

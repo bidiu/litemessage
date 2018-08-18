@@ -1,9 +1,9 @@
-import EventEmitter from 'events';
-import WSServer from './wss';
-import Peer from './peer';
-import uuidv1 from 'uuid/v1';
-import { getSocketAddress } from './utils/network';
-import { getCurTimestamp } from './utils/time';
+const EventEmitter = require('events');
+const WSServer = require('./wss');
+const Peer = require('./peer');
+const uuidv1 = require('uuid/v1');
+const { getSocketAddress } = require('./utils/network');
+const { getCurTimestamp } = require('./utils/time');
 
 /**
  * Each Litenode will have a UUID automatically generated when start up. 
@@ -210,4 +210,4 @@ class LiteNode extends EventEmitter {
   }
 }
 
-export default LiteNode;
+module.exports = LiteNode;

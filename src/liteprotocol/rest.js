@@ -1,9 +1,9 @@
-import http from 'http';
-import express from 'express';
-import logger from 'morgan';
-import cookieParser from 'cookie-parser';
-import bodyParser from 'body-parser';
-import { isValidJson, parseChunk } from '../utils/common';
+const http = require('http');
+const express = require('express');
+const logger = require('morgan');
+const cookieParser = require('cookie-parser');
+const bodyParser = require('body-parser');
+const { isValidJson, parseChunk } = require('../utils/common');
 
 const notfoundPayload = { 'not-found': true };
 
@@ -138,4 +138,4 @@ function createRestServer(liteProtocol) {
   return http.createServer(app);
 }
 
-export default createRestServer;
+module.exports = createRestServer;

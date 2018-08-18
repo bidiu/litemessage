@@ -1,11 +1,11 @@
-import dns from 'dns';
-import { URL } from 'url';
-import { promisify } from 'util';
-import P2PProtocolStore from './store';
-import {
+const dns = require('dns');
+const { URL } = require('url');
+const { promisify } = require('util');
+const P2PProtocolStore = require('./store');
+const {
   messageTypes, messageValidators, fetchPeers, returnPeers
-} from './messages';
-import { pickItems } from '../utils/common';
+} = require('./messages');
+const { pickItems } = require('../utils/common');
 
 // look up dns records
 const lookup = promisify(dns.lookup);
@@ -125,4 +125,4 @@ class P2PProtocol {
   }
 }
 
-export default P2PProtocol;
+module.exports = P2PProtocol;

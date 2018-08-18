@@ -11,6 +11,4 @@ const getCurTimestamp = (unit = 'ms') => {
   }
 }
 
-export {
-  getCurTimestamp
-};
+exports.getCurTimestamp = getCurTimestamp;

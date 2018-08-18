@@ -28,4 +28,4 @@ class P2PProtocolStore {
   }
 }
 
-export default P2PProtocolStore;
+module.exports = P2PProtocolStore;

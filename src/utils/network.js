@@ -13,6 +13,6 @@ const getSocketAddress = (socket) => {
   return `${getRemoteAddress(socket)}:${getRemotePort(socket)}`;
 };
 
-export {
-  getRemoteAddress, getRemotePort, getSocketAddress
-};
+exports.getRemoteAddress = getRemoteAddress;
+exports.getRemotePort = getRemotePort;
+exports.getSocketAddress = getSocketAddress;

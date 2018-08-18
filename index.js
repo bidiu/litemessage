@@ -1,11 +1,20 @@
-export { default as ThinClient } from './src/client/client';
-export { default as ThinClientProtocol } from './src/client/protocol';
+if (BUILD_TARGET === 'node') {
+  // node (commonjs)
 
-export { default as createLitemsg } from './src/liteprotocol/entities/litemsg';
-export { default as LiteProtocol } from './src/liteprotocol/liteprotocol';
-export * from './src/liteprotocol/messages';
+  exports.ThinClient = require('./src/client/client');
+  exports.ThinClientProtocol = require('./src/client/protocol');
 
-export * from './src/utils/litecrypto';
-export * from './src/utils/time';
+  exports.createLitemsg = require('./src/liteprotocol/entities/litemsg');
+  exports.LiteProtocol = require('./src/liteprotocol/liteprotocol');
+  module.exports = exports =  { ...exports, ...require('./src/liteprotocol/messages') };
 
-export { default as FullNode } from './src/fullnode';
+  module.exports = exports = { ...exports, ...require('./src/utils/litecrypto') };
+  module.exports = exports = { ...exports, ...require('./src/utils/time') };
+  
+  exports.FullNode = require('./src/fullnode');
+  
+} else {
+  // browser (umd)
+
+
+}

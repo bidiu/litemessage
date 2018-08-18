@@ -1,4 +1,4 @@
-import P2PProtocol from '../p2pprotocol/p2protocol';
+const P2PProtocol = require('../p2pprotocol/p2protocol');
 
 /**
  * TODO later might change to extend liteprotocol
@@ -9,4 +9,4 @@ const protocolClass = class extends P2PProtocol {
   }
 };
 
-export default protocolClass;
+module.exports = protocolClass;

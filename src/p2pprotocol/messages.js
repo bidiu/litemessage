@@ -50,7 +50,7 @@ const messageValidators = Object.freeze({
 });
 
 
-export {
-  messageTypes, messageValidators, fetchPeers,
-  returnPeers
-};
+exports.messageTypes = messageTypes;
+exports.messageValidators = messageValidators;
+exports.fetchPeers = fetchPeers;
+exports.returnPeers = returnPeers;

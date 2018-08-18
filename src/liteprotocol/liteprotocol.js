@@ -1,18 +1,18 @@
-import P2PProtocol from '../p2pprotocol/p2protocol';
-import LiteProtocolStore from './store';
-import Miner from './miner';
-import Blockchain from'../utils/blockchain';
-import createRestServer from'./rest';
-import createBlock from './entities/block';
-import {
+const P2PProtocol = require('../p2pprotocol/p2protocol');
+const LiteProtocolStore = require('./store');
+const Miner = require('./miner');
+const Blockchain = require('../utils/blockchain');
+const createRestServer = require('./rest');
+const createBlock = require('./entities/block');
+const {
   messageTypes, messageValidators, getBlocks, 
   inv, getData, data, getPendingMsgs
-} from './messages';
-import {
+} = require('./messages');
+const {
   verifyBlock, verifyLitemsg, calcMerkleRoot, verifySubchain
-} from '../utils/litecrypto';
-import { pickItems } from '../utils/common';
-import { getCurTimestamp } from '../utils/time';
+} = require('../utils/litecrypto');
+const { pickItems } = require('../utils/common');
+const { getCurTimestamp } = require('../utils/time');
 
 const ver = 1;
 const bits = 22;
@@ -359,4 +359,4 @@ class LiteProtocol extends P2PProtocol {
   }
 }
 
-export default LiteProtocol;
+module.exports = LiteProtocol;

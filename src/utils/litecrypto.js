@@ -1,7 +1,7 @@
-import { fork } from 'child_process';
-import crypto from 'crypto';
-import path from 'path';
-import Promise from 'bluebird';
+const { fork } = require('child_process');
+const crypto = require('crypto');
+const path = require('path');
+const Promise = require('bluebird');
 
 const maskTable = Object.freeze([
   0x80, 
@@ -82,7 +82,6 @@ const leadingZeroBits = (buffer) => {
 const mine = (content, difficulty) => 
   new Promise((resolve, reject, onCancel) => {
     if (typeof difficulty !== 'number') { reject(new Error('Invalid difficulty.')); }
-    console.log(path.join(__dirname, 'mine.js'));
     let cp = fork(path.join(__dirname, 'mine.js'), [content, difficulty]);
 
     let timer = setTimeout(() => {
@@ -213,7 +212,11 @@ const verifySubchain = (subchain, prevBlock) => {
   return true;
 };
 
-export {
-  sha256, calcMerkleRoot, verifyMerkleRoot, leadingZeroBits,
-  mine, verifyLitemsg, verifyBlock, verifySubchain
-};
+exports.sha256 = sha256;
+exports.calcMerkleRoot = calcMerkleRoot;
+exports.verifyMerkleRoot = verifyMerkleRoot;
+exports.leadingZeroBits = leadingZeroBits;
+exports.mine = mine;
+exports.verifyLitemsg = verifyLitemsg;
+exports.verifyBlock = verifyBlock;
+exports.verifySubchain = verifySubchain;

@@ -1,4 +1,4 @@
-import { sha256 } from '../../utils/litecrypto';
+const { sha256 } = require('../../utils/litecrypto');
 
 /**
  * Note for genesis block, its `height` must be 0, and `prevBlock` be `undefined`.
@@ -21,4 +21,4 @@ const createBlock = (ver, time, height, prevBlock, merkleRoot, bits, nonce, lite
   return { ver, time, height, prevBlock, merkleRoot, bits, nonce, litemsgs, hash };
 };
 
-export default createBlock;
+module.exports = createBlock;

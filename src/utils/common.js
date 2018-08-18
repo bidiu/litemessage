@@ -51,7 +51,8 @@ const parseChunk = (buffer) => {
   return hashes;
 };
 
-export {
-  isValidJson, getAbsRootPath, randomInt,
-  pickItems, parseChunk
-};
+exports.isValidJson = isValidJson;
+exports.getAbsRootPath = getAbsRootPath;
+exports.randomInt = randomInt;
+exports.pickItems = pickItems;
+exports.parseChunk = parseChunk;

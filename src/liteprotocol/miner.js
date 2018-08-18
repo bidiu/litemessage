@@ -1,5 +1,5 @@
-import { mine } from '../utils/litecrypto';
-import createBlock from './entities/block';
+const { mine } = require('../utils/litecrypto');
+const createBlock = require('./entities/block');
 
 /**
  * mining manager : )
@@ -52,4 +52,4 @@ class Miner {
   }
 }
 
-export default Miner;
+module.exports = Miner;

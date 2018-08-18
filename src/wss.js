@@ -1,7 +1,7 @@
-import EventEmitter from 'events';
-import WebSocket from 'ws';
-import { URL } from 'url';
-import { getSocketAddress } from './utils/network';
+const EventEmitter = require('events');
+const WebSocket = require('ws');
+const { URL } = require('url');
+const { getSocketAddress } = require('./utils/network');
 
 // remote end's uuid
 const uuidHeaderName = 'x-litemessage-uuid';
@@ -185,4 +185,4 @@ class WSServer extends EventEmitter {
   }
 }
 
-export default WSServer;
+module.exports = WSServer;

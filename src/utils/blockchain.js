@@ -1,4 +1,4 @@
-import EventEmitter from 'events';
+const EventEmitter = require('events');
 
 /**
  * A chunk is a fixed number of consecutive blocks (only block id) grouped
@@ -296,4 +296,4 @@ class Blockchain extends EventEmitter {
   }
 }
 
-export default Blockchain;
+module.exports = Blockchain;

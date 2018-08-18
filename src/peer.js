@@ -1,4 +1,4 @@
-import { getRemoteAddress } from './utils/network';
+const { getRemoteAddress } = require('./utils/network');
 
 class Peer {
   /**
@@ -44,4 +44,4 @@ class Peer {
   }
 }
 
-export default Peer;
+module.exports = Peer;

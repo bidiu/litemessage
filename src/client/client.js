@@ -1,7 +1,7 @@
-import fs from 'fs';
-import leveldown from 'leveldown';
-import levelup from 'levelup';
-import LiteNode from '../litenode';
+const fs = require('fs');
+const leveldown = require('leveldown');
+const levelup = require('levelup');
+const LiteNode = require('../litenode');
 
 const nodeTypes = ['full', 'thin'];
 const nodeType = 'thin';
@@ -61,4 +61,4 @@ class ThinClient {
   }
 }
 
-export default ThinClient;
+module.exports = ThinClient;

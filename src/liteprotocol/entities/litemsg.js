@@ -1,4 +1,4 @@
-import { sha256 } from '../../utils/litecrypto';
+const { sha256 } = require('../../utils/litecrypto');
 
 /**
  * @param {string} ver      version number (now hardcoded to 1, I don't have time :|)
@@ -12,4 +12,4 @@ const createLitemsg = (ver, time, litemsg, sig, pubKey) => {
   return { ver, time, litemsg, sig, pubKey, hash };
 };
 
-export default createLitemsg;
+module.exports = createLitemsg;

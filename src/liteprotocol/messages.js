@@ -94,7 +94,10 @@ const messageValidators = Object.freeze({
   [messageTypes.getPendingMsgs]: getPendingMsgs.validate
 });
 
-export {
-  messageTypes, messageValidators, getBlocks,
-  inv, getData, data, getPendingMsgs
-};
+exports.messageTypes = messageTypes;
+exports.messageValidators = messageValidators;
+exports.getBlocks = getBlocks;
+exports.inv = inv;
+exports.getData = getData;
+exports.data = data;
+exports.getPendingMsgs = getPendingMsgs;
