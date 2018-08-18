@@ -10,11 +10,6 @@ const portHeaderName = 'x-litemessage-port';
 // remote end's node type
 const typeHeaderName = 'x-litemessage-type';
 
-const socketEvents = [
-  'close', 'error', 'message', 'open', 'ping',
-  'unexpected-response', 'upgrade'
-];
-
 /**
  * Provide abstraction for underlaying transportation protocol. It behaves 
  * both like a server and a client - it will connect to several clients, 
@@ -23,7 +18,7 @@ const socketEvents = [
  * The P2P network is a directed graph with bidirectional communication channels.
  * 
  * TODO close reason doesn't work
- * TODO investigate even emitter memory leak
+ * TODO investigate event emitter memory leak
  * TODO docker delievery
  * 
  * ##### Events
@@ -119,7 +114,7 @@ class WSServer extends EventEmitter {
       let prevSocket = this.servers[socketAddress];
       if (prevSocket && this.socketAlive(prevSocket)) {
         // TODO investigate memory leak
-        socket.on('close', () => this.unregisterSocketListeners(socket));
+        socket.on('close', () => socket.removeAllListeners());
         socket.close(undefined, 'DOUBLE_CONNECT');
         return;
       }
@@ -159,7 +154,7 @@ class WSServer extends EventEmitter {
     socket.on('pong', () => socket.alive = true);
     socket.on('close', () => {
       socket.alive = false;
-      this.unregisterSocketListeners(socket);
+      socket.removeAllListeners();
       if (socket === this.servers[socketAddress]) {
         delete this.servers[socketAddress];
       }
@@ -178,10 +173,6 @@ class WSServer extends EventEmitter {
 
   socketAlive(socket) {
     return socket.readyState === WebSocket.OPEN;
-  }
-
-  unregisterSocketListeners(socket) {
-    socketEvents.forEach(e => socket.removeAllListeners(e));
   }
 }
 
