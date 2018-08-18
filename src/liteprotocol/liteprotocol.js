@@ -154,10 +154,6 @@ class LiteProtocol extends P2PProtocol {
       || this.inLitemsgPool(litemsgId);
   }
 
-  // async hasBlock(blockId) {
-  //   // TODO
-  // }
-
   async getBlocksHandler({ messageType, ...payload }, peer) {
     try {
       messageValidators[messageType](payload);
