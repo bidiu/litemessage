@@ -3,8 +3,9 @@
 const os = require('os');
 const path = require('path');
 const mkdirp = require('mkdirp');
-const LiteProtocol = require('../lib/liteprotocol/liteprotocol');
-const FullNode = require('../lib/fullnode');
+const {
+  LiteProtocol, FullNode
+} = require('../dist/index');
 
 const ops = {
   'p': {

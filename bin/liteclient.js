@@ -3,11 +3,10 @@
 const os = require('os');
 const path = require('path');
 const mkdirp = require('mkdirp');
-const createLitemsg = require('../lib/liteprotocol/entities/litemsg');
-const { data } = require('../lib/liteprotocol/messages');
-const protocolClass = require('../lib/client/protocol');
-const ThinClient = require('../lib/client/client');
-const { getCurTimestamp } = require('../lib/utils/time');
+const {
+  ThinClient, ThinClientProtocol: protocolClass,
+  getCurTimestamp, data, createLitemsg,
+} = require('../dist/index');
 
 const ops = {
   'p': {

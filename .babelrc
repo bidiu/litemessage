@@ -1,0 +1,19 @@
+{
+  "presets": [
+    [
+      "env",
+      {
+        "modules": false,
+        "targets": {
+          "browsers": ["last 5 versions"]
+        },
+        "debug": true
+      }
+    ]
+  ],
+  "plugins": [
+    "transform-runtime",
+    "syntax-dynamic-import",
+    "transform-object-rest-spread"
+  ]
+}
