@@ -10,16 +10,40 @@ const { pickItems } = require('../utils/common');
 // look up dns records
 const lookup = promisify(dns.lookup);
 
+if (BUILD_TARGET === 'node') {
+  // running in node
+
+  var EventEmitter = require('events');
+
+} else {
+  // running in browser
+
+  var EventEmitter = require('wolfy87-eventemitter');
+}
+
 /**
  * A abstract peer-to-peer protocol. You should NOT bind this protocol directly to 
  * an implementation of node client. Instead, you should extend this protocol.
+ * 
+ * NOTE all subclass implementations MUST emit a `ready` event (a protocol is also
+ * an event emitter).
  */
-class P2PProtocol {
+class P2PProtocol extends EventEmitter {
   /**
    * @param {*} node      full node, thin node, or...
    * @param {*} nodeTypes node types to which a node will try to establish connection
+   *                      automatically. For instance, you want to maintain connected
+   *                      `full` nodes at least with a specific number, but you don't
+   *                      care how many `thin` nodes are connected. So you should only
+   *                      give `full` here, instead of both.
    */
   constructor(node, nodeTypes, { minPeerNum = 8 } = {}) {
+    super();
+
+    if (new.target === P2PProtocol) {
+      throw new TypeError("Cannot construct P2PProtocol instances directly");
+    }
+
     this.persistPeerUrls = this.persistPeerUrls.bind(this);
     this.fetchPeersHandler = this.fetchPeersHandler.bind(this);
     this.returnPeersHandler = this.returnPeersHandler.bind(this);

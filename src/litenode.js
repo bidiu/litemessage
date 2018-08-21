@@ -1,24 +1,36 @@
 const EventEmitter = require('events');
 const WSServer = require('./wss');
-const Peer = require('./peer');
 const uuidv1 = require('uuid/v1');
 const { getSocketAddress } = require('./utils/network');
 const { getCurTimestamp } = require('./utils/time');
 
 /**
- * Each Litenode will have a UUID automatically generated when start up. 
- * Use this UUID as an application-level mechanism to identifing a node.
+ * This class is the abstraction of "node" (litenode) inside the litemessage
+ * peer-to-peer network. It is on top of Websocket layer by composing `WSServer`
+ * when runing in nodejs environment, or `WSClient` when runing as "thin" node in
+ * both nodejs and browser environments. 
  * 
- * TODO polish the close api (right now after closing, you can not use it anymore),
- *    and also levelup's close callback.
+ * This class is protocol-agnostic, meaning it doesn't assume any detail of
+ * the implmentation of litemessage's protocol. Instead, it just provides some
+ * APIs and async events for implementing the protocol and any kind of litemessage
+ * client ("thin" / "full" node) on top of that.
+ * 
+ * Each litenode will have a UUID automatically generated when starting up. 
+ * Use this UUID as an application-level mechanism to identify a unique node.
+ * 
+ * TODO log handshake communication traffic
+ * TODO use debug config
+ * TODO remove `uuid` and `nodeType` (uplifting?)
+ * TODO support specifying the interface to bind
  * 
  * #### Events
- * - `connection`
- * - `disconnection`
- * - `message`
- * - `message/${message_type}`
- * - all other events are handled by low level abstraction (you don't need 
- * to worry about).
+ * - `socketconnect` - low level socket connection (simple wrapper around wss's)
+ * - `peerconnect` - high level peer connection
+ * - `peerdisconnect` - high level peer disconnection
+ * - `message/${message_type}` - high level protocol-specific messages
+ * 
+ * All other events are handled by low level abstraction, so you don't need to
+ * worry about : P
  */
 class LiteNode extends EventEmitter {
   /**
@@ -26,34 +38,37 @@ class LiteNode extends EventEmitter {
    */
   constructor(nodeType, { port, debug = true } = {}) {
     super();
-    this.connectionHandler = this.connectionHandler.bind(this);
+    this.socketConnectHandler = this.socketConnectHandler.bind(this);
     this.socketMessageHandler = this.socketMessageHandler.bind(this);
     this.socketCloseHandler = this.socketCloseHandler.bind(this);
 
     this.uuid = uuidv1();
     this.nodeType = nodeType;
-    // map node's uuid to peer (Peer)
-    // all sockets from this SHOULD be alive
-    // so you MIGHTN'T need to worry about it
+
+    // node's uuid => peer
     this.peers = {};
+    // socket addresses => peers
+    this.socketsToPeers = {};
 
     // used for debugging (view all protocol messages since start)
     this.debug = debug;
     this.messageLogs = [];
 
+    // create the underlyng websocket server
     this.wss = new WSServer(this.uuid, this.nodeType, { port });
+
     // when bound to an network interface
     this.wss.on('listening', (port) => {
       console.log(`${this.uuid}: Start listening on port ${port}.`);
       if (this.debug) { console.log('Debug mode is enabled.'); }
     });
     // when new connection established
-    this.wss.on('connection', this.connectionHandler);
+    this.wss.on('connection', this.socketConnectHandler);
   }
 
   /**
    * Create a proxy to intercept the `send` function call,
-   * mainly for debugging/logging.
+   * mainly for debugging / logging.
    */
   createSocketProxy(socket, remoteUuid) {
     const messageLogs = this.messageLogs;
@@ -117,61 +132,22 @@ class LiteNode extends EventEmitter {
     this.broadcast(JSON.stringify(jsonObj), exUuids);
   }
 
-  /**
-   * Note that `remoteDaemonPort` and `remotePort` are string here.
-   */
-  connectionHandler(socket, incoming, remoteUuid, remoteDaemonPort, remoteNodeType) {
+  socketConnectHandler(socket, incoming) {
     let socketAddress = getSocketAddress(socket);
     if (incoming) {
-      console.log(`Accepted connection from ${remoteUuid || ''}@${socketAddress}.`);
+      console.log(`Accepted socket connection from ${socketAddress}.`);
     } else {
-      console.log(`Established connection to ${remoteUuid || ''}@${socketAddress}.`);
+      console.log(`Established socket connection to ${socketAddress}.`);
     }
 
     socket.on('close', (code, reason) =>
-      this.socketCloseHandler(code, reason, socket, remoteUuid));
-    // a series of checking follows...
-    if (!remoteUuid) {
-      console.warn(`Established connection with a peer @${socketAddress} without UUID;\n`
-        + `so, going to disconnect from it.`);
-      socket.close(undefined, 'NO_REMOTE_UUID');
-      return;
-    }
-    if (!remoteDaemonPort) {
-      console.warn(`Established connection with a peer @${socketAddress} without daemon port;\n`
-        + `so, going to disconnect from it.`);
-      socket.close(undefined, 'NO_DAEMON_PORT');
-      return;
-    }
-    if (!remoteNodeType) {
-      console.warn(`Established connection with a peer @${socketAddress} without node type;\n`
-        + `so, going to disconnect from it.`);
-      socket.close(undefined, 'NO_NODE_TYPE');
-      return;
-    }
-    if (this.peers.hasOwnProperty(remoteUuid)) {
-      console.warn(`Established connection with a connected peer (${remoteUuid}@${socketAddress});\n`
-        + `so, going to disconnect from it.`);
-      socket.close(undefined, 'DOUBLE_CONNECT');
-      return;
-    }
+      this.socketCloseHandler(code, reason, socket));
 
-    // continue the process of connection establishment...
-
-    if (this.debug) {
-      socket = this.createSocketProxy(socket, remoteUuid);
-    }
-    let newPeer = new Peer(remoteUuid, socket, incoming, remoteDaemonPort, remoteNodeType);
-    this.peers[remoteUuid] = newPeer;
-    socket.on('message', (msg) => this.socketMessageHandler(msg, newPeer));
     // notify listeners
-    this.emit('connection', newPeer);
+    this.emit('socketconnect', socket, incoming);
   }
 
   socketMessageHandler(msg, peer) {
-    // notify listeners
-    this.emit('message', msg, peer);
-
     let msgObj = null;
     try { msgObj = JSON.parse(msg); } catch (e) {}
     if (msgObj && msgObj['messageType']) {
@@ -187,26 +163,58 @@ class LiteNode extends EventEmitter {
     }
   }
 
-  socketCloseHandler(code, reason, socket, remoteUuid) {
-    let peer = remoteUuid ? this.peers[remoteUuid] : undefined;
+  socketCloseHandler(code, reason, socket) {
+    let socketAddress = getSocketAddress(socket);
+    let peer = this.socketsToPeers[socketAddress]
+
+    if (peer) {
+      delete this.peers[peer.uuid];
+      delete this.socketsToPeers[socketAddress]
+      console.log(`Disconnected from ${peer.uuid}@${socketAddress}.`);
+      // notify listeners
+      this.emit('peerdisconnect', peer);
+    }
+    console.log(`Closed socket connection with ${socketAddress} (${code || 'N/A'} | ${reason || 'N/A'}).`);
+  }
+
+  /**
+   * Add new peer to peer collection of this node. The protocol
+   * implmementation should call this after a protocol-specific
+   * handshake completes (this class is protocol agnostic).
+   */
+  addNewPeer(peer) {
+    let { uuid, socket, incoming, nodeType } = peer;
     let socketAddress = getSocketAddress(socket);
 
-    if (peer && socket === peer.socket) {
-      console.log(`Disconnected from ${remoteUuid}@${socketAddress} (${code || 'N/A'} | ${reason || 'N/A'}).`);
-      delete this.peers[remoteUuid];
-      // notify listeners
-      this.emit('disconnection', peer);
-    } else {
-      console.log(`Disconnected from @${socketAddress} (${code || 'N/A'} | ${reason || 'N/A'}).`);
+    if (this.peers.hasOwnProperty(uuid)) {
+      console.warn(`Established connection with a connected peer (${uuid}@${socketAddress});\n`
+        + `so, going to disconnect from it.`);
+      socket.close(undefined, 'DOUBLE_CONNECT');
+      return;
     }
+
+    peer.socket = socket = this.createSocketProxy(socket);
+    this.peers[uuid] = peer;
+    this.socketsToPeers[socketAddress] = peer;
+    socket.on('message', (message) => 
+      this.socketMessageHandler(message, peer));
+
+    if (incoming) {
+      console.log(`Accepted connection from ${peer.uuid}@${socketAddress} (${nodeType}).`);
+    } else {
+      console.log(`Established connection to ${peer.uuid}@${socketAddress} (${nodeType}).`);
+    }
+
+    // notify listeners
+    this.emit('peerconnect', peer);
   }
 
   /**
    * Close this node (both server and outgoing socket connections will
    * be closed)
    */
-  close(callback) {
-    this.wss.close(callback);
+  close() {
+    this.wss.close();
   }
 }
 

@@ -2,6 +2,7 @@ const P2PProtocol = require('../p2pprotocol/p2protocol');
 const LiteProtocolStore = require('./store');
 const Miner = require('./miner');
 const Blockchain = require('../utils/blockchain');
+const HandshakeManager = require('./handshake');
 const createRestServer = require('./rest');
 const createBlock = require('./entities/block');
 const {
@@ -18,6 +19,9 @@ const ver = 1;
 const bits = 22;
 const blockLimit = 2048;
 
+/**
+ * TODO give only "full" to p2pprotocol
+ */
 class LiteProtocol extends P2PProtocol {
   static get ver() {
     return ver;
@@ -30,7 +34,7 @@ class LiteProtocol extends P2PProtocol {
     this.getDataHandler = this.getDataHandler.bind(this);
     this.dataHandler = this.dataHandler.bind(this);
     this.getPendingMsgsHandler = this.getPendingMsgsHandler.bind(this);
-    this.connectionHandler = this.connectionHandler.bind(this);
+    this.peerConnectHandler = this.peerConnectHandler.bind(this);
 
     this.liteStore = new LiteProtocolStore(node.db);
     // a blockchain manager
@@ -55,7 +59,11 @@ class LiteProtocol extends P2PProtocol {
     this.litenode.on(`message/${messageTypes.getData}`, this.getDataHandler);
     this.litenode.on(`message/${messageTypes.data}`, this.dataHandler);
     this.litenode.on(`message/${messageTypes.getPendingMsgs}`, this.getPendingMsgsHandler);
-    this.litenode.on('connection', this.connectionHandler);
+    this.litenode.on('peerconnect', this.peerConnectHandler);
+
+    // instantiate a handshake manager so that
+    // our node can connect to other nodes : P
+    this.handshake = new HandshakeManager(this.litenode);
 
     // create and run rest server
     createRestServer(this).listen(this.node.port + 1);
@@ -85,6 +93,9 @@ class LiteProtocol extends P2PProtocol {
 
       }, 30000)
     );
+
+    // protocol handling setup is ready now
+    this.emit('ready');
   }
 
   async getNextBlock() {
@@ -340,7 +351,7 @@ class LiteProtocol extends P2PProtocol {
     }
   }
 
-  connectionHandler(peer) {
+  peerConnectHandler(peer) {
     if (peer.nodeType === 'full' && this.node.peers('full').length === 1) {
       let blockLocators = this.blockchain.getLocatorsSync();
       peer.sendJson(getBlocks({ blockLocators }));
@@ -351,6 +362,7 @@ class LiteProtocol extends P2PProtocol {
     for (let timer of this.timers) {
       clearInterval(timer);
     }
+    if (this.handshake) { this.handshake.close(); }
     super.close();
   }
 }

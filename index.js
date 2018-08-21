@@ -1,5 +1,5 @@
 if (BUILD_TARGET === 'node') {
-  // node (commonjs)
+  // node (output as commonjs)
 
   exports.ThinClient = require('./src/client/client');
   exports.ThinClientProtocol = require('./src/client/protocol');
@@ -14,7 +14,7 @@ if (BUILD_TARGET === 'node') {
   exports.FullNode = require('./src/fullnode');
   
 } else {
-  // browser (umd)
+  // browser (output as umd)
 
   module.exports = exports = { ...exports, ...require('./src/utils/litecrypto') };
 }

@@ -9,11 +9,10 @@ const nodeType = 'full';
 /**
  * The Litemessage fully functional node client.
  * 
+ * TODO protocolClass should has a default value
+ * TODO port number/string
+ * TODO a base node class (also simplify the api, moving to litenode?)
  * TODO fails to bind should crash the client imediately
- * TODO a base node class
- * TODO abort unknown node type at low level (`validNodeTypes`)
- * TODO several leveldb store, or just one
- * TODO bind to different interfaces
  */
 class FullNode {
   /**
@@ -21,7 +20,7 @@ class FullNode {
    */
   constructor(protocolClass, dbPath, { port = 1113, initPeerUrls = [] } = {}) {
     this.port = port;
-    port = typeof port === 'number' ? (port + '') : undefined;
+    // TODO port = typeof port === 'number' ? (port + '') : undefined;
     this.initPeerUrls = [...initPeerUrls];
     // initialize the db (level db)
     this.initDb(dbPath);
@@ -30,13 +29,15 @@ class FullNode {
     // load protocol
     this.protocol = new protocolClass(this, nodeTypes);
 
-    // connect to initial peers
-    initPeerUrls.forEach(url => this.litenode.createConnection(url));
-
     this.timer = setInterval(() => {
       console.log(`Right now, there are ${this.peers().length} connected peers (full & thin).`);
       // this.debugInfo();
     }, 20000);
+
+    this.protocol.on('ready', () => {
+      // connect to initial peers
+      initPeerUrls.forEach(url => this.litenode.createConnection(url));
+    });
   }
 
   static get nodeType() {
@@ -64,9 +65,10 @@ class FullNode {
     return peers.filter(peer => nodeTypes === '*' || nodeTypes.includes(peer.nodeType));
   }
 
-  close(callback) {
+  close() {
     clearInterval(this.timer);
-    this.litenode.close(callback);
+    this.protocol.close();
+    this.litenode.close();
     this.db.close();
   }
 

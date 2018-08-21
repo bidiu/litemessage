@@ -3,21 +3,22 @@ const EventEmitter = require('events');
 /**
  * A chunk is a fixed number of consecutive blocks (only block id) grouped
  * together stored in LevelDB in binary format (not in hex encode), mainly
- * for efficiency.
+ * for retrieval / flushing efficiency from or to disk.
  * 
  * NOTE that once a block is stored in LevelDB, you should NEVER change this
- * constant down below.
+ * constant down below. Otherwise, data will be corrupted.
  */
-const chunkSize = 4;
+const chunkSize = 1024;
 
 /**
  * This is a very low level abstraction of a blockchain, which needs to be 
- * injected with an store (LevelDB) interface implementation for interacting
- * with LevelDB. Take `LiteProtocol` as an example.
+ * injected with an store (using LevelDB / IndexedDB) interface implementation
+ * for interacting with persistant storage medium. Take `LiteProtocol`'s
+ * implementation as an example.
  * 
  * This blockchain abstraction here is (should) be protocol-agnostic.
  * 
- * Once assumption using this blockchain abstraction here is that you MUST 
+ * One assumption using this blockchain abstraction here is that you MUST 
  * always only persist valid blocks (it doesn't have to be in the main branch 
  * in the long run, but it must be a valid block). And you append elder blocks 
  * and then newer blocks to the blockchain, either one by one, or in a batch.

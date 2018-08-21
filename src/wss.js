@@ -3,13 +3,6 @@ const WebSocket = require('ws');
 const { URL } = require('url');
 const { getSocketAddress } = require('./utils/network');
 
-// remote end's uuid
-const uuidHeaderName = 'x-litemessage-uuid';
-// remote end's listening (daemon) port
-const portHeaderName = 'x-litemessage-port';
-// remote end's node type
-const typeHeaderName = 'x-litemessage-type';
-
 /**
  * Provide abstraction for underlaying transportation protocol. It behaves 
  * both like a server and a client - it will connect to several clients, 
@@ -17,13 +10,14 @@ const typeHeaderName = 'x-litemessage-type';
  * 
  * The P2P network is a directed graph with bidirectional communication channels.
  * 
- * TODO close reason doesn't work
- * TODO investigate event emitter memory leak
+ * TODO remove `uuid` and `nodeType`
  * TODO docker delievery
+ * TODO investigate event emitter memory leak
+ * TODO close reason doesn't work
  * 
  * ##### Events
  * - `listening` (port: string) - when the underlying ws server binds successfully
- * - `connection` (socket, incoming, remoteUuid, remoteDaemonPort, remoteNodeType)
+ * - `connection` (socket, incoming) - low level socket connection
  * 
  * For all other events, use the underlying web socket object.
  */
@@ -34,47 +28,25 @@ class WSServer extends EventEmitter {
     
     this.uuid = uuid;
     this.nodeType = nodeType;
-    this.port = port + '';
-    // used in handshake (for initiator to send)
-    this.headers = {
-      [uuidHeaderName]: this.uuid,
-      [portHeaderName]: this.port,
-      [typeHeaderName]: this.nodeType
-    };
+    this.port = port;
+
     // map remote socket addresses (ip:port) to sockets
     this.servers = {};
     
     // create underlaying server and listen
     this.wss = new WebSocket.Server({ port });
+
     // when bound to an network interface
     this.wss.on('listening', () => this.emit('listening', port));
-    // before sending upgrade response
-    this.wss.on('headers', (headers, req) => {
-      // add uuid header to upgrade response
-      headers.push([`${uuidHeaderName}: ${this.uuid}`]);
-      headers.push([`${portHeaderName}: ${this.port}`]);
-      headers.push([`${typeHeaderName}: ${this.nodeType}`]);
-    });
     // when receiving incoming connection
     this.wss.on('connection', (socket, req) => {
-      let remoteUuid = req.headers[uuidHeaderName];
-      let remoteDaemonPort = req.headers[portHeaderName];
-      let remoteNodeType = req.headers[typeHeaderName];
-      this.connectionHandler(socket, true, remoteUuid, remoteDaemonPort, remoteNodeType);
+      this.connectionHandler(socket, true);
     });
+    // when websocket server has error (don't crash it)
     this.wss.on('error', console.log);
 
     // set up heartbeats
     this.timer = setInterval(this.genHeartbeat(), 60000);
-  }
-
-  /**
-   * Close this node (both server and outgoing socket connections will
-   * be closed)
-   */
-  close(callback) {
-    clearInterval(this.timer);
-    this.wss.close(callback);
   }
 
   /**
@@ -102,14 +74,11 @@ class WSServer extends EventEmitter {
       return;
     }
 
-    let remoteUuid = undefined;
-    let remoteNodeType = undefined;
-    let socket = new WebSocket(url, { headers: this.headers, handshakeTimeout: 10000 });
-    socket.on('upgrade', resp => {
-      // read uuid and node type from upgrade response header
-      remoteUuid = resp.headers[uuidHeaderName];
-      remoteNodeType = resp.headers[typeHeaderName];
-    });
+    let socket = new WebSocket(url, { handshakeTimeout: 10000 });
+
+    socket.on('error', (err) =>
+      console.log(`Unable to establish connection to ${url}. Details:\n${err}.`));
+
     socket.on('open', () => {
       let prevSocket = this.servers[socketAddress];
       if (prevSocket && this.socketAlive(prevSocket)) {
@@ -119,11 +88,9 @@ class WSServer extends EventEmitter {
         return;
       }
       socket.removeAllListeners('error');
-      this.connectionHandler(socket, false, remoteUuid, remoteDaemonPort, remoteNodeType);
+      this.connectionHandler(socket, false);
       this.servers[socketAddress] = socket;
     });
-    socket.on('error', (err) =>
-      console.log(`Unable to establish connect to ${url}. Details:\n${err}.`));
   }
 
   genHeartbeat() {
@@ -144,10 +111,8 @@ class WSServer extends EventEmitter {
   /**
    * @param {*} socket                  the underlaying socket
    * @param {boolean} incoming          whether the connection is incoming
-   * @param {string} remoteUuid         remote peer's uuid
-   * @param {string} remoteDaemonPort   remote peer's litenode deamon port
    */
-  connectionHandler(socket, incoming, remoteUuid, remoteDaemonPort, remoteNodeType) {
+  connectionHandler(socket, incoming) {
     let socketAddress = getSocketAddress(socket);
     socket.alive = true;
     socket.on('message', () => socket.alive = true);
@@ -164,7 +129,7 @@ class WSServer extends EventEmitter {
       socket.terminate();
     });
     // notify subscribers
-    this.emit('connection', socket, incoming, remoteUuid, remoteDaemonPort, remoteNodeType);
+    this.emit('connection', socket, incoming);
   }
 
   socketAbnormal(socket) {
@@ -173,6 +138,15 @@ class WSServer extends EventEmitter {
 
   socketAlive(socket) {
     return socket.readyState === WebSocket.OPEN;
+  }
+
+  /**
+   * Close this node (both server and outgoing socket connections will
+   * be closed)
+   */
+  close() {
+    clearInterval(this.timer);
+    this.wss.close();
   }
 }
 
