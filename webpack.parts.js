@@ -46,9 +46,9 @@ exports.attachRevision = () => ({
   ],
 });
 
-exports.minifyJavaScript = () => ({
+exports.minifyJavaScript = ({ sourceMap = true, ...rest } = {}) => ({
   optimization: {
-    minimizer: [new UglifyWebpackPlugin({ sourceMap: true })],
+    minimizer: [new UglifyWebpackPlugin({ sourceMap, ...rest })],
   },
 });
 

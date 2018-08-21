@@ -5,6 +5,7 @@ if (BUILD_TARGET === 'node') {
   var crypto = require('crypto');
   var { fork } = require('child_process');
   var Promise = require('bluebird');
+  var Buffer = require('buffer').Buffer;
 
   Promise.config({
     // enable warnings

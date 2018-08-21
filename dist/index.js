@@ -1,4 +1,4 @@
-/*! v0.3.0-6-g27eb6f4 */
+/*! v0.3.0-7-g32a1cfa */
 module.exports =
 /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
@@ -103,6 +103,7 @@ if (true) {
   var crypto = __webpack_require__(25);
   var { fork } = __webpack_require__(26);
   var Promise = __webpack_require__(27);
+  var Buffer = __webpack_require__(28).Buffer;
 
   Promise.config({
     // enable warnings
@@ -1039,13 +1040,13 @@ if (true) {
   exports.ThinClientProtocol = __webpack_require__(19);
 
   exports.createLitemsg = __webpack_require__(24);
-  exports.LiteProtocol = __webpack_require__(28);
+  exports.LiteProtocol = __webpack_require__(29);
   module.exports = exports =  { ...exports, ...__webpack_require__(5) };
 
   module.exports = exports = { ...exports, ...__webpack_require__(1) };
   module.exports = exports = { ...exports, ...__webpack_require__(3) };
   
-  exports.FullNode = __webpack_require__(40);
+  exports.FullNode = __webpack_require__(41);
   
 } else {}
 
@@ -1461,14 +1462,20 @@ module.exports = require("bluebird");
 
 /***/ }),
 /* 28 */
+/***/ (function(module, exports) {
+
+module.exports = require("buffer");
+
+/***/ }),
+/* 29 */
 /***/ (function(module, exports, __webpack_require__) {
 
 const P2PProtocol = __webpack_require__(11);
-const LiteProtocolStore = __webpack_require__(29);
-const Miner = __webpack_require__(30);
-const Blockchain = __webpack_require__(31);
-const HandshakeManager = __webpack_require__(32);
-const createRestServer = __webpack_require__(34);
+const LiteProtocolStore = __webpack_require__(30);
+const Miner = __webpack_require__(31);
+const Blockchain = __webpack_require__(32);
+const HandshakeManager = __webpack_require__(33);
+const createRestServer = __webpack_require__(35);
 const createBlock = __webpack_require__(13);
 const {
   messageTypes, messageValidators, getBlocks, 
@@ -1836,7 +1843,7 @@ module.exports = LiteProtocol;
 
 
 /***/ }),
-/* 29 */
+/* 30 */
 /***/ (function(module, exports) {
 
 const prefix = 'lite/';
@@ -1983,7 +1990,7 @@ module.exports = LiteProtocolStore;
 
 
 /***/ }),
-/* 30 */
+/* 31 */
 /***/ (function(module, exports, __webpack_require__) {
 
 const { mine } = __webpack_require__(1);
@@ -2044,7 +2051,7 @@ module.exports = Miner;
 
 
 /***/ }),
-/* 31 */
+/* 32 */
 /***/ (function(module, exports, __webpack_require__) {
 
 const EventEmitter = __webpack_require__(0);
@@ -2350,10 +2357,10 @@ module.exports = Blockchain;
 
 
 /***/ }),
-/* 32 */
+/* 33 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const Peer = __webpack_require__(33);
+const Peer = __webpack_require__(34);
 const {
   messageValidators, info, infoAck,
   messageTypes: { info: infoType, infoAck: infoAckType }
@@ -2556,7 +2563,7 @@ module.exports = HandshakeManager;
 
 
 /***/ }),
-/* 33 */
+/* 34 */
 /***/ (function(module, exports, __webpack_require__) {
 
 const { getRemoteAddress } = __webpack_require__(2);
@@ -2609,14 +2616,14 @@ module.exports = Peer;
 
 
 /***/ }),
-/* 34 */
+/* 35 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const http = __webpack_require__(35);
-const express = __webpack_require__(36);
-const logger = __webpack_require__(37);
-const cookieParser = __webpack_require__(38);
-const bodyParser = __webpack_require__(39);
+const http = __webpack_require__(36);
+const express = __webpack_require__(37);
+const logger = __webpack_require__(38);
+const cookieParser = __webpack_require__(39);
+const bodyParser = __webpack_require__(40);
 const { isValidJson, parseChunk } = __webpack_require__(4);
 
 const notfoundPayload = { 'not-found': true };
@@ -2756,37 +2763,37 @@ module.exports = createRestServer;
 
 
 /***/ }),
-/* 35 */
+/* 36 */
 /***/ (function(module, exports) {
 
 module.exports = require("http");
 
 /***/ }),
-/* 36 */
+/* 37 */
 /***/ (function(module, exports) {
 
 module.exports = require("express");
 
 /***/ }),
-/* 37 */
+/* 38 */
 /***/ (function(module, exports) {
 
 module.exports = require("morgan");
 
 /***/ }),
-/* 38 */
+/* 39 */
 /***/ (function(module, exports) {
 
 module.exports = require("cookie-parser");
 
 /***/ }),
-/* 39 */
+/* 40 */
 /***/ (function(module, exports) {
 
 module.exports = require("body-parser");
 
 /***/ }),
-/* 40 */
+/* 41 */
 /***/ (function(module, exports, __webpack_require__) {
 
 const fs = __webpack_require__(6);
