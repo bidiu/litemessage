@@ -1,4 +1,4 @@
-/*! v0.3.0-4-gaac3e4b */
+/*! v0.3.0-5-ga74a4c7 */
 module.exports =
 /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
@@ -2522,6 +2522,7 @@ if (true) {
       let peer = new Peer(uuid, socket, incoming, daemonPort, nodeType);
 
       socket.removeListener('message', socket._messageHandler);
+      delete socket._messageHandler
       
       this.pendingSockets.delete(socket);
       this.litenode.addNewPeer(peer);

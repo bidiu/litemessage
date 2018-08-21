@@ -171,6 +171,7 @@ if (BUILD_TARGET === 'node') {
       let peer = new Peer(uuid, socket, incoming, daemonPort, nodeType);
 
       socket.removeListener('message', socket._messageHandler);
+      delete socket._messageHandler
       
       this.pendingSockets.delete(socket);
       this.litenode.addNewPeer(peer);
