@@ -63,6 +63,6 @@ const timer =
     peers.forEach(peer => peer.sendJson(data({ litemsgs: [litemsg] })));
 
     clearInterval(timer);
-    setTimeout(() => process.exit(1), 7000);
+    setTimeout(() => process.exit(0), 7000);
 
   }, 3000);
