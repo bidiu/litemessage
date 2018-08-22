@@ -51,7 +51,7 @@ class P2PProtocol extends EventEmitter {
     super();
 
     if (new.target === P2PProtocol) {
-      throw new TypeError("Cannot construct P2PProtocol instances directly");
+      throw new TypeError("Cannot construct P2PProtocol instances directly.");
     }
 
     this.persistPeerUrls = this.persistPeerUrls.bind(this);

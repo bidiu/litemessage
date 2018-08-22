@@ -1,4 +1,4 @@
-/*! v0.3.0-8-g5d93e1a */
+/*! v0.3.0-10-g2bc01a3 */
 module.exports =
 /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
@@ -83,7 +83,7 @@ module.exports =
 /******/
 /******/
 /******/ 	// Load entry module and return exports
-/******/ 	return __webpack_require__(__webpack_require__.s = 15);
+/******/ 	return __webpack_require__(__webpack_require__.s = 14);
 /******/ })
 /************************************************************************/
 /******/ ([
@@ -99,11 +99,11 @@ module.exports = require("events");
 if (true) {
   // node
 
-  var path = __webpack_require__(12);
-  var crypto = __webpack_require__(25);
-  var { fork } = __webpack_require__(26);
-  var Promise = __webpack_require__(27);
-  var Buffer = __webpack_require__(28).Buffer;
+  var path = __webpack_require__(10);
+  var crypto = __webpack_require__(31);
+  var { fork } = __webpack_require__(32);
+  var Promise = __webpack_require__(33);
+  var Buffer = __webpack_require__(34).Buffer;
 
   Promise.config({
     // enable warnings
@@ -386,7 +386,75 @@ exports.getCurTimestamp = getCurTimestamp;
 /* 4 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const path = __webpack_require__(12);
+const fs = __webpack_require__(15);
+const uuidv1 = __webpack_require__(16);
+const leveldown = __webpack_require__(17);
+const levelup = __webpack_require__(18);
+const LiteNode = __webpack_require__(19);
+
+/**
+ * A UUID identifying this node will be automatically generated.
+ */
+class Node {
+  constructor(nodeType, dbPath, port, protocolClass, initPeerUrls) {
+    if (new.target === Node) {
+      throw new TypeError("Cannot construct Node instances directly.");
+    }
+
+    // some necessary info
+    this.uuid = uuidv1();
+    this.nodeType = nodeType;
+    this.initPeerUrls = initPeerUrls;
+
+    // initialize the database (Level DB)
+    if (fs.existsSync(dbPath) && fs.statSync(dbPath).isDirectory()) {
+      console.log('Using existing LevelDB directory.');
+    } else {
+      console.log('A new LevelDB directory will be created.');
+    }
+    this.db = levelup(leveldown(dbPath));
+
+    // create underlying litenode
+    this.litenode = new LiteNode(this.uuid, { port });
+    // instantiate the protocol manager
+    this.protocol = new protocolClass(this);
+
+    this.protocol.on('ready', () => {
+      // connect to initial peers
+      this.initPeerUrls.forEach(url => this.litenode.createConnection(url));
+    });
+  }
+
+  /**
+   * @param {string|Array<string>} nodeTypes pass `*` for matching all types
+   */
+  peers(nodeTypes = '*') {
+    if (typeof nodeTypes === 'string' && nodeTypes !== '*') {
+      nodeTypes = [nodeTypes];
+    }
+
+    let peers = this.litenode ? Object.values(this.litenode.peers) : [];
+    return peers.filter(peer => nodeTypes === '*' || nodeTypes.includes(peer.nodeType));
+  }
+
+  /**
+   * Do the cleanup.
+   */
+  close() {
+    this.protocol.close();
+    this.litenode.close();
+    this.db.close();
+  }
+}
+
+module.exports = Node;
+
+
+/***/ }),
+/* 5 */
+/***/ (function(module, exports, __webpack_require__) {
+
+const path = __webpack_require__(10);
 
 const isValidJson = (json) => {
   if (typeof json !== 'string' || !json) {
@@ -447,7 +515,7 @@ exports.parseChunk = parseChunk;
 
 
 /***/ }),
-/* 5 */
+/* 6 */
 /***/ (function(module, exports) {
 
 const messageTypes = Object.freeze({
@@ -589,267 +657,57 @@ exports.getPendingMsgs = getPendingMsgs;
 
 
 /***/ }),
-/* 6 */
-/***/ (function(module, exports) {
-
-module.exports = require("fs");
-
-/***/ }),
 /* 7 */
-/***/ (function(module, exports) {
-
-module.exports = require("leveldown");
-
-/***/ }),
-/* 8 */
-/***/ (function(module, exports) {
-
-module.exports = require("levelup");
-
-/***/ }),
-/* 9 */
-/***/ (function(module, exports, __webpack_require__) {
-
-const EventEmitter = __webpack_require__(0);
-const WSServer = __webpack_require__(17);
-const { getSocketAddress } = __webpack_require__(2);
-const { getCurTimestamp } = __webpack_require__(3);
-
-/**
- * This class is the abstraction of "node" (litenode) inside the litemessage
- * peer-to-peer network. It is on top of Websocket layer by composing `WSServer`
- * when runing in nodejs environment, or `WSClient` when runing as "thin" node in
- * both nodejs and browser environments. 
- * 
- * This class is protocol-agnostic, meaning it doesn't assume any detail of
- * the implmentation of litemessage's protocol. Instead, it just provides some
- * APIs and async events for implementing the protocol and any kind of litemessage
- * client ("thin" / "full" node) on top of that.
- * 
- * You must provide a UUID to the contructor. The UUID is the unique identifier 
- * identify a unique node inside the peer-to-peer network.
- * 
- * By default, node use 1113 as the daemon port inside the network.
- * 
- * TODO log handshake communication traffic
- * TODO use debug config
- * TODO support specifying the interface to bind
- * 
- * #### Events
- * - `socketconnect` - low level socket connection (simple wrapper around wss's)
- * - `peerconnect` - high level peer connection
- * - `peerdisconnect` - high level peer disconnection
- * - `message/${message_type}` - high level protocol-specific messages
- * 
- * All other events are handled by low level abstraction, so you don't need to
- * worry about : P
- */
-class LiteNode extends EventEmitter {
-  /**
-   * A UUID will be automatically generated.
-   */
-  constructor(uuid, { port = 1113, debug = true } = {}) {
-    super();
-    this.socketConnectHandler = this.socketConnectHandler.bind(this);
-    this.socketMessageHandler = this.socketMessageHandler.bind(this);
-    this.socketCloseHandler = this.socketCloseHandler.bind(this);
-
-    this.uuid = uuid;
-    this.daemonPort = port;
-
-    // node's uuid => peer
-    this.peers = {};
-    // socket addresses => peers
-    this.socketsToPeers = {};
-
-    // used for debugging (view all protocol messages since start)
-    this.debug = debug;
-    this.messageLogs = [];
-
-    // create the underlyng websocket server
-    this.wss = new WSServer(port);
-    // when bound to an network interface
-    this.wss.on('listening', (port) => {
-      console.log(`${uuid}: Start listening on port ${port}.`);
-      if (this.debug) { console.log('Debug mode is enabled.'); }
-    });
-    // when new connection established
-    this.wss.on('connection', this.socketConnectHandler);
-  }
-
-  /**
-   * Create a proxy to intercept the `send` function call,
-   * mainly for debugging / logging.
-   */
-  createSocketProxy(socket, remoteUuid) {
-    const messageLogs = this.messageLogs;
-
-    const handler = {
-      get: (socket, propName) => {
-        if (propName !== 'send') { return socket[propName]; }
-        // return the wrapper function as a proxy
-        return function (data, options, callback) {
-          messageLogs.push({
-            peer: remoteUuid,
-            dir: 'outbound',
-            msg: JSON.parse(data),
-            time: getCurTimestamp('s')
-          });
-
-          return socket.send(data, options, callback);
-        };
-      }
-    };
-    // create socket proxy and return
-    return new Proxy(socket, handler);
-  }
-
-  /**
-   * Note that you cannot have more than one socket to a single URL.
-   * And also note that error could be thrown if url is invalid.
-   * Failure of connection will only cause some log (won't crash
-   * the application).
-   * 
-   * Right now, there's no way to get notified when it fail to connect
-   * (such as because of timeout) except for a log mentioned before.
-   */
-  createConnection(url) {
-    return this.wss.createConnection(url);
-  }
-
-  /**
-   * @param {string} msg 
-   * @param {Array<string>} exUuids 
-   */
-  broadcast(msg, exUuids = []) {
-    let peers = Object.keys(this.peers)
-      .filter(uuid => !exUuids.includes(uuid))
-      .map(uuid => this.peers[uuid]);
-
-    for (let peer of peers) {
-      try {
-        peer.send(msg);
-      } catch (err) {
-        console.error(err);
-      }
-    }
-  }
-
-  /**
-   * @param {Object} jsonObj 
-   * @param {Array<string>} exUuids 
-   */
-  broadcastJson(jsonObj, exUuids) {
-    this.broadcast(JSON.stringify(jsonObj), exUuids);
-  }
-
-  socketConnectHandler(socket, incoming) {
-    let socketAddress = getSocketAddress(socket);
-    if (incoming) {
-      console.log(`Accepted socket connection from ${socketAddress}.`);
-    } else {
-      console.log(`Established socket connection to ${socketAddress}.`);
-    }
-
-    socket.on('close', (code, reason) =>
-      this.socketCloseHandler(code, reason, socket));
-
-    // notify listeners
-    this.emit('socketconnect', socket, incoming);
-  }
-
-  socketMessageHandler(msg, peer) {
-    let msgObj = null;
-    try { msgObj = JSON.parse(msg); } catch (e) {}
-    if (msgObj && msgObj['messageType']) {
-      // note that only logs valid procotol messages
-      this.messageLogs.push({
-        peer: peer.uuid,
-        dir: 'inbound',
-        msg: msgObj,
-        time: getCurTimestamp('s')
-      });
-
-      this.emit(`message/${msgObj['messageType']}`, msgObj, peer);
-    }
-  }
-
-  socketCloseHandler(code, reason, socket) {
-    let socketAddress = getSocketAddress(socket);
-    let peer = this.socketsToPeers[socketAddress]
-
-    if (peer) {
-      delete this.peers[peer.uuid];
-      delete this.socketsToPeers[socketAddress]
-      console.log(`Disconnected from ${peer.uuid}@${socketAddress}.`);
-      // notify listeners
-      this.emit('peerdisconnect', peer);
-    }
-    console.log(`Closed socket connection with ${socketAddress} (${code || 'N/A'} | ${reason || 'N/A'}).`);
-  }
-
-  /**
-   * Add new peer to peer collection of this node. The protocol
-   * implmementation should call this after a protocol-specific
-   * handshake completes (this class is protocol agnostic).
-   */
-  addNewPeer(peer) {
-    let { uuid, socket, incoming, nodeType } = peer;
-    let socketAddress = getSocketAddress(socket);
-
-    if (this.peers.hasOwnProperty(uuid)) {
-      console.warn(`Established connection with a connected peer (${uuid}@${socketAddress});\n`
-        + `so, going to disconnect from it.`);
-      socket.close(undefined, 'DOUBLE_CONNECT');
-      return;
-    }
-
-    peer.socket = socket = this.createSocketProxy(socket);
-    this.peers[uuid] = peer;
-    this.socketsToPeers[socketAddress] = peer;
-    socket.on('message', (message) => 
-      this.socketMessageHandler(message, peer));
-
-    if (incoming) {
-      console.log(`Accepted connection from ${peer.uuid}@${socketAddress} (${nodeType}).`);
-    } else {
-      console.log(`Established connection to ${peer.uuid}@${socketAddress} (${nodeType}).`);
-    }
-
-    // notify listeners
-    this.emit('peerconnect', peer);
-  }
-
-  /**
-   * Close this node (both server and outgoing socket connections will
-   * be closed)
-   */
-  close() {
-    this.wss.close();
-  }
-}
-
-module.exports = LiteNode;
-
-
-/***/ }),
-/* 10 */
 /***/ (function(module, exports) {
 
 module.exports = require("url");
 
 /***/ }),
-/* 11 */
+/* 8 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const dns = __webpack_require__(20);
-const { URL } = __webpack_require__(10);
-const { promisify } = __webpack_require__(21);
-const P2PProtocolStore = __webpack_require__(22);
+const P2PProtocol = __webpack_require__(9);
+const HandshakeManager = __webpack_require__(11);
+
+/**
+ * An experimental "thin" litemessage protocol implementation.
+ * The "thin" here means this is a light weight implementation,
+ * similar to SPV nodes in Bitcoin. Typically, client nodes
+ * (such as used by common users with browser or CLI) will use
+ * this tpye of implementation.
+ * 
+ * **NOTE** that this is an experimental implementation, so it
+ * probably will be refactored in the future.
+ */
+class ThinLiteProtocol extends P2PProtocol {
+  constructor(node) {
+    super(node);
+
+    this.handshake = new HandshakeManager(this);
+    setTimeout(() => this.emit('ready'), 0);
+  }
+
+  close() {
+    this.handshake.close();
+    super.close();
+  }
+}
+
+module.exports = ThinLiteProtocol
+
+
+/***/ }),
+/* 9 */
+/***/ (function(module, exports, __webpack_require__) {
+
+const dns = __webpack_require__(23);
+const { URL } = __webpack_require__(7);
+const { promisify } = __webpack_require__(24);
+const P2PProtocolStore = __webpack_require__(25);
 const {
   messageTypes, messageValidators, fetchPeers, returnPeers
-} = __webpack_require__(23);
-const { pickItems } = __webpack_require__(4);
+} = __webpack_require__(26);
+const { pickItems } = __webpack_require__(5);
 
 // look up dns records
 const lookup = promisify(dns.lookup);
@@ -891,7 +749,7 @@ class P2PProtocol extends EventEmitter {
     super();
 
     if (new.target === P2PProtocol) {
-      throw new TypeError("Cannot construct P2PProtocol instances directly");
+      throw new TypeError("Cannot construct P2PProtocol instances directly.");
     }
 
     this.persistPeerUrls = this.persistPeerUrls.bind(this);
@@ -1007,30 +865,236 @@ module.exports = P2PProtocol;
 
 
 /***/ }),
-/* 12 */
+/* 10 */
 /***/ (function(module, exports) {
 
 module.exports = require("path");
 
 /***/ }),
-/* 13 */
+/* 11 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const P2PProtocol = __webpack_require__(11);
+const Peer = __webpack_require__(27);
+const {
+  messageValidators, info, infoAck,
+  messageTypes: { info: infoType, infoAck: infoAckType }
+} = __webpack_require__(6);
+const { getCurTimestamp } = __webpack_require__(3);
+const { getSocketAddress } = __webpack_require__(2);
+
+if (true) {
+  // running in node
+
+  var EventEmitter = __webpack_require__(0);
+
+} else { var EventEmitter; }
+
+// ********************* requiring ends *********************
+
+// allowed message types during handshake
+const MSG_TYPES = [infoType, infoAckType];
+
+class PendingSocket {
+  constructor(socket, incoming) {
+    // the pending socket itself
+    this.socket = socket;
+
+    // inbound or outbound
+    this.incoming = incoming;
+
+    // 'INIT'
+    // 'INFO_SENT'
+    // 'ESTABLISHED'
+    this.state = 'INIT';
+
+    // the timestamp when socket is created
+    this.timestamp = getCurTimestamp();
+
+    // remote info
+    this.uuid = undefined;
+    this.nodeType = undefined;
+    this.daemonPort = undefined;
+  }
+}
+
+// ******************** common code ends ********************
+
+// **************** env-specific code starts ****************
+
+if (true) {
+  // run in node
+
+  var HandshakeManager = class extends EventEmitter {
+    constructor(p2pProtocol) {
+      super();
+      this.socketConnectHandler = this.socketConnectHandler.bind(this);
+
+      this.litenode = p2pProtocol.litenode;
+      this.uuid = p2pProtocol.litenode.uuid;
+      this.nodeType = p2pProtocol.node.nodeType;
+      this.daemonPort = p2pProtocol.litenode.daemonPort;
+
+      // sockets => pending sockets (which is a wrapper)
+      this.pendingSockets = new Map();
+
+      // listen on new socket connection
+      this.litenode.on('socketconnect', this.socketConnectHandler);
+
+      // in case too many pending connections (such as DDoS),
+      // drop pending connections after roughly 20s' idle
+      this.timer = setInterval(() => {
+        let now = getCurTimestamp();
+        for (let [socket, pendingSocket] of this.pendingSockets) {
+          if (now - pendingSocket.timestamp > 20000) {
+            console.warn(`Handshake timeouts with ${getSocketAddress(socket)}.`);
+            socket.close(undefined, 'HANDSHAKE_TIMEOUTS');
+            this.pendingSockets.delete(socket);
+          }
+        }
+
+      }, 10000);
+    }
+
+    addPendingSocket(socket, incoming) {
+      try {
+        let pendingSocket = new PendingSocket(socket, incoming);
+
+        socket._messageHandler = ((message) => {
+          try {
+            let { state } = pendingSocket
+            let { messageType, ...payload } = JSON.parse(message);
+            if (typeof messageType !== 'string' || !MSG_TYPES.includes(messageType)) {
+              throw new Error();
+            }
+            
+            // when receiving info message
+            if (messageType === infoType) {
+              messageValidators[infoType](payload);
+    
+              if (incoming && state === 'INIT') {
+                pendingSocket.state = 'INFO_SENT'
+                pendingSocket.uuid = payload.uuid;
+                pendingSocket.nodeType = payload.nodeType;
+                pendingSocket.daemonPort = payload.daemonPort;
+    
+                this.sendInfo(socket);
+    
+              } else if (!incoming && state === 'INFO_SENT') {
+                pendingSocket.state = 'ESTABLISHED';
+                pendingSocket.uuid = payload.uuid;
+                pendingSocket.nodeType = payload.nodeType;
+                pendingSocket.daemonPort = payload.daemonPort;
+    
+                this.sendInfoAck(socket);
+                this.onEstablished(pendingSocket);
+    
+              } else {
+                throw new Error();
+              }
+            }
+    
+            // when receiving info ack message
+            if (messageType === infoAckType) {
+              messageValidators[infoAckType](payload);
+    
+              if (incoming && state === 'INFO_SENT') {
+                pendingSocket.state = 'ESTABLISHED';
+    
+                this.onEstablished(pendingSocket);
+    
+              } else {
+                throw new Error();
+              }
+            }
+    
+          } catch (err) {
+            console.warn(`Handshake failed with ${getSocketAddress(socket)}, reason:\n${err.stack}`);
+            // close the underlying socket
+            socket.close(undefined, 'HANDSHAKE_FAILED');
+          }
+
+        }).bind(this); // end of _messageHandler
+
+
+        this.pendingSockets.set(socket, pendingSocket);
+        socket.on('message', socket._messageHandler);
+
+        if (!incoming) {
+          // sending the first info message
+          // to initiate the handshake process
+          this.sendInfo(socket);
+          pendingSocket.state = 'INFO_SENT'
+        }
+
+      } catch (err) {
+        console.warn(`Handshake failed with ${getSocketAddress(socket)}, reason:\n${err}`);
+        // close the underlying socket
+        socket.close(undefined, 'HANDSHAKE_FAILED');
+      }
+    }
+
+    socketConnectHandler(socket, incoming) {
+      this.addPendingSocket(socket, incoming);
+    }
+
+    // on handshake completing
+    onEstablished(pendingSocket) {
+      let { socket, incoming, uuid, nodeType, daemonPort } = pendingSocket;
+      let peer = new Peer(uuid, socket, incoming, daemonPort, nodeType);
+
+      socket.removeListener('message', socket._messageHandler);
+      delete socket._messageHandler
+      
+      this.pendingSockets.delete(socket);
+      this.litenode.addNewPeer(peer);
+    }
+
+    sendInfo(socket) {
+      socket.send(JSON.stringify(info({
+        uuid: this.uuid, 
+        nodeType: this.nodeType,
+        daemonPort: this.daemonPort
+      })));
+    }
+
+    sendInfoAck(socket) {
+      socket.send( JSON.stringify(infoAck()) );
+    }
+
+    /**
+     * Do the cleanup.
+     */
+    close() {
+      if (this.timer) {
+        clearInterval(this.timer);
+      }
+    }
+  }; // end of HandshakeManager
+
+} else { var HandshakeManager; }
+
+module.exports = HandshakeManager;
+
+
+/***/ }),
+/* 12 */
+/***/ (function(module, exports, __webpack_require__) {
+
+const P2PProtocol = __webpack_require__(9);
 const LiteProtocolStore = __webpack_require__(29);
 const Miner = __webpack_require__(30);
-const Blockchain = __webpack_require__(31);
-const HandshakeManager = __webpack_require__(32);
-const createRestServer = __webpack_require__(34);
-const createBlock = __webpack_require__(14);
+const Blockchain = __webpack_require__(35);
+const HandshakeManager = __webpack_require__(11);
+const createRestServer = __webpack_require__(36);
+const createBlock = __webpack_require__(13);
 const {
   messageTypes, messageValidators, getBlocks, 
   inv, getData, data, getPendingMsgs
-} = __webpack_require__(5);
+} = __webpack_require__(6);
 const {
   verifyBlock, verifyLitemsg, calcMerkleRoot, verifySubchain
 } = __webpack_require__(1);
-const { pickItems } = __webpack_require__(4);
+const { pickItems } = __webpack_require__(5);
 const { getCurTimestamp } = __webpack_require__(3);
 
 // protcol version
@@ -1395,7 +1459,7 @@ module.exports = LiteProtocol;
 
 
 /***/ }),
-/* 14 */
+/* 13 */
 /***/ (function(module, exports, __webpack_require__) {
 
 const { sha256 } = __webpack_require__(1);
@@ -1425,104 +1489,284 @@ module.exports = createBlock;
 
 
 /***/ }),
-/* 15 */
+/* 14 */
 /***/ (function(module, exports, __webpack_require__) {
 
 if (true) {
   // node (output as commonjs)
 
-  exports.ThinClient = __webpack_require__(16);
-  exports.ThinClientProtocol = __webpack_require__(19);
+  exports.Node = __webpack_require__(4);
+  exports.ThinNode = __webpack_require__(22);
+  exports.FullNode = __webpack_require__(28);
 
-  exports.createLitemsg = __webpack_require__(24);
-  exports.LiteProtocol = __webpack_require__(13);
-  module.exports = exports =  { ...exports, ...__webpack_require__(5) };
+  exports.createLitemsg = __webpack_require__(42);
+  exports.LiteProtocol = __webpack_require__(12);
+  exports.ThinLiteProtocol = __webpack_require__(8);
+  module.exports = exports =  { ...exports, ...__webpack_require__(6) };
 
   module.exports = exports = { ...exports, ...__webpack_require__(1) };
   module.exports = exports = { ...exports, ...__webpack_require__(3) };
-  
-  exports.FullNode = __webpack_require__(40);
   
 } else {}
 
 
 /***/ }),
+/* 15 */
+/***/ (function(module, exports) {
+
+module.exports = require("fs");
+
+/***/ }),
 /* 16 */
-/***/ (function(module, exports, __webpack_require__) {
+/***/ (function(module, exports) {
 
-const fs = __webpack_require__(6);
-const leveldown = __webpack_require__(7);
-const levelup = __webpack_require__(8);
-const LiteNode = __webpack_require__(9);
-
-const nodeTypes = ['full', 'thin'];
-const nodeType = 'thin';
-
-class ThinClient {
-  constructor(protocolClass, dbPath, { port = 1113, initPeerUrls = [] } = {}) {
-    this.port = port;
-    port = typeof port === 'number' ? (port + '') : undefined;
-    this.initPeerUrls = [...initPeerUrls];
-
-    // initialize the db (level db)
-    this.initDb(dbPath);
-
-    // create underlying litenode
-    this.litenode = new LiteNode(nodeType, { port });
-
-    // load protocol
-    this.protocol = new protocolClass(this, nodeTypes);
-
-    // connect to initial peers
-    initPeerUrls.forEach(url => this.litenode.createConnection(url));
-
-    this.timer = setInterval(() => {
-      console.log(`Right now, there are ${this.peers().length} connected peers (full & thin).`);
-    }, 20000);
-  }
-
-  static get nodeType() {
-    return nodeType;
-  }
-
-  initDb(dbPath) {
-    if (fs.existsSync(dbPath) && fs.statSync(dbPath).isDirectory()) {
-      console.log('Using existing LevelDB directory.');
-    } else {
-      console.log('A new LevelDB directory will be created.');
-    }
-    this.db = levelup(leveldown(dbPath));
-  }
-
-  /**
-   * @param {string|Array<string>} nodeType the node types (pass `*` for matching all types)
-   */
-  peers(nodeTypes = '*') {
-    if (typeof nodeTypes === 'string' && nodeTypes !== '*') {
-      nodeTypes = [nodeTypes];
-    }
-
-    let peers = this.litenode ? Object.values(this.litenode.peers) : [];
-    return peers.filter(peer => nodeTypes === '*' || nodeTypes.includes(peer.nodeType));
-  }
-
-  close(callback) {
-    clearInterval(this.timer);
-    this.litenode.close(callback);
-    this.db.close();
-  }
-}
-
-module.exports = ThinClient;
-
+module.exports = require("uuid/v1");
 
 /***/ }),
 /* 17 */
+/***/ (function(module, exports) {
+
+module.exports = require("leveldown");
+
+/***/ }),
+/* 18 */
+/***/ (function(module, exports) {
+
+module.exports = require("levelup");
+
+/***/ }),
+/* 19 */
 /***/ (function(module, exports, __webpack_require__) {
 
 const EventEmitter = __webpack_require__(0);
-const WebSocket = __webpack_require__(18);
-const { URL } = __webpack_require__(10);
+const WSServer = __webpack_require__(20);
+const { getSocketAddress } = __webpack_require__(2);
+const { getCurTimestamp } = __webpack_require__(3);
+
+/**
+ * This class is the abstraction of "node" (litenode) inside the litemessage
+ * peer-to-peer network. It is on top of Websocket layer by composing `WSServer`
+ * when runing in nodejs environment, or `WSClient` when runing as "thin" node in
+ * both nodejs and browser environments. 
+ * 
+ * This class is protocol-agnostic, meaning it doesn't assume any detail of
+ * the implmentation of litemessage's protocol. Instead, it just provides some
+ * APIs and async events for implementing the protocol and any kind of litemessage
+ * client ("thin" / "full" node) on top of that.
+ * 
+ * You must provide a UUID to the contructor. The UUID is the unique identifier 
+ * identify a unique node inside the peer-to-peer network.
+ * 
+ * By default, node use 1113 as the daemon port inside the network.
+ * 
+ * TODO log handshake communication traffic
+ * TODO use debug config, also support cli to specify
+ * TODO support specifying the interface to bind
+ * 
+ * #### Events
+ * - `socketconnect` - low level socket connection (simple wrapper around wss's)
+ * - `peerconnect` - high level peer connection
+ * - `peerdisconnect` - high level peer disconnection
+ * - `message/${message_type}` - high level protocol-specific messages
+ * 
+ * All other events are handled by low level abstraction, so you don't need to
+ * worry about : P
+ */
+class LiteNode extends EventEmitter {
+  /**
+   * A UUID will be automatically generated.
+   */
+  constructor(uuid, { port = 1113, debug = true } = {}) {
+    super();
+    this.socketConnectHandler = this.socketConnectHandler.bind(this);
+    this.socketMessageHandler = this.socketMessageHandler.bind(this);
+    this.socketCloseHandler = this.socketCloseHandler.bind(this);
+
+    this.uuid = uuid;
+    this.daemonPort = port;
+
+    // node's uuid => peer
+    this.peers = {};
+    // socket addresses => peers
+    this.socketsToPeers = {};
+
+    // used for debugging (view all protocol messages since start)
+    this.debug = debug;
+    this.messageLogs = [];
+
+    // create the underlyng websocket server
+    this.wss = new WSServer(port);
+    // when bound to an network interface
+    this.wss.on('listening', (port) => {
+      console.log(`${uuid}: Start listening on port ${port}.`);
+      if (this.debug) { console.log('Debug mode is enabled.'); }
+    });
+    // when new connection established
+    this.wss.on('connection', this.socketConnectHandler);
+  }
+
+  /**
+   * Create a proxy to intercept the `send` function call,
+   * mainly for debugging / logging.
+   */
+  createSocketProxy(socket, remoteUuid) {
+    const messageLogs = this.messageLogs;
+
+    const handler = {
+      get: (socket, propName) => {
+        if (propName !== 'send') { return socket[propName]; }
+        // return the wrapper function as a proxy
+        return function (data, options, callback) {
+          messageLogs.push({
+            peer: remoteUuid,
+            dir: 'outbound',
+            msg: JSON.parse(data),
+            time: getCurTimestamp('s')
+          });
+
+          return socket.send(data, options, callback);
+        };
+      }
+    };
+    // create socket proxy and return
+    return new Proxy(socket, handler);
+  }
+
+  /**
+   * Note that you cannot have more than one socket to a single URL.
+   * And also note that error could be thrown if url is invalid.
+   * Failure of connection will only cause some log (won't crash
+   * the application).
+   * 
+   * Right now, there's no way to get notified when it fail to connect
+   * (such as because of timeout) except for a log mentioned before.
+   */
+  createConnection(url) {
+    return this.wss.createConnection(url);
+  }
+
+  /**
+   * @param {string} msg 
+   * @param {Array<string>} exUuids 
+   */
+  broadcast(msg, exUuids = []) {
+    let peers = Object.keys(this.peers)
+      .filter(uuid => !exUuids.includes(uuid))
+      .map(uuid => this.peers[uuid]);
+
+    for (let peer of peers) {
+      try {
+        peer.send(msg);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  }
+
+  /**
+   * @param {Object} jsonObj 
+   * @param {Array<string>} exUuids 
+   */
+  broadcastJson(jsonObj, exUuids) {
+    this.broadcast(JSON.stringify(jsonObj), exUuids);
+  }
+
+  socketConnectHandler(socket, incoming) {
+    let socketAddress = getSocketAddress(socket);
+    if (incoming) {
+      console.log(`Accepted socket connection from ${socketAddress}.`);
+    } else {
+      console.log(`Established socket connection to ${socketAddress}.`);
+    }
+
+    socket.on('close', (code, reason) =>
+      this.socketCloseHandler(code, reason, socket));
+
+    // notify listeners
+    this.emit('socketconnect', socket, incoming);
+  }
+
+  socketMessageHandler(msg, peer) {
+    let msgObj = null;
+    try { msgObj = JSON.parse(msg); } catch (e) {}
+    if (msgObj && msgObj['messageType']) {
+      // note that only logs valid procotol messages
+      this.messageLogs.push({
+        peer: peer.uuid,
+        dir: 'inbound',
+        msg: msgObj,
+        time: getCurTimestamp('s')
+      });
+
+      this.emit(`message/${msgObj['messageType']}`, msgObj, peer);
+    }
+  }
+
+  socketCloseHandler(code, reason, socket) {
+    let socketAddress = getSocketAddress(socket);
+    let peer = this.socketsToPeers[socketAddress]
+
+    if (peer) {
+      delete this.peers[peer.uuid];
+      delete this.socketsToPeers[socketAddress]
+      console.log(`Disconnected from ${peer.uuid}@${socketAddress}.`);
+      // notify listeners
+      this.emit('peerdisconnect', peer);
+    }
+    console.log(`Closed socket connection with ${socketAddress} (${code || 'N/A'} | ${reason || 'N/A'}).`);
+  }
+
+  /**
+   * Add new peer to peer collection of this node. The protocol
+   * implmementation should call this after a protocol-specific
+   * handshake completes (this class is protocol agnostic).
+   */
+  addNewPeer(peer) {
+    let { uuid, socket, incoming, nodeType } = peer;
+    let socketAddress = getSocketAddress(socket);
+
+    if (this.peers.hasOwnProperty(uuid)) {
+      console.warn(`Established connection with a connected peer (${uuid}@${socketAddress});\n`
+        + `so, going to disconnect from it.`);
+      socket.close(undefined, 'DOUBLE_CONNECT');
+      return;
+    }
+
+    peer.socket = socket = this.createSocketProxy(socket);
+    this.peers[uuid] = peer;
+    this.socketsToPeers[socketAddress] = peer;
+    socket.on('message', (message) => 
+      this.socketMessageHandler(message, peer));
+
+    if (incoming) {
+      console.log(`Accepted connection from ${peer.uuid}@${socketAddress} (${nodeType}).`);
+    } else {
+      console.log(`Established connection to ${peer.uuid}@${socketAddress} (${nodeType}).`);
+    }
+
+    // notify listeners
+    this.emit('peerconnect', peer);
+  }
+
+  /**
+   * Close this node (both server and outgoing socket connections will
+   * be closed)
+   */
+  close() {
+    this.wss.close();
+  }
+}
+
+module.exports = LiteNode;
+
+
+/***/ }),
+/* 20 */
+/***/ (function(module, exports, __webpack_require__) {
+
+const EventEmitter = __webpack_require__(0);
+const WebSocket = __webpack_require__(21);
+const { URL } = __webpack_require__(7);
 const { getSocketAddress } = __webpack_require__(2);
 
 /**
@@ -1671,43 +1915,51 @@ module.exports = WSServer;
 
 
 /***/ }),
-/* 18 */
+/* 21 */
 /***/ (function(module, exports) {
 
 module.exports = require("ws");
 
 /***/ }),
-/* 19 */
+/* 22 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const P2PProtocol = __webpack_require__(11);
+const Node = __webpack_require__(4);
+const ThinLiteProtocol = __webpack_require__(8);
 
-/**
- * TODO later might change to extend liteprotocol
- */
-const protocolClass = class extends P2PProtocol {
-  constructor(node, nodeTypes, { minPeerNum = 8 } = {}) {
-    super(node, { nodeTypes, minPeerNum });
+const NODE_TYPE = 'thin';
+
+class ThinNode extends Node {
+  constructor(dbPath, { protocolClass = ThinLiteProtocol, initPeerUrls = [], port } = {}) {
+    super(NODE_TYPE, dbPath, port, protocolClass, initPeerUrls);
   }
-};
 
-module.exports = protocolClass;
+  static get nodeType() {
+    return NODE_TYPE;
+  }
+
+  close() {
+    super.close();
+  }
+}
+
+module.exports = ThinNode;
 
 
 /***/ }),
-/* 20 */
+/* 23 */
 /***/ (function(module, exports) {
 
 module.exports = require("dns");
 
 /***/ }),
-/* 21 */
+/* 24 */
 /***/ (function(module, exports) {
 
 module.exports = require("util");
 
 /***/ }),
-/* 22 */
+/* 25 */
 /***/ (function(module, exports) {
 
 const prefix = 'p2p/';
@@ -1744,7 +1996,7 @@ module.exports = P2PProtocolStore;
 
 
 /***/ }),
-/* 23 */
+/* 26 */
 /***/ (function(module, exports) {
 
 // message type constants
@@ -1806,49 +2058,102 @@ exports.returnPeers = returnPeers;
 
 
 /***/ }),
-/* 24 */
+/* 27 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const { sha256 } = __webpack_require__(1);
+const { getRemoteAddress } = __webpack_require__(2);
 
-/**
- * @param {string} ver      version number (now hardcoded to 1, I don't have time :|)
- * @param {int} time        timestamp (unix time)
- * @param {string} litemsg  litemessage itself
- * @param {string} sig      signature
- * @param {string} pubKey   public key
- */
-const createLitemsg = (ver, time, litemsg, sig, pubKey) => {
-  let hash = sha256(`${ver}${time}${litemsg}${sig}${pubKey}`);
-  return { ver, time, litemsg, sig, pubKey, hash };
-};
+class Peer {
+  /**
+   * @param {string} uuid             peer's uuid
+   * @param {*} socket                network socket to the peer
+   * @param {boolean} incoming        whehter the connection is incoming
+   * @param {string} daemonPort       peer's daemon port
+   * @param {string} nodeType         peer's node type
+   */
+  constructor(uuid, socket, incoming, daemonPort, nodeType) {
+    this.uuid = uuid;
+    this.socket = socket;
+    this.incoming = incoming;
+    this.daemonPort = daemonPort;
+    this.nodeType = nodeType;
+    this.url = `ws://${getRemoteAddress(socket)}:${daemonPort}`;
+  }
 
-module.exports = createLitemsg;
+  /**
+   * Note that error might be thrown, such as when trying to 
+   * send data through closed connection (very rare though - the
+   * underlaying litenode will take care of that).
+   * 
+   * @param {string} message to send
+   */
+  send(msg) {
+    this.socket.send(msg);
+  }
 
+  /**
+   * Note that error might be thrown, such as when trying to 
+   * send data through closed connection (very rare though - the
+   * underlaying litenode will take care of that).
+   * 
+   * @param {Object} jsonObj object to send
+   */
+  sendJson(jsonObj) {
+    this.send(JSON.stringify(jsonObj));
+  }
 
-/***/ }),
-/* 25 */
-/***/ (function(module, exports) {
+  toString() {
+    return `${this.nodeType} - ${this.url}`;
+  }
+}
 
-module.exports = require("crypto");
+module.exports = Peer;
 
-/***/ }),
-/* 26 */
-/***/ (function(module, exports) {
-
-module.exports = require("child_process");
-
-/***/ }),
-/* 27 */
-/***/ (function(module, exports) {
-
-module.exports = require("bluebird");
 
 /***/ }),
 /* 28 */
-/***/ (function(module, exports) {
+/***/ (function(module, exports, __webpack_require__) {
 
-module.exports = require("buffer");
+const Node = __webpack_require__(4);
+const LiteProtocol = __webpack_require__(12);
+
+const NODE_TYPE = 'full';
+
+/**
+ * The Litemessage fully functional node client.
+ * 
+ * TODO fails to bind should crash the client imediately
+ */
+class FullNode extends Node {
+  constructor(dbPath, { protocolClass = LiteProtocol, initPeerUrls = [], port } = {}) {
+    super(NODE_TYPE, dbPath, port, protocolClass, initPeerUrls);
+
+    this.timer = setInterval(() => {
+      console.log(`Right now, there are ${this.peers().length} connected peers (full & thin).`);
+      // TODO this.debugInfo();
+    }, 20000);
+  }
+
+  static get nodeType() {
+    return NODE_TYPE;
+  }
+
+  close() {
+    clearInterval(this.timer);
+    super.close();
+  }
+
+  // TODO
+  debugInfo() {
+    console.log('<<<<< debug start >>>>>');
+    let peerUrls = this.peers().map(peer => peer.url);
+    console.log(peerUrls);
+    console.log('<<<<<< debug end >>>>>>');
+  }
+}
+
+module.exports = FullNode;
+
 
 /***/ }),
 /* 29 */
@@ -2002,7 +2307,7 @@ module.exports = LiteProtocolStore;
 /***/ (function(module, exports, __webpack_require__) {
 
 const { mine } = __webpack_require__(1);
-const createBlock = __webpack_require__(14);
+const createBlock = __webpack_require__(13);
 
 /**
  * mining manager : )
@@ -2060,6 +2365,30 @@ module.exports = Miner;
 
 /***/ }),
 /* 31 */
+/***/ (function(module, exports) {
+
+module.exports = require("crypto");
+
+/***/ }),
+/* 32 */
+/***/ (function(module, exports) {
+
+module.exports = require("child_process");
+
+/***/ }),
+/* 33 */
+/***/ (function(module, exports) {
+
+module.exports = require("bluebird");
+
+/***/ }),
+/* 34 */
+/***/ (function(module, exports) {
+
+module.exports = require("buffer");
+
+/***/ }),
+/* 35 */
 /***/ (function(module, exports, __webpack_require__) {
 
 const EventEmitter = __webpack_require__(0);
@@ -2365,274 +2694,15 @@ module.exports = Blockchain;
 
 
 /***/ }),
-/* 32 */
+/* 36 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const Peer = __webpack_require__(33);
-const {
-  messageValidators, info, infoAck,
-  messageTypes: { info: infoType, infoAck: infoAckType }
-} = __webpack_require__(5);
-const { getCurTimestamp } = __webpack_require__(3);
-const { getSocketAddress } = __webpack_require__(2);
-
-if (true) {
-  // running in node
-
-  var EventEmitter = __webpack_require__(0);
-
-} else { var EventEmitter; }
-
-// ********************* requiring ends *********************
-
-// allowed message types during handshake
-const MSG_TYPES = [infoType, infoAckType];
-
-class PendingSocket {
-  constructor(socket, incoming) {
-    // the pending socket itself
-    this.socket = socket;
-
-    // inbound or outbound
-    this.incoming = incoming;
-
-    // 'INIT'
-    // 'INFO_SENT'
-    // 'ESTABLISHED'
-    this.state = 'INIT';
-
-    // the timestamp when socket is created
-    this.timestamp = getCurTimestamp();
-
-    // remote info
-    this.uuid = undefined;
-    this.nodeType = undefined;
-    this.daemonPort = undefined;
-  }
-}
-
-// ******************** common code ends ********************
-
-// **************** env-specific code starts ****************
-
-if (true) {
-  // run in node
-
-  var HandshakeManager = class extends EventEmitter {
-    constructor(p2pProtocol) {
-      super();
-      this.socketConnectHandler = this.socketConnectHandler.bind(this);
-
-      this.litenode = p2pProtocol.litenode;
-      this.uuid = p2pProtocol.litenode.uuid;
-      this.nodeType = p2pProtocol.node.nodeType;
-      this.daemonPort = p2pProtocol.litenode.daemonPort;
-
-      // sockets => pending sockets (which is a wrapper)
-      this.pendingSockets = new Map();
-
-      // listen on new socket connection
-      this.litenode.on('socketconnect', this.socketConnectHandler);
-
-      // in case too many pending connections (such as DDoS),
-      // drop pending connections after roughly 20s' idle
-      this.timer = setInterval(() => {
-        let now = getCurTimestamp();
-        for (let [socket, pendingSocket] of this.pendingSockets) {
-          if (now - pendingSocket.timestamp > 20000) {
-            console.warn(`Handshake timeouts with ${getSocketAddress(socket)}.`);
-            socket.close(undefined, 'HANDSHAKE_TIMEOUTS');
-            this.pendingSockets.delete(socket);
-          }
-        }
-
-      }, 10000);
-    }
-
-    addPendingSocket(socket, incoming) {
-      try {
-        let pendingSocket = new PendingSocket(socket, incoming);
-
-        socket._messageHandler = ((message) => {
-          try {
-            let { state } = pendingSocket
-            let { messageType, ...payload } = JSON.parse(message);
-            if (typeof messageType !== 'string' || !MSG_TYPES.includes(messageType)) {
-              throw new Error();
-            }
-            
-            // when receiving info message
-            if (messageType === infoType) {
-              messageValidators[infoType](payload);
-    
-              if (incoming && state === 'INIT') {
-                pendingSocket.state = 'INFO_SENT'
-                pendingSocket.uuid = payload.uuid;
-                pendingSocket.nodeType = payload.nodeType;
-                pendingSocket.daemonPort = payload.daemonPort;
-    
-                this.sendInfo(socket);
-    
-              } else if (!incoming && state === 'INFO_SENT') {
-                pendingSocket.state = 'ESTABLISHED';
-                pendingSocket.uuid = payload.uuid;
-                pendingSocket.nodeType = payload.nodeType;
-                pendingSocket.daemonPort = payload.daemonPort;
-    
-                this.sendInfoAck(socket);
-                this.onEstablished(pendingSocket);
-    
-              } else {
-                throw new Error();
-              }
-            }
-    
-            // when receiving info ack message
-            if (messageType === infoAckType) {
-              messageValidators[infoAckType](payload);
-    
-              if (incoming && state === 'INFO_SENT') {
-                pendingSocket.state = 'ESTABLISHED';
-    
-                this.onEstablished(pendingSocket);
-    
-              } else {
-                throw new Error();
-              }
-            }
-    
-          } catch (err) {
-            console.warn(`Handshake failed with ${getSocketAddress(socket)}, reason:\n${err.stack}`);
-            // close the underlying socket
-            socket.close(undefined, 'HANDSHAKE_FAILED');
-          }
-
-        }).bind(this); // end of _messageHandler
-
-
-        this.pendingSockets.set(socket, pendingSocket);
-        socket.on('message', socket._messageHandler);
-
-        if (!incoming) {
-          // sending the first info message
-          // to initiate the handshake process
-          this.sendInfo(socket);
-          pendingSocket.state = 'INFO_SENT'
-        }
-
-      } catch (err) {
-        console.warn(`Handshake failed with ${getSocketAddress(socket)}, reason:\n${err}`);
-        // close the underlying socket
-        socket.close(undefined, 'HANDSHAKE_FAILED');
-      }
-    }
-
-    socketConnectHandler(socket, incoming) {
-      this.addPendingSocket(socket, incoming);
-    }
-
-    // on handshake completing
-    onEstablished(pendingSocket) {
-      let { socket, incoming, uuid, nodeType, daemonPort } = pendingSocket;
-      let peer = new Peer(uuid, socket, incoming, daemonPort, nodeType);
-
-      socket.removeListener('message', socket._messageHandler);
-      delete socket._messageHandler
-      
-      this.pendingSockets.delete(socket);
-      this.litenode.addNewPeer(peer);
-    }
-
-    sendInfo(socket) {
-      socket.send(JSON.stringify(info({
-        uuid: this.uuid, 
-        nodeType: this.nodeType,
-        daemonPort: this.daemonPort
-      })));
-    }
-
-    sendInfoAck(socket) {
-      socket.send( JSON.stringify(infoAck()) );
-    }
-
-    /**
-     * Do the cleanup.
-     */
-    close() {
-      if (this.timer) {
-        clearInterval(this.timer);
-      }
-    }
-  }; // end of HandshakeManager
-
-} else { var HandshakeManager; }
-
-module.exports = HandshakeManager;
-
-
-/***/ }),
-/* 33 */
-/***/ (function(module, exports, __webpack_require__) {
-
-const { getRemoteAddress } = __webpack_require__(2);
-
-class Peer {
-  /**
-   * @param {string} uuid             peer's uuid
-   * @param {*} socket                network socket to the peer
-   * @param {boolean} incoming        whehter the connection is incoming
-   * @param {string} daemonPort       peer's daemon port
-   * @param {string} nodeType         peer's node type
-   */
-  constructor(uuid, socket, incoming, daemonPort, nodeType) {
-    this.uuid = uuid;
-    this.socket = socket;
-    this.incoming = incoming;
-    this.daemonPort = daemonPort;
-    this.nodeType = nodeType;
-    this.url = `ws://${getRemoteAddress(socket)}:${daemonPort}`;
-  }
-
-  /**
-   * Note that error might be thrown, such as when trying to 
-   * send data through closed connection (very rare though - the
-   * underlaying litenode will take care of that).
-   * 
-   * @param {string} message to send
-   */
-  send(msg) {
-    this.socket.send(msg);
-  }
-
-  /**
-   * Note that error might be thrown, such as when trying to 
-   * send data through closed connection (very rare though - the
-   * underlaying litenode will take care of that).
-   * 
-   * @param {Object} jsonObj object to send
-   */
-  sendJson(jsonObj) {
-    this.send(JSON.stringify(jsonObj));
-  }
-
-  toString() {
-    return `${this.nodeType} - ${this.url}`;
-  }
-}
-
-module.exports = Peer;
-
-
-/***/ }),
-/* 34 */
-/***/ (function(module, exports, __webpack_require__) {
-
-const http = __webpack_require__(35);
-const express = __webpack_require__(36);
-const logger = __webpack_require__(37);
-const cookieParser = __webpack_require__(38);
-const bodyParser = __webpack_require__(39);
-const { isValidJson, parseChunk } = __webpack_require__(4);
+const http = __webpack_require__(37);
+const express = __webpack_require__(38);
+const logger = __webpack_require__(39);
+const cookieParser = __webpack_require__(40);
+const bodyParser = __webpack_require__(41);
+const { isValidJson, parseChunk } = __webpack_require__(5);
 
 const notfoundPayload = { 'not-found': true };
 
@@ -2771,126 +2841,55 @@ module.exports = createRestServer;
 
 
 /***/ }),
-/* 35 */
+/* 37 */
 /***/ (function(module, exports) {
 
 module.exports = require("http");
 
 /***/ }),
-/* 36 */
+/* 38 */
 /***/ (function(module, exports) {
 
 module.exports = require("express");
 
 /***/ }),
-/* 37 */
+/* 39 */
 /***/ (function(module, exports) {
 
 module.exports = require("morgan");
 
 /***/ }),
-/* 38 */
+/* 40 */
 /***/ (function(module, exports) {
 
 module.exports = require("cookie-parser");
 
 /***/ }),
-/* 39 */
+/* 41 */
 /***/ (function(module, exports) {
 
 module.exports = require("body-parser");
 
 /***/ }),
-/* 40 */
+/* 42 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const fs = __webpack_require__(6);
-const uuidv1 = __webpack_require__(41);
-const leveldown = __webpack_require__(7);
-const levelup = __webpack_require__(8);
-const LiteNode = __webpack_require__(9);
-const LiteProtocol = __webpack_require__(13);
+const { sha256 } = __webpack_require__(1);
 
 /**
- * The Litemessage fully functional node client.
- * 
- * TODO a base node class (also simplify the api, moving to litenode?)
- * TODO copy `peers` method to `litenode`, and abstract node class
- * TODO fails to bind should crash the client imediately
+ * @param {string} ver      version number (now hardcoded to 1, I don't have time :|)
+ * @param {int} time        timestamp (unix time)
+ * @param {string} litemsg  litemessage itself
+ * @param {string} sig      signature
+ * @param {string} pubKey   public key
  */
-class FullNode {
-  /**
-   * Note `port` here must be number (instead of string).
-   */
-  constructor(dbPath, { protocolClass = LiteProtocol, initPeerUrls = [], port } = {}) {
-    this.uuid = uuidv1();
-    this.nodeType = FullNode.nodeType;
-    this.initPeerUrls = [...initPeerUrls];
+const createLitemsg = (ver, time, litemsg, sig, pubKey) => {
+  let hash = sha256(`${ver}${time}${litemsg}${sig}${pubKey}`);
+  return { ver, time, litemsg, sig, pubKey, hash };
+};
 
-    // initialize the database (Level DB)
-    if (fs.existsSync(dbPath) && fs.statSync(dbPath).isDirectory()) {
-      console.log('Using existing LevelDB directory.');
-    } else {
-      console.log('A new LevelDB directory will be created.');
-    }
-    this.db = levelup(leveldown(dbPath));
+module.exports = createLitemsg;
 
-    // create underlying litenode
-    this.litenode = new LiteNode(this.uuid, { port });
-    // create protocol manager
-    this.protocol = new protocolClass(this);
-
-    this.timer = setInterval(() => {
-      console.log(`Right now, there are ${this.peers().length} connected peers (full & thin).`);
-      // TODO this.debugInfo();
-    }, 20000);
-
-    this.protocol.on('ready', () => {
-      // connect to initial peers
-      this.initPeerUrls.forEach(url => this.litenode.createConnection(url));
-    });
-  }
-
-  static get nodeType() {
-    return 'full';
-  }
-
-  /**
-   * @param {string|Array<string>} nodeType the node types (pass `*` for matching all types)
-   */
-  peers(nodeTypes = '*') {
-    if (typeof nodeTypes === 'string' && nodeTypes !== '*') {
-      nodeTypes = [nodeTypes];
-    }
-
-    let peers = this.litenode ? Object.values(this.litenode.peers) : [];
-    return peers.filter(peer => nodeTypes === '*' || nodeTypes.includes(peer.nodeType));
-  }
-
-  close() {
-    clearInterval(this.timer);
-    this.protocol.close();
-    this.litenode.close();
-    this.db.close();
-  }
-
-  // TODO
-  debugInfo() {
-    console.log('<<<<< debug start >>>>>');
-    let peerUrls = this.peers().map(peer => peer.url);
-    console.log(peerUrls);
-    console.log('<<<<<< debug end >>>>>>');
-  }
-}
-
-module.exports = FullNode;
-
-
-/***/ }),
-/* 41 */
-/***/ (function(module, exports) {
-
-module.exports = require("uuid/v1");
 
 /***/ })
 /******/ ]);

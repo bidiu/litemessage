@@ -4,8 +4,7 @@ const os = require('os');
 const path = require('path');
 const mkdirp = require('mkdirp');
 const {
-  ThinClient, ThinClientProtocol: protocolClass,
-  getCurTimestamp, data, createLitemsg,
+  ThinNode, getCurTimestamp, data, createLitemsg,
 } = require('../dist/index');
 
 const ops = {
@@ -52,7 +51,7 @@ console.log('Litemessage ID: ' + litemsg.hash);
 // create the data directory
 mkdirp.sync(dbpath);
 // start the thin node
-const node  = new ThinClient(protocolClass, dbpath, { port, initPeerUrls });
+const node  = new ThinNode(dbpath, { port, initPeerUrls });
 
 const timer = 
   setInterval(() => {

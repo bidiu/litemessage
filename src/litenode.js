@@ -20,7 +20,7 @@ const { getCurTimestamp } = require('./utils/time');
  * By default, node use 1113 as the daemon port inside the network.
  * 
  * TODO log handshake communication traffic
- * TODO use debug config
+ * TODO use debug config, also support cli to specify
  * TODO support specifying the interface to bind
  * 
  * #### Events

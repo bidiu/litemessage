@@ -4,7 +4,8 @@
  * task, which, if run in main thread, will block Node's
  * event loop.
  * 
- * This file will be copied to the `dist` directory directly.
+ * This file will be copied to the `dist` directory directly
+ * by webpack plugin.
  */
 
 const { sha256 } = require('./index');
