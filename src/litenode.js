@@ -1,6 +1,5 @@
 const EventEmitter = require('events');
 const WSServer = require('./wss');
-const uuidv1 = require('uuid/v1');
 const { getSocketAddress } = require('./utils/network');
 const { getCurTimestamp } = require('./utils/time');
 
@@ -15,12 +14,13 @@ const { getCurTimestamp } = require('./utils/time');
  * APIs and async events for implementing the protocol and any kind of litemessage
  * client ("thin" / "full" node) on top of that.
  * 
- * Each litenode will have a UUID automatically generated when starting up. 
- * Use this UUID as an application-level mechanism to identify a unique node.
+ * You must provide a UUID to the contructor. The UUID is the unique identifier 
+ * identify a unique node inside the peer-to-peer network.
+ * 
+ * By default, node use 1113 as the daemon port inside the network.
  * 
  * TODO log handshake communication traffic
  * TODO use debug config
- * TODO remove `uuid` and `nodeType` (uplifting?)
  * TODO support specifying the interface to bind
  * 
  * #### Events
@@ -36,14 +36,14 @@ class LiteNode extends EventEmitter {
   /**
    * A UUID will be automatically generated.
    */
-  constructor(nodeType, { port, debug = true } = {}) {
+  constructor(uuid, { port = 1113, debug = true } = {}) {
     super();
     this.socketConnectHandler = this.socketConnectHandler.bind(this);
     this.socketMessageHandler = this.socketMessageHandler.bind(this);
     this.socketCloseHandler = this.socketCloseHandler.bind(this);
 
-    this.uuid = uuidv1();
-    this.nodeType = nodeType;
+    this.uuid = uuid;
+    this.daemonPort = port;
 
     // node's uuid => peer
     this.peers = {};
@@ -55,11 +55,10 @@ class LiteNode extends EventEmitter {
     this.messageLogs = [];
 
     // create the underlyng websocket server
-    this.wss = new WSServer(this.uuid, this.nodeType, { port });
-
+    this.wss = new WSServer(port);
     // when bound to an network interface
     this.wss.on('listening', (port) => {
-      console.log(`${this.uuid}: Start listening on port ${port}.`);
+      console.log(`${uuid}: Start listening on port ${port}.`);
       if (this.debug) { console.log('Debug mode is enabled.'); }
     });
     // when new connection established

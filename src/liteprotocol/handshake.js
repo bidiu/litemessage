@@ -53,14 +53,14 @@ if (BUILD_TARGET === 'node') {
   // run in node
 
   var HandshakeManager = class extends EventEmitter {
-    constructor(litenode) {
+    constructor(p2pProtocol) {
       super();
       this.socketConnectHandler = this.socketConnectHandler.bind(this);
 
-      this.litenode = litenode;
-      this.uuid = litenode.uuid;
-      this.nodeType = litenode.nodeType;
-      this.daemonPort = litenode.wss.port;
+      this.litenode = p2pProtocol.litenode;
+      this.uuid = p2pProtocol.litenode.uuid;
+      this.nodeType = p2pProtocol.node.nodeType;
+      this.daemonPort = p2pProtocol.litenode.daemonPort;
 
       // sockets => pending sockets (which is a wrapper)
       this.pendingSockets = new Map();

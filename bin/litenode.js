@@ -3,9 +3,7 @@
 const os = require('os');
 const path = require('path');
 const mkdirp = require('mkdirp');
-const {
-  LiteProtocol, FullNode
-} = require('../dist/index');
+const { FullNode } = require('../dist/index');
 
 const ops = {
   'p': {
@@ -49,4 +47,4 @@ const { port, dbpath, _: initPeerUrls } = argv;
 // create the data directory
 mkdirp.sync(dbpath);
 // start the full litenode daemon
-new FullNode(LiteProtocol, dbpath, { port, initPeerUrls });
+new FullNode(dbpath, { initPeerUrls, port });

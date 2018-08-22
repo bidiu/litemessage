@@ -27,17 +27,27 @@ if (BUILD_TARGET === 'node') {
  * 
  * NOTE all subclass implementations MUST emit a `ready` event (a protocol is also
  * an event emitter).
+ * 
+ * NOTE the `nodeTypes` option, which specifies the types of node to connect automatically
+ * when connecting to few of these types of node. The threshold is set by `minPeerNum`
+ * option. The connected peers will also be persisted. When node is restarted, it will
+ * reconnect those peristed peers.
+ * 
+ * NOTE if you don't explicitly provde `nodeTypes` option, then it won't have any
+ * auto-connecting feature as well as the feature of auto peer persistance.
  */
 class P2PProtocol extends EventEmitter {
   /**
    * @param {*} node      full node, thin node, or...
-   * @param {*} nodeTypes node types to which a node will try to establish connection
+   * @param {*} options
+   *            nodeTypes nodeTypes node types to which a node will try to establish connection
    *                      automatically. For instance, you want to maintain connected
    *                      `full` nodes at least with a specific number, but you don't
    *                      care how many `thin` nodes are connected. So you should only
    *                      give `full` here, instead of both.
+   *           minPeerNum the minimal number of peers of type specified by `nodeTypes`
    */
-  constructor(node, nodeTypes, { minPeerNum = 8 } = {}) {
+  constructor(node, { nodeTypes = [], minPeerNum = 8 } = {}) {
     super();
 
     if (new.target === P2PProtocol) {
@@ -50,30 +60,34 @@ class P2PProtocol extends EventEmitter {
 
     this.node = node;
     this.litenode = node.litenode;
-    this.nodeTypes = nodeTypes;
-    this.minPeerNum = minPeerNum;
+
     this.intervalTimers = [];
     this.store = new P2PProtocolStore(node.db);
+    
+    this.nodeTypes = nodeTypes;
+    this.minPeerNum = minPeerNum;
 
     // register message handlers
     this.litenode.on(`message/${messageTypes['fetchPeers']}`, this.fetchPeersHandler);
     this.litenode.on(`message/${messageTypes['returnPeers']}`, this.returnPeersHandler);
 
-    this.connectToLastConnectedPeers();
+    if (nodeTypes.length) {
+      this.connectToLastConnectedPeers();
 
-    // periodically fetch more peers of given node types
-    this.intervalTimers.push(
-      setInterval(() => {
-        if (this.node.peers(nodeTypes).length < minPeerNum) {
-          this.litenode.broadcastJson(fetchPeers({ nodeTypes }));
-        }
-      }, 60000)
-    );
+      // periodically fetch more peers of given node types
+      this.intervalTimers.push(
+        setInterval(() => {
+          if (this.node.peers(nodeTypes).length < minPeerNum) {
+            this.litenode.broadcastJson(fetchPeers({ nodeTypes }));
+          }
+        }, 60000)
+      );
 
-    // periodically persist peer urls
-    this.intervalTimers.push(
-      setInterval(this.persistPeerUrls, 120000)
-    );
+      // periodically persist peer urls
+      this.intervalTimers.push(
+        setInterval(this.persistPeerUrls, 120000)
+      );
+    }
   }
 
   async connectToLastConnectedPeers() {

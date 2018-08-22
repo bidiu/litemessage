@@ -15,20 +15,26 @@ const {
 const { pickItems } = require('../utils/common');
 const { getCurTimestamp } = require('../utils/time');
 
-const ver = 1;
-const bits = 22;
-const blockLimit = 2048;
+// protcol version
+const VERSION = 1;
+// mining difficulty
+const BITS = 22;
+// block size limit
+const BLOCK_LIMIT = 2048;
+// node types to re/connect automatically
+const AUTO_CONN_NODE_TYPES = ['full']
 
 /**
- * TODO give only "full" to p2pprotocol
+ * This is the actual litemessage protocol implementation
+ * for "full" nodes.
  */
 class LiteProtocol extends P2PProtocol {
   static get ver() {
-    return ver;
+    return VERSION;
   }
 
-  constructor(node, nodeTypes, { minPeerNum = 8 } = {}) {
-    super(node, nodeTypes, { minPeerNum });
+  constructor(node) {
+    super(node, { nodeTypes: AUTO_CONN_NODE_TYPES });
     this.getBlocksHandler = this.getBlocksHandler.bind(this);
     this.invHandler = this.invHandler.bind(this);
     this.getDataHandler = this.getDataHandler.bind(this);
@@ -44,7 +50,7 @@ class LiteProtocol extends P2PProtocol {
     this.litemsgPool = {};
 
     // wait for blockchain initializing itself
-    this.blockchain.on('ready', () => { this.init() });
+    this.blockchain.on('ready', () => this.init());
 
     this.blockchain.on('error', err => {
       console.error(err);
@@ -63,10 +69,10 @@ class LiteProtocol extends P2PProtocol {
 
     // instantiate a handshake manager so that
     // our node can connect to other nodes : P
-    this.handshake = new HandshakeManager(this.litenode);
+    this.handshake = new HandshakeManager(this);
 
     // create and run rest server
-    createRestServer(this).listen(this.node.port + 1);
+    createRestServer(this).listen(this.litenode.daemonPort + 1);
 
     // some schedule tasks (interval timers)
     this.timers = [];
@@ -100,14 +106,14 @@ class LiteProtocol extends P2PProtocol {
 
   async getNextBlock() {
     let time = getCurTimestamp();
-    let litemsgs = pickItems(Object.values(this.litemsgPool), blockLimit);
+    let litemsgs = pickItems(Object.values(this.litemsgPool), BLOCK_LIMIT);
     let merkleRoot = calcMerkleRoot(litemsgs.map(m => m.hash));
     let { 
       height = -1, hash: prevBlock = undefined 
     } = await this.blockchain.getHeadBlock() || {};
     height += 1;
     
-    return createBlock(ver, time, height, prevBlock, merkleRoot, bits, undefined, litemsgs);
+    return createBlock(VERSION, time, height, prevBlock, merkleRoot, BITS, undefined, litemsgs);
   }
 
   async mineNextBlock() {

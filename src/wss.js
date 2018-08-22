@@ -10,7 +10,6 @@ const { getSocketAddress } = require('./utils/network');
  * 
  * The P2P network is a directed graph with bidirectional communication channels.
  * 
- * TODO remove `uuid` and `nodeType`
  * TODO docker delievery
  * TODO investigate event emitter memory leak
  * TODO close reason doesn't work
@@ -22,20 +21,16 @@ const { getSocketAddress } = require('./utils/network');
  * For all other events, use the underlying web socket object.
  */
 class WSServer extends EventEmitter {
-  constructor(uuid, nodeType, { port = 1113 } = {}) {
+  constructor(port) {
     super();
     this.connectionHandler = this.connectionHandler.bind(this);
     
-    this.uuid = uuid;
-    this.nodeType = nodeType;
-    this.port = port;
-
     // map remote socket addresses (ip:port) to sockets
     this.servers = {};
+    this.port = port;
     
     // create underlaying server and listen
     this.wss = new WebSocket.Server({ port });
-
     // when bound to an network interface
     this.wss.on('listening', () => this.emit('listening', port));
     // when receiving incoming connection

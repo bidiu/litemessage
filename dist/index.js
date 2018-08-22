@@ -1,4 +1,4 @@
-/*! v0.3.0-7-g32a1cfa */
+/*! v0.3.0-8-g5d93e1a */
 module.exports =
 /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
@@ -83,7 +83,7 @@ module.exports =
 /******/
 /******/
 /******/ 	// Load entry module and return exports
-/******/ 	return __webpack_require__(__webpack_require__.s = 14);
+/******/ 	return __webpack_require__(__webpack_require__.s = 15);
 /******/ })
 /************************************************************************/
 /******/ ([
@@ -611,8 +611,7 @@ module.exports = require("levelup");
 /***/ (function(module, exports, __webpack_require__) {
 
 const EventEmitter = __webpack_require__(0);
-const WSServer = __webpack_require__(16);
-const uuidv1 = __webpack_require__(18);
+const WSServer = __webpack_require__(17);
 const { getSocketAddress } = __webpack_require__(2);
 const { getCurTimestamp } = __webpack_require__(3);
 
@@ -627,12 +626,13 @@ const { getCurTimestamp } = __webpack_require__(3);
  * APIs and async events for implementing the protocol and any kind of litemessage
  * client ("thin" / "full" node) on top of that.
  * 
- * Each litenode will have a UUID automatically generated when starting up. 
- * Use this UUID as an application-level mechanism to identify a unique node.
+ * You must provide a UUID to the contructor. The UUID is the unique identifier 
+ * identify a unique node inside the peer-to-peer network.
+ * 
+ * By default, node use 1113 as the daemon port inside the network.
  * 
  * TODO log handshake communication traffic
  * TODO use debug config
- * TODO remove `uuid` and `nodeType` (uplifting?)
  * TODO support specifying the interface to bind
  * 
  * #### Events
@@ -648,14 +648,14 @@ class LiteNode extends EventEmitter {
   /**
    * A UUID will be automatically generated.
    */
-  constructor(nodeType, { port, debug = true } = {}) {
+  constructor(uuid, { port = 1113, debug = true } = {}) {
     super();
     this.socketConnectHandler = this.socketConnectHandler.bind(this);
     this.socketMessageHandler = this.socketMessageHandler.bind(this);
     this.socketCloseHandler = this.socketCloseHandler.bind(this);
 
-    this.uuid = uuidv1();
-    this.nodeType = nodeType;
+    this.uuid = uuid;
+    this.daemonPort = port;
 
     // node's uuid => peer
     this.peers = {};
@@ -667,11 +667,10 @@ class LiteNode extends EventEmitter {
     this.messageLogs = [];
 
     // create the underlyng websocket server
-    this.wss = new WSServer(this.uuid, this.nodeType, { port });
-
+    this.wss = new WSServer(port);
     // when bound to an network interface
     this.wss.on('listening', (port) => {
-      console.log(`${this.uuid}: Start listening on port ${port}.`);
+      console.log(`${uuid}: Start listening on port ${port}.`);
       if (this.debug) { console.log('Debug mode is enabled.'); }
     });
     // when new connection established
@@ -868,17 +867,27 @@ if (true) {
  * 
  * NOTE all subclass implementations MUST emit a `ready` event (a protocol is also
  * an event emitter).
+ * 
+ * NOTE the `nodeTypes` option, which specifies the types of node to connect automatically
+ * when connecting to few of these types of node. The threshold is set by `minPeerNum`
+ * option. The connected peers will also be persisted. When node is restarted, it will
+ * reconnect those peristed peers.
+ * 
+ * NOTE if you don't explicitly provde `nodeTypes` option, then it won't have any
+ * auto-connecting feature as well as the feature of auto peer persistance.
  */
 class P2PProtocol extends EventEmitter {
   /**
    * @param {*} node      full node, thin node, or...
-   * @param {*} nodeTypes node types to which a node will try to establish connection
+   * @param {*} options
+   *            nodeTypes nodeTypes node types to which a node will try to establish connection
    *                      automatically. For instance, you want to maintain connected
    *                      `full` nodes at least with a specific number, but you don't
    *                      care how many `thin` nodes are connected. So you should only
    *                      give `full` here, instead of both.
+   *           minPeerNum the minimal number of peers of type specified by `nodeTypes`
    */
-  constructor(node, nodeTypes, { minPeerNum = 8 } = {}) {
+  constructor(node, { nodeTypes = [], minPeerNum = 8 } = {}) {
     super();
 
     if (new.target === P2PProtocol) {
@@ -891,30 +900,34 @@ class P2PProtocol extends EventEmitter {
 
     this.node = node;
     this.litenode = node.litenode;
-    this.nodeTypes = nodeTypes;
-    this.minPeerNum = minPeerNum;
+
     this.intervalTimers = [];
     this.store = new P2PProtocolStore(node.db);
+    
+    this.nodeTypes = nodeTypes;
+    this.minPeerNum = minPeerNum;
 
     // register message handlers
     this.litenode.on(`message/${messageTypes['fetchPeers']}`, this.fetchPeersHandler);
     this.litenode.on(`message/${messageTypes['returnPeers']}`, this.returnPeersHandler);
 
-    this.connectToLastConnectedPeers();
+    if (nodeTypes.length) {
+      this.connectToLastConnectedPeers();
 
-    // periodically fetch more peers of given node types
-    this.intervalTimers.push(
-      setInterval(() => {
-        if (this.node.peers(nodeTypes).length < minPeerNum) {
-          this.litenode.broadcastJson(fetchPeers({ nodeTypes }));
-        }
-      }, 60000)
-    );
+      // periodically fetch more peers of given node types
+      this.intervalTimers.push(
+        setInterval(() => {
+          if (this.node.peers(nodeTypes).length < minPeerNum) {
+            this.litenode.broadcastJson(fetchPeers({ nodeTypes }));
+          }
+        }, 60000)
+      );
 
-    // periodically persist peer urls
-    this.intervalTimers.push(
-      setInterval(this.persistPeerUrls, 120000)
-    );
+      // periodically persist peer urls
+      this.intervalTimers.push(
+        setInterval(this.persistPeerUrls, 120000)
+      );
+    }
   }
 
   async connectToLastConnectedPeers() {
@@ -1003,480 +1016,13 @@ module.exports = require("path");
 /* 13 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const { sha256 } = __webpack_require__(1);
-
-/**
- * Note for genesis block, its `height` must be 0, and `prevBlock` be `undefined`.
- * 
- * @param {*} ver         version number (now hardcoded to 1, I don't have time :|)
- * @param {*} time        timestamp (unix time)
- * @param {*} height
- * @param {*} prevBlock   previous block's id
- * @param {*} merkleRoot  merkle root
- * @param {*} bits        difficulty
- * @param {*} nonce       nonce
- * @param {*} litemsgs    an array of litemessages (not ids)
- */
-const createBlock = (ver, time, height, prevBlock, merkleRoot, bits, nonce, litemsgs) => {
-  let hash = undefined;
-  if (typeof nonce === 'number') {
-    // only calculate hash when `nonce` is given
-    hash = sha256(`${ver}${time}${height}${prevBlock}${merkleRoot}${bits}${nonce}`);
-  }
-  return { ver, time, height, prevBlock, merkleRoot, bits, nonce, litemsgs, hash };
-};
-
-module.exports = createBlock;
-
-
-/***/ }),
-/* 14 */
-/***/ (function(module, exports, __webpack_require__) {
-
-if (true) {
-  // node (output as commonjs)
-
-  exports.ThinClient = __webpack_require__(15);
-  exports.ThinClientProtocol = __webpack_require__(19);
-
-  exports.createLitemsg = __webpack_require__(24);
-  exports.LiteProtocol = __webpack_require__(29);
-  module.exports = exports =  { ...exports, ...__webpack_require__(5) };
-
-  module.exports = exports = { ...exports, ...__webpack_require__(1) };
-  module.exports = exports = { ...exports, ...__webpack_require__(3) };
-  
-  exports.FullNode = __webpack_require__(41);
-  
-} else {}
-
-
-/***/ }),
-/* 15 */
-/***/ (function(module, exports, __webpack_require__) {
-
-const fs = __webpack_require__(6);
-const leveldown = __webpack_require__(7);
-const levelup = __webpack_require__(8);
-const LiteNode = __webpack_require__(9);
-
-const nodeTypes = ['full', 'thin'];
-const nodeType = 'thin';
-
-class ThinClient {
-  constructor(protocolClass, dbPath, { port = 1113, initPeerUrls = [] } = {}) {
-    this.port = port;
-    port = typeof port === 'number' ? (port + '') : undefined;
-    this.initPeerUrls = [...initPeerUrls];
-
-    // initialize the db (level db)
-    this.initDb(dbPath);
-
-    // create underlying litenode
-    this.litenode = new LiteNode(nodeType, { port });
-
-    // load protocol
-    this.protocol = new protocolClass(this, nodeTypes);
-
-    // connect to initial peers
-    initPeerUrls.forEach(url => this.litenode.createConnection(url));
-
-    this.timer = setInterval(() => {
-      console.log(`Right now, there are ${this.peers().length} connected peers (full & thin).`);
-    }, 20000);
-  }
-
-  static get nodeType() {
-    return nodeType;
-  }
-
-  initDb(dbPath) {
-    if (fs.existsSync(dbPath) && fs.statSync(dbPath).isDirectory()) {
-      console.log('Using existing LevelDB directory.');
-    } else {
-      console.log('A new LevelDB directory will be created.');
-    }
-    this.db = levelup(leveldown(dbPath));
-  }
-
-  /**
-   * @param {string|Array<string>} nodeType the node types (pass `*` for matching all types)
-   */
-  peers(nodeTypes = '*') {
-    if (typeof nodeTypes === 'string' && nodeTypes !== '*') {
-      nodeTypes = [nodeTypes];
-    }
-
-    let peers = this.litenode ? Object.values(this.litenode.peers) : [];
-    return peers.filter(peer => nodeTypes === '*' || nodeTypes.includes(peer.nodeType));
-  }
-
-  close(callback) {
-    clearInterval(this.timer);
-    this.litenode.close(callback);
-    this.db.close();
-  }
-}
-
-module.exports = ThinClient;
-
-
-/***/ }),
-/* 16 */
-/***/ (function(module, exports, __webpack_require__) {
-
-const EventEmitter = __webpack_require__(0);
-const WebSocket = __webpack_require__(17);
-const { URL } = __webpack_require__(10);
-const { getSocketAddress } = __webpack_require__(2);
-
-/**
- * Provide abstraction for underlaying transportation protocol. It behaves 
- * both like a server and a client - it will connect to several clients, 
- * and also several servers (P2P network).
- * 
- * The P2P network is a directed graph with bidirectional communication channels.
- * 
- * TODO remove `uuid` and `nodeType`
- * TODO docker delievery
- * TODO investigate event emitter memory leak
- * TODO close reason doesn't work
- * 
- * ##### Events
- * - `listening` (port: string) - when the underlying ws server binds successfully
- * - `connection` (socket, incoming) - low level socket connection
- * 
- * For all other events, use the underlying web socket object.
- */
-class WSServer extends EventEmitter {
-  constructor(uuid, nodeType, { port = 1113 } = {}) {
-    super();
-    this.connectionHandler = this.connectionHandler.bind(this);
-    
-    this.uuid = uuid;
-    this.nodeType = nodeType;
-    this.port = port;
-
-    // map remote socket addresses (ip:port) to sockets
-    this.servers = {};
-    
-    // create underlaying server and listen
-    this.wss = new WebSocket.Server({ port });
-
-    // when bound to an network interface
-    this.wss.on('listening', () => this.emit('listening', port));
-    // when receiving incoming connection
-    this.wss.on('connection', (socket, req) => {
-      this.connectionHandler(socket, true);
-    });
-    // when websocket server has error (don't crash it)
-    this.wss.on('error', console.log);
-
-    // set up heartbeats
-    this.timer = setInterval(this.genHeartbeat(), 60000);
-  }
-
-  /**
-   * Note that you cannot have more than one socket to a single URL.
-   * And also note that error could be thrown if url is invalid.
-   * Failure of connection will only cause some logs (won't crash
-   * the application).
-   * 
-   * Right now, there's no way to get notified when it fails to connect
-   * (such as because of timeout) except for a log mentioned before.
-   */
-  createConnection(url) {
-    let socketAddress = null;
-    let remoteDaemonPort = null;
-    try {
-      ({ host: socketAddress, port: remoteDaemonPort } = new URL(url));
-      if (!socketAddress || !remoteDaemonPort.match(/^\d+$/)) { throw new Error(); }
-    } catch (err) {
-      throw new Error(`Wrong url (${url}) to connect.`);
-    }
-
-    let prevSocket = this.servers[socketAddress];
-    if (prevSocket && this.socketAlive(prevSocket)) {
-      console.warn(`Tried to connect to same url (${url}) twice. Operation aborted.`);
-      return;
-    }
-
-    let socket = new WebSocket(url, { handshakeTimeout: 10000 });
-
-    socket.on('error', (err) =>
-      console.log(`Unable to establish connection to ${url}. Details:\n${err}.`));
-
-    socket.on('open', () => {
-      let prevSocket = this.servers[socketAddress];
-      if (prevSocket && this.socketAlive(prevSocket)) {
-        // TODO investigate memory leak
-        socket.on('close', () => socket.removeAllListeners());
-        socket.close(undefined, 'DOUBLE_CONNECT');
-        return;
-      }
-      socket.removeAllListeners('error');
-      this.connectionHandler(socket, false);
-      this.servers[socketAddress] = socket;
-    });
-  }
-
-  genHeartbeat() {
-    let noop = () => {};
-    return () => {
-      for (let socket of [...this.wss.clients, ...Object.values(this.servers)]) {
-        if (this.socketAbnormal(socket)) {
-          socket.terminate();
-        }
-        // set socket `alive` to false, later pong response
-        // from client will recover `alive` from false to true
-        socket.alive = false;
-        socket.ping(noop);
-      }
-    }
-  }
-
-  /**
-   * @param {*} socket                  the underlaying socket
-   * @param {boolean} incoming          whether the connection is incoming
-   */
-  connectionHandler(socket, incoming) {
-    let socketAddress = getSocketAddress(socket);
-    socket.alive = true;
-    socket.on('message', () => socket.alive = true);
-    socket.on('pong', () => socket.alive = true);
-    socket.on('close', () => {
-      socket.alive = false;
-      socket.removeAllListeners();
-      if (socket === this.servers[socketAddress]) {
-        delete this.servers[socketAddress];
-      }
-    });
-    socket.on('error', err => {
-      console.log(err);
-      socket.terminate();
-    });
-    // notify subscribers
-    this.emit('connection', socket, incoming);
-  }
-
-  socketAbnormal(socket) {
-    return !socket.alive && socket.readyState === WebSocket.OPEN;
-  }
-
-  socketAlive(socket) {
-    return socket.readyState === WebSocket.OPEN;
-  }
-
-  /**
-   * Close this node (both server and outgoing socket connections will
-   * be closed)
-   */
-  close() {
-    clearInterval(this.timer);
-    this.wss.close();
-  }
-}
-
-module.exports = WSServer;
-
-
-/***/ }),
-/* 17 */
-/***/ (function(module, exports) {
-
-module.exports = require("ws");
-
-/***/ }),
-/* 18 */
-/***/ (function(module, exports) {
-
-module.exports = require("uuid/v1");
-
-/***/ }),
-/* 19 */
-/***/ (function(module, exports, __webpack_require__) {
-
 const P2PProtocol = __webpack_require__(11);
-
-/**
- * TODO later might change to extend liteprotocol
- */
-const protocolClass = class extends P2PProtocol {
-  constructor(node, nodeTypes, { minPeerNum = 8 } = {}) {
-    super(node, nodeTypes, { minPeerNum });
-  }
-};
-
-module.exports = protocolClass;
-
-
-/***/ }),
-/* 20 */
-/***/ (function(module, exports) {
-
-module.exports = require("dns");
-
-/***/ }),
-/* 21 */
-/***/ (function(module, exports) {
-
-module.exports = require("util");
-
-/***/ }),
-/* 22 */
-/***/ (function(module, exports) {
-
-const prefix = 'p2p/';
-
-const genKey = key => prefix + key;
-
-class P2PProtocolStore {
-  constructor(db) {
-    this.db = db;
-  }
-
-  /**
-   * Flush current connected peers' URLs into DB. 
-   * Note that you should only provide peers with 
-   * desired `nodeType`s.
-   */
-  async writeCurPeerUrls(peerUrls) {
-    let data = JSON.stringify(peerUrls);
-    return this.db.put(genKey('cur_peer_urls'), data);
-  }
-
-  async readCurPeerUrls() {
-    try {
-      let buf = await this.db.get(genKey('cur_peer_urls'));
-      return JSON.parse(buf.toString());
-    } catch (err) {
-      if (err.notFound) { return []; }
-      throw err;
-    }
-  }
-}
-
-module.exports = P2PProtocolStore;
-
-
-/***/ }),
-/* 23 */
-/***/ (function(module, exports) {
-
-// message type constants
-const messageTypes = Object.freeze({
-  fetchPeers: 'p2p/fetch_peers',
-  returnPeers: 'p2p/return_peers'
-});
-
-
-/**
- * 
- */
-const fetchPeers = ({ nodeTypes, limit = 20 } = {}) => ({
-  messageType: messageTypes.fetchPeers, 
-  nodeTypes, 
-  limit
-});
-
-fetchPeers.validate = ({ nodeTypes, limit }) => {
-  if (!(nodeTypes instanceof Array) || nodeTypes.length === 0) {
-    throw new Error('p2p/: Invalid message, field nodeTypes.');
-  }
-  if (typeof limit !== 'number' || limit <= 0) {
-    throw new Error('p2p/: Invalid message, field limit.');
-  }
-};
-
-
-/**
- * 
- */
-const returnPeers = ({ nodeTypes, peerUrls = [] } = {}) => ({
-  messageType: messageTypes.returnPeers, 
-  nodeTypes, 
-  peerUrls
-});
-
-returnPeers.validate = ({ nodeTypes, peerUrls }) => {
-  if (!(nodeTypes instanceof Array) || nodeTypes.length === 0) {
-    throw new Error('p2p/: Invalid message, field nodeTypes.');
-  }
-  if (!(peerUrls instanceof Array)) {
-    throw new Error('p2p/: Invalid message, field peerUrls.');
-  }
-};
-
-
-// validators
-const messageValidators = Object.freeze({
-  [messageTypes.fetchPeers]: fetchPeers.validate,
-  [messageTypes.returnPeers]: returnPeers.validate
-});
-
-
-exports.messageTypes = messageTypes;
-exports.messageValidators = messageValidators;
-exports.fetchPeers = fetchPeers;
-exports.returnPeers = returnPeers;
-
-
-/***/ }),
-/* 24 */
-/***/ (function(module, exports, __webpack_require__) {
-
-const { sha256 } = __webpack_require__(1);
-
-/**
- * @param {string} ver      version number (now hardcoded to 1, I don't have time :|)
- * @param {int} time        timestamp (unix time)
- * @param {string} litemsg  litemessage itself
- * @param {string} sig      signature
- * @param {string} pubKey   public key
- */
-const createLitemsg = (ver, time, litemsg, sig, pubKey) => {
-  let hash = sha256(`${ver}${time}${litemsg}${sig}${pubKey}`);
-  return { ver, time, litemsg, sig, pubKey, hash };
-};
-
-module.exports = createLitemsg;
-
-
-/***/ }),
-/* 25 */
-/***/ (function(module, exports) {
-
-module.exports = require("crypto");
-
-/***/ }),
-/* 26 */
-/***/ (function(module, exports) {
-
-module.exports = require("child_process");
-
-/***/ }),
-/* 27 */
-/***/ (function(module, exports) {
-
-module.exports = require("bluebird");
-
-/***/ }),
-/* 28 */
-/***/ (function(module, exports) {
-
-module.exports = require("buffer");
-
-/***/ }),
-/* 29 */
-/***/ (function(module, exports, __webpack_require__) {
-
-const P2PProtocol = __webpack_require__(11);
-const LiteProtocolStore = __webpack_require__(30);
-const Miner = __webpack_require__(31);
-const Blockchain = __webpack_require__(32);
-const HandshakeManager = __webpack_require__(33);
-const createRestServer = __webpack_require__(35);
-const createBlock = __webpack_require__(13);
+const LiteProtocolStore = __webpack_require__(29);
+const Miner = __webpack_require__(30);
+const Blockchain = __webpack_require__(31);
+const HandshakeManager = __webpack_require__(32);
+const createRestServer = __webpack_require__(34);
+const createBlock = __webpack_require__(14);
 const {
   messageTypes, messageValidators, getBlocks, 
   inv, getData, data, getPendingMsgs
@@ -1487,20 +1033,26 @@ const {
 const { pickItems } = __webpack_require__(4);
 const { getCurTimestamp } = __webpack_require__(3);
 
-const ver = 1;
-const bits = 22;
-const blockLimit = 2048;
+// protcol version
+const VERSION = 1;
+// mining difficulty
+const BITS = 22;
+// block size limit
+const BLOCK_LIMIT = 2048;
+// node types to re/connect automatically
+const AUTO_CONN_NODE_TYPES = ['full']
 
 /**
- * TODO give only "full" to p2pprotocol
+ * This is the actual litemessage protocol implementation
+ * for "full" nodes.
  */
 class LiteProtocol extends P2PProtocol {
   static get ver() {
-    return ver;
+    return VERSION;
   }
 
-  constructor(node, nodeTypes, { minPeerNum = 8 } = {}) {
-    super(node, nodeTypes, { minPeerNum });
+  constructor(node) {
+    super(node, { nodeTypes: AUTO_CONN_NODE_TYPES });
     this.getBlocksHandler = this.getBlocksHandler.bind(this);
     this.invHandler = this.invHandler.bind(this);
     this.getDataHandler = this.getDataHandler.bind(this);
@@ -1516,7 +1068,7 @@ class LiteProtocol extends P2PProtocol {
     this.litemsgPool = {};
 
     // wait for blockchain initializing itself
-    this.blockchain.on('ready', () => { this.init() });
+    this.blockchain.on('ready', () => this.init());
 
     this.blockchain.on('error', err => {
       console.error(err);
@@ -1535,10 +1087,10 @@ class LiteProtocol extends P2PProtocol {
 
     // instantiate a handshake manager so that
     // our node can connect to other nodes : P
-    this.handshake = new HandshakeManager(this.litenode);
+    this.handshake = new HandshakeManager(this);
 
     // create and run rest server
-    createRestServer(this).listen(this.node.port + 1);
+    createRestServer(this).listen(this.litenode.daemonPort + 1);
 
     // some schedule tasks (interval timers)
     this.timers = [];
@@ -1572,14 +1124,14 @@ class LiteProtocol extends P2PProtocol {
 
   async getNextBlock() {
     let time = getCurTimestamp();
-    let litemsgs = pickItems(Object.values(this.litemsgPool), blockLimit);
+    let litemsgs = pickItems(Object.values(this.litemsgPool), BLOCK_LIMIT);
     let merkleRoot = calcMerkleRoot(litemsgs.map(m => m.hash));
     let { 
       height = -1, hash: prevBlock = undefined 
     } = await this.blockchain.getHeadBlock() || {};
     height += 1;
     
-    return createBlock(ver, time, height, prevBlock, merkleRoot, bits, undefined, litemsgs);
+    return createBlock(VERSION, time, height, prevBlock, merkleRoot, BITS, undefined, litemsgs);
   }
 
   async mineNextBlock() {
@@ -1843,7 +1395,463 @@ module.exports = LiteProtocol;
 
 
 /***/ }),
-/* 30 */
+/* 14 */
+/***/ (function(module, exports, __webpack_require__) {
+
+const { sha256 } = __webpack_require__(1);
+
+/**
+ * Note for genesis block, its `height` must be 0, and `prevBlock` be `undefined`.
+ * 
+ * @param {*} ver         version number (now hardcoded to 1, I don't have time :|)
+ * @param {*} time        timestamp (unix time)
+ * @param {*} height
+ * @param {*} prevBlock   previous block's id
+ * @param {*} merkleRoot  merkle root
+ * @param {*} bits        difficulty
+ * @param {*} nonce       nonce
+ * @param {*} litemsgs    an array of litemessages (not ids)
+ */
+const createBlock = (ver, time, height, prevBlock, merkleRoot, bits, nonce, litemsgs) => {
+  let hash = undefined;
+  if (typeof nonce === 'number') {
+    // only calculate hash when `nonce` is given
+    hash = sha256(`${ver}${time}${height}${prevBlock}${merkleRoot}${bits}${nonce}`);
+  }
+  return { ver, time, height, prevBlock, merkleRoot, bits, nonce, litemsgs, hash };
+};
+
+module.exports = createBlock;
+
+
+/***/ }),
+/* 15 */
+/***/ (function(module, exports, __webpack_require__) {
+
+if (true) {
+  // node (output as commonjs)
+
+  exports.ThinClient = __webpack_require__(16);
+  exports.ThinClientProtocol = __webpack_require__(19);
+
+  exports.createLitemsg = __webpack_require__(24);
+  exports.LiteProtocol = __webpack_require__(13);
+  module.exports = exports =  { ...exports, ...__webpack_require__(5) };
+
+  module.exports = exports = { ...exports, ...__webpack_require__(1) };
+  module.exports = exports = { ...exports, ...__webpack_require__(3) };
+  
+  exports.FullNode = __webpack_require__(40);
+  
+} else {}
+
+
+/***/ }),
+/* 16 */
+/***/ (function(module, exports, __webpack_require__) {
+
+const fs = __webpack_require__(6);
+const leveldown = __webpack_require__(7);
+const levelup = __webpack_require__(8);
+const LiteNode = __webpack_require__(9);
+
+const nodeTypes = ['full', 'thin'];
+const nodeType = 'thin';
+
+class ThinClient {
+  constructor(protocolClass, dbPath, { port = 1113, initPeerUrls = [] } = {}) {
+    this.port = port;
+    port = typeof port === 'number' ? (port + '') : undefined;
+    this.initPeerUrls = [...initPeerUrls];
+
+    // initialize the db (level db)
+    this.initDb(dbPath);
+
+    // create underlying litenode
+    this.litenode = new LiteNode(nodeType, { port });
+
+    // load protocol
+    this.protocol = new protocolClass(this, nodeTypes);
+
+    // connect to initial peers
+    initPeerUrls.forEach(url => this.litenode.createConnection(url));
+
+    this.timer = setInterval(() => {
+      console.log(`Right now, there are ${this.peers().length} connected peers (full & thin).`);
+    }, 20000);
+  }
+
+  static get nodeType() {
+    return nodeType;
+  }
+
+  initDb(dbPath) {
+    if (fs.existsSync(dbPath) && fs.statSync(dbPath).isDirectory()) {
+      console.log('Using existing LevelDB directory.');
+    } else {
+      console.log('A new LevelDB directory will be created.');
+    }
+    this.db = levelup(leveldown(dbPath));
+  }
+
+  /**
+   * @param {string|Array<string>} nodeType the node types (pass `*` for matching all types)
+   */
+  peers(nodeTypes = '*') {
+    if (typeof nodeTypes === 'string' && nodeTypes !== '*') {
+      nodeTypes = [nodeTypes];
+    }
+
+    let peers = this.litenode ? Object.values(this.litenode.peers) : [];
+    return peers.filter(peer => nodeTypes === '*' || nodeTypes.includes(peer.nodeType));
+  }
+
+  close(callback) {
+    clearInterval(this.timer);
+    this.litenode.close(callback);
+    this.db.close();
+  }
+}
+
+module.exports = ThinClient;
+
+
+/***/ }),
+/* 17 */
+/***/ (function(module, exports, __webpack_require__) {
+
+const EventEmitter = __webpack_require__(0);
+const WebSocket = __webpack_require__(18);
+const { URL } = __webpack_require__(10);
+const { getSocketAddress } = __webpack_require__(2);
+
+/**
+ * Provide abstraction for underlaying transportation protocol. It behaves 
+ * both like a server and a client - it will connect to several clients, 
+ * and also several servers (P2P network).
+ * 
+ * The P2P network is a directed graph with bidirectional communication channels.
+ * 
+ * TODO docker delievery
+ * TODO investigate event emitter memory leak
+ * TODO close reason doesn't work
+ * 
+ * ##### Events
+ * - `listening` (port: string) - when the underlying ws server binds successfully
+ * - `connection` (socket, incoming) - low level socket connection
+ * 
+ * For all other events, use the underlying web socket object.
+ */
+class WSServer extends EventEmitter {
+  constructor(port) {
+    super();
+    this.connectionHandler = this.connectionHandler.bind(this);
+    
+    // map remote socket addresses (ip:port) to sockets
+    this.servers = {};
+    this.port = port;
+    
+    // create underlaying server and listen
+    this.wss = new WebSocket.Server({ port });
+    // when bound to an network interface
+    this.wss.on('listening', () => this.emit('listening', port));
+    // when receiving incoming connection
+    this.wss.on('connection', (socket, req) => {
+      this.connectionHandler(socket, true);
+    });
+    // when websocket server has error (don't crash it)
+    this.wss.on('error', console.log);
+
+    // set up heartbeats
+    this.timer = setInterval(this.genHeartbeat(), 60000);
+  }
+
+  /**
+   * Note that you cannot have more than one socket to a single URL.
+   * And also note that error could be thrown if url is invalid.
+   * Failure of connection will only cause some logs (won't crash
+   * the application).
+   * 
+   * Right now, there's no way to get notified when it fails to connect
+   * (such as because of timeout) except for a log mentioned before.
+   */
+  createConnection(url) {
+    let socketAddress = null;
+    let remoteDaemonPort = null;
+    try {
+      ({ host: socketAddress, port: remoteDaemonPort } = new URL(url));
+      if (!socketAddress || !remoteDaemonPort.match(/^\d+$/)) { throw new Error(); }
+    } catch (err) {
+      throw new Error(`Wrong url (${url}) to connect.`);
+    }
+
+    let prevSocket = this.servers[socketAddress];
+    if (prevSocket && this.socketAlive(prevSocket)) {
+      console.warn(`Tried to connect to same url (${url}) twice. Operation aborted.`);
+      return;
+    }
+
+    let socket = new WebSocket(url, { handshakeTimeout: 10000 });
+
+    socket.on('error', (err) =>
+      console.log(`Unable to establish connection to ${url}. Details:\n${err}.`));
+
+    socket.on('open', () => {
+      let prevSocket = this.servers[socketAddress];
+      if (prevSocket && this.socketAlive(prevSocket)) {
+        // TODO investigate memory leak
+        socket.on('close', () => socket.removeAllListeners());
+        socket.close(undefined, 'DOUBLE_CONNECT');
+        return;
+      }
+      socket.removeAllListeners('error');
+      this.connectionHandler(socket, false);
+      this.servers[socketAddress] = socket;
+    });
+  }
+
+  genHeartbeat() {
+    let noop = () => {};
+    return () => {
+      for (let socket of [...this.wss.clients, ...Object.values(this.servers)]) {
+        if (this.socketAbnormal(socket)) {
+          socket.terminate();
+        }
+        // set socket `alive` to false, later pong response
+        // from client will recover `alive` from false to true
+        socket.alive = false;
+        socket.ping(noop);
+      }
+    }
+  }
+
+  /**
+   * @param {*} socket                  the underlaying socket
+   * @param {boolean} incoming          whether the connection is incoming
+   */
+  connectionHandler(socket, incoming) {
+    let socketAddress = getSocketAddress(socket);
+    socket.alive = true;
+    socket.on('message', () => socket.alive = true);
+    socket.on('pong', () => socket.alive = true);
+    socket.on('close', () => {
+      socket.alive = false;
+      socket.removeAllListeners();
+      if (socket === this.servers[socketAddress]) {
+        delete this.servers[socketAddress];
+      }
+    });
+    socket.on('error', err => {
+      console.log(err);
+      socket.terminate();
+    });
+    // notify subscribers
+    this.emit('connection', socket, incoming);
+  }
+
+  socketAbnormal(socket) {
+    return !socket.alive && socket.readyState === WebSocket.OPEN;
+  }
+
+  socketAlive(socket) {
+    return socket.readyState === WebSocket.OPEN;
+  }
+
+  /**
+   * Close this node (both server and outgoing socket connections will
+   * be closed)
+   */
+  close() {
+    clearInterval(this.timer);
+    this.wss.close();
+  }
+}
+
+module.exports = WSServer;
+
+
+/***/ }),
+/* 18 */
+/***/ (function(module, exports) {
+
+module.exports = require("ws");
+
+/***/ }),
+/* 19 */
+/***/ (function(module, exports, __webpack_require__) {
+
+const P2PProtocol = __webpack_require__(11);
+
+/**
+ * TODO later might change to extend liteprotocol
+ */
+const protocolClass = class extends P2PProtocol {
+  constructor(node, nodeTypes, { minPeerNum = 8 } = {}) {
+    super(node, { nodeTypes, minPeerNum });
+  }
+};
+
+module.exports = protocolClass;
+
+
+/***/ }),
+/* 20 */
+/***/ (function(module, exports) {
+
+module.exports = require("dns");
+
+/***/ }),
+/* 21 */
+/***/ (function(module, exports) {
+
+module.exports = require("util");
+
+/***/ }),
+/* 22 */
+/***/ (function(module, exports) {
+
+const prefix = 'p2p/';
+
+const genKey = key => prefix + key;
+
+class P2PProtocolStore {
+  constructor(db) {
+    this.db = db;
+  }
+
+  /**
+   * Flush current connected peers' URLs into DB. 
+   * Note that you should only provide peers with 
+   * desired `nodeType`s.
+   */
+  async writeCurPeerUrls(peerUrls) {
+    let data = JSON.stringify(peerUrls);
+    return this.db.put(genKey('cur_peer_urls'), data);
+  }
+
+  async readCurPeerUrls() {
+    try {
+      let buf = await this.db.get(genKey('cur_peer_urls'));
+      return JSON.parse(buf.toString());
+    } catch (err) {
+      if (err.notFound) { return []; }
+      throw err;
+    }
+  }
+}
+
+module.exports = P2PProtocolStore;
+
+
+/***/ }),
+/* 23 */
+/***/ (function(module, exports) {
+
+// message type constants
+const messageTypes = Object.freeze({
+  fetchPeers: 'p2p/fetch_peers',
+  returnPeers: 'p2p/return_peers'
+});
+
+
+/**
+ * 
+ */
+const fetchPeers = ({ nodeTypes, limit = 20 } = {}) => ({
+  messageType: messageTypes.fetchPeers, 
+  nodeTypes, 
+  limit
+});
+
+fetchPeers.validate = ({ nodeTypes, limit }) => {
+  if (!(nodeTypes instanceof Array) || nodeTypes.length === 0) {
+    throw new Error('p2p/: Invalid message, field nodeTypes.');
+  }
+  if (typeof limit !== 'number' || limit <= 0) {
+    throw new Error('p2p/: Invalid message, field limit.');
+  }
+};
+
+
+/**
+ * 
+ */
+const returnPeers = ({ nodeTypes, peerUrls = [] } = {}) => ({
+  messageType: messageTypes.returnPeers, 
+  nodeTypes, 
+  peerUrls
+});
+
+returnPeers.validate = ({ nodeTypes, peerUrls }) => {
+  if (!(nodeTypes instanceof Array) || nodeTypes.length === 0) {
+    throw new Error('p2p/: Invalid message, field nodeTypes.');
+  }
+  if (!(peerUrls instanceof Array)) {
+    throw new Error('p2p/: Invalid message, field peerUrls.');
+  }
+};
+
+
+// validators
+const messageValidators = Object.freeze({
+  [messageTypes.fetchPeers]: fetchPeers.validate,
+  [messageTypes.returnPeers]: returnPeers.validate
+});
+
+
+exports.messageTypes = messageTypes;
+exports.messageValidators = messageValidators;
+exports.fetchPeers = fetchPeers;
+exports.returnPeers = returnPeers;
+
+
+/***/ }),
+/* 24 */
+/***/ (function(module, exports, __webpack_require__) {
+
+const { sha256 } = __webpack_require__(1);
+
+/**
+ * @param {string} ver      version number (now hardcoded to 1, I don't have time :|)
+ * @param {int} time        timestamp (unix time)
+ * @param {string} litemsg  litemessage itself
+ * @param {string} sig      signature
+ * @param {string} pubKey   public key
+ */
+const createLitemsg = (ver, time, litemsg, sig, pubKey) => {
+  let hash = sha256(`${ver}${time}${litemsg}${sig}${pubKey}`);
+  return { ver, time, litemsg, sig, pubKey, hash };
+};
+
+module.exports = createLitemsg;
+
+
+/***/ }),
+/* 25 */
+/***/ (function(module, exports) {
+
+module.exports = require("crypto");
+
+/***/ }),
+/* 26 */
+/***/ (function(module, exports) {
+
+module.exports = require("child_process");
+
+/***/ }),
+/* 27 */
+/***/ (function(module, exports) {
+
+module.exports = require("bluebird");
+
+/***/ }),
+/* 28 */
+/***/ (function(module, exports) {
+
+module.exports = require("buffer");
+
+/***/ }),
+/* 29 */
 /***/ (function(module, exports) {
 
 const prefix = 'lite/';
@@ -1990,11 +1998,11 @@ module.exports = LiteProtocolStore;
 
 
 /***/ }),
-/* 31 */
+/* 30 */
 /***/ (function(module, exports, __webpack_require__) {
 
 const { mine } = __webpack_require__(1);
-const createBlock = __webpack_require__(13);
+const createBlock = __webpack_require__(14);
 
 /**
  * mining manager : )
@@ -2051,7 +2059,7 @@ module.exports = Miner;
 
 
 /***/ }),
-/* 32 */
+/* 31 */
 /***/ (function(module, exports, __webpack_require__) {
 
 const EventEmitter = __webpack_require__(0);
@@ -2357,10 +2365,10 @@ module.exports = Blockchain;
 
 
 /***/ }),
-/* 33 */
+/* 32 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const Peer = __webpack_require__(34);
+const Peer = __webpack_require__(33);
 const {
   messageValidators, info, infoAck,
   messageTypes: { info: infoType, infoAck: infoAckType }
@@ -2411,14 +2419,14 @@ if (true) {
   // run in node
 
   var HandshakeManager = class extends EventEmitter {
-    constructor(litenode) {
+    constructor(p2pProtocol) {
       super();
       this.socketConnectHandler = this.socketConnectHandler.bind(this);
 
-      this.litenode = litenode;
-      this.uuid = litenode.uuid;
-      this.nodeType = litenode.nodeType;
-      this.daemonPort = litenode.wss.port;
+      this.litenode = p2pProtocol.litenode;
+      this.uuid = p2pProtocol.litenode.uuid;
+      this.nodeType = p2pProtocol.node.nodeType;
+      this.daemonPort = p2pProtocol.litenode.daemonPort;
 
       // sockets => pending sockets (which is a wrapper)
       this.pendingSockets = new Map();
@@ -2563,7 +2571,7 @@ module.exports = HandshakeManager;
 
 
 /***/ }),
-/* 34 */
+/* 33 */
 /***/ (function(module, exports, __webpack_require__) {
 
 const { getRemoteAddress } = __webpack_require__(2);
@@ -2616,14 +2624,14 @@ module.exports = Peer;
 
 
 /***/ }),
-/* 35 */
+/* 34 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const http = __webpack_require__(36);
-const express = __webpack_require__(37);
-const logger = __webpack_require__(38);
-const cookieParser = __webpack_require__(39);
-const bodyParser = __webpack_require__(40);
+const http = __webpack_require__(35);
+const express = __webpack_require__(36);
+const logger = __webpack_require__(37);
+const cookieParser = __webpack_require__(38);
+const bodyParser = __webpack_require__(39);
 const { isValidJson, parseChunk } = __webpack_require__(4);
 
 const notfoundPayload = { 'not-found': true };
@@ -2763,92 +2771,88 @@ module.exports = createRestServer;
 
 
 /***/ }),
-/* 36 */
+/* 35 */
 /***/ (function(module, exports) {
 
 module.exports = require("http");
 
 /***/ }),
-/* 37 */
+/* 36 */
 /***/ (function(module, exports) {
 
 module.exports = require("express");
 
 /***/ }),
-/* 38 */
+/* 37 */
 /***/ (function(module, exports) {
 
 module.exports = require("morgan");
 
 /***/ }),
-/* 39 */
+/* 38 */
 /***/ (function(module, exports) {
 
 module.exports = require("cookie-parser");
 
 /***/ }),
-/* 40 */
+/* 39 */
 /***/ (function(module, exports) {
 
 module.exports = require("body-parser");
 
 /***/ }),
-/* 41 */
+/* 40 */
 /***/ (function(module, exports, __webpack_require__) {
 
 const fs = __webpack_require__(6);
+const uuidv1 = __webpack_require__(41);
 const leveldown = __webpack_require__(7);
 const levelup = __webpack_require__(8);
 const LiteNode = __webpack_require__(9);
-
-const nodeTypes = ['full', 'thin'];
-const nodeType = 'full';
+const LiteProtocol = __webpack_require__(13);
 
 /**
  * The Litemessage fully functional node client.
  * 
- * TODO protocolClass should has a default value
- * TODO port number/string
  * TODO a base node class (also simplify the api, moving to litenode?)
+ * TODO copy `peers` method to `litenode`, and abstract node class
  * TODO fails to bind should crash the client imediately
  */
 class FullNode {
   /**
    * Note `port` here must be number (instead of string).
    */
-  constructor(protocolClass, dbPath, { port = 1113, initPeerUrls = [] } = {}) {
-    this.port = port;
-    // TODO port = typeof port === 'number' ? (port + '') : undefined;
+  constructor(dbPath, { protocolClass = LiteProtocol, initPeerUrls = [], port } = {}) {
+    this.uuid = uuidv1();
+    this.nodeType = FullNode.nodeType;
     this.initPeerUrls = [...initPeerUrls];
-    // initialize the db (level db)
-    this.initDb(dbPath);
-    // create underlying litenode
-    this.litenode = new LiteNode(nodeType, { port });
-    // load protocol
-    this.protocol = new protocolClass(this, nodeTypes);
 
-    this.timer = setInterval(() => {
-      console.log(`Right now, there are ${this.peers().length} connected peers (full & thin).`);
-      // this.debugInfo();
-    }, 20000);
-
-    this.protocol.on('ready', () => {
-      // connect to initial peers
-      initPeerUrls.forEach(url => this.litenode.createConnection(url));
-    });
-  }
-
-  static get nodeType() {
-    return nodeType;
-  }
-
-  initDb(dbPath) {
+    // initialize the database (Level DB)
     if (fs.existsSync(dbPath) && fs.statSync(dbPath).isDirectory()) {
       console.log('Using existing LevelDB directory.');
     } else {
       console.log('A new LevelDB directory will be created.');
     }
     this.db = levelup(leveldown(dbPath));
+
+    // create underlying litenode
+    this.litenode = new LiteNode(this.uuid, { port });
+    // create protocol manager
+    this.protocol = new protocolClass(this);
+
+    this.timer = setInterval(() => {
+      console.log(`Right now, there are ${this.peers().length} connected peers (full & thin).`);
+      // TODO this.debugInfo();
+    }, 20000);
+
+    this.protocol.on('ready', () => {
+      // connect to initial peers
+      this.initPeerUrls.forEach(url => this.litenode.createConnection(url));
+    });
+  }
+
+  static get nodeType() {
+    return 'full';
   }
 
   /**
@@ -2870,6 +2874,7 @@ class FullNode {
     this.db.close();
   }
 
+  // TODO
   debugInfo() {
     console.log('<<<<< debug start >>>>>');
     let peerUrls = this.peers().map(peer => peer.url);
@@ -2880,6 +2885,12 @@ class FullNode {
 
 module.exports = FullNode;
 
+
+/***/ }),
+/* 41 */
+/***/ (function(module, exports) {
+
+module.exports = require("uuid/v1");
 
 /***/ })
 /******/ ]);
