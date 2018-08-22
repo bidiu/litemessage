@@ -1,4 +1,4 @@
-/*! v0.4.0 */
+/*! v0.4.1 */
 module.exports =
 /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
@@ -958,6 +958,7 @@ if (true) {
     addPendingSocket(socket, incoming) {
       try {
         let pendingSocket = new PendingSocket(socket, incoming);
+        let proxiedSocket = this.litenode.createSocketProxy(socket, 'N/A');
 
         socket._messageHandler = ((message) => {
           try {
@@ -965,6 +966,16 @@ if (true) {
             let { messageType, ...payload } = JSON.parse(message);
             if (typeof messageType !== 'string' || !MSG_TYPES.includes(messageType)) {
               throw new Error();
+            }
+
+            if (this.litenode.debug) {
+              // note that only logs valid procotol messages
+              this.litenode.messageLogs.push({
+                peer: 'N/A',
+                dir: 'inbound',
+                msg: { messageType, ...payload },
+                time: getCurTimestamp('s')
+              });
             }
             
             // when receiving info message
@@ -977,7 +988,7 @@ if (true) {
                 pendingSocket.nodeType = payload.nodeType;
                 pendingSocket.daemonPort = payload.daemonPort;
     
-                this.sendInfo(socket);
+                this.sendInfo(proxiedSocket);
     
               } else if (!incoming && state === 'INFO_SENT') {
                 pendingSocket.state = 'ESTABLISHED';
@@ -985,7 +996,7 @@ if (true) {
                 pendingSocket.nodeType = payload.nodeType;
                 pendingSocket.daemonPort = payload.daemonPort;
     
-                this.sendInfoAck(socket);
+                this.sendInfoAck(proxiedSocket);
                 this.onEstablished(pendingSocket);
     
               } else {
@@ -1022,7 +1033,7 @@ if (true) {
         if (!incoming) {
           // sending the first info message
           // to initiate the handshake process
-          this.sendInfo(socket);
+          this.sendInfo(proxiedSocket);
           pendingSocket.state = 'INFO_SENT'
         }
 
@@ -1614,6 +1625,8 @@ class LiteNode extends EventEmitter {
    * mainly for debugging / logging.
    */
   createSocketProxy(socket, remoteUuid) {
+    if (!this.debug) { return socket; }
+
     const messageLogs = this.messageLogs;
 
     const handler = {
@@ -1693,14 +1706,17 @@ class LiteNode extends EventEmitter {
   socketMessageHandler(msg, peer) {
     let msgObj = null;
     try { msgObj = JSON.parse(msg); } catch (e) {}
+    
     if (msgObj && msgObj['messageType']) {
-      // note that only logs valid procotol messages
-      this.messageLogs.push({
-        peer: peer.uuid,
-        dir: 'inbound',
-        msg: msgObj,
-        time: getCurTimestamp('s')
-      });
+      if (this.debug) {
+        // note that only logs valid procotol messages
+        this.messageLogs.push({
+          peer: peer.uuid,
+          dir: 'inbound',
+          msg: msgObj,
+          time: getCurTimestamp('s')
+        });
+      }
 
       this.emit(`message/${msgObj['messageType']}`, msgObj, peer);
     }

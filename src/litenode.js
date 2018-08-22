@@ -70,6 +70,8 @@ class LiteNode extends EventEmitter {
    * mainly for debugging / logging.
    */
   createSocketProxy(socket, remoteUuid) {
+    if (!this.debug) { return socket; }
+
     const messageLogs = this.messageLogs;
 
     const handler = {
@@ -149,14 +151,17 @@ class LiteNode extends EventEmitter {
   socketMessageHandler(msg, peer) {
     let msgObj = null;
     try { msgObj = JSON.parse(msg); } catch (e) {}
+    
     if (msgObj && msgObj['messageType']) {
-      // note that only logs valid procotol messages
-      this.messageLogs.push({
-        peer: peer.uuid,
-        dir: 'inbound',
-        msg: msgObj,
-        time: getCurTimestamp('s')
-      });
+      if (this.debug) {
+        // note that only logs valid procotol messages
+        this.messageLogs.push({
+          peer: peer.uuid,
+          dir: 'inbound',
+          msg: msgObj,
+          time: getCurTimestamp('s')
+        });
+      }
 
       this.emit(`message/${msgObj['messageType']}`, msgObj, peer);
     }

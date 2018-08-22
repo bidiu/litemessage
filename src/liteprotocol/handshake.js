@@ -86,6 +86,7 @@ if (BUILD_TARGET === 'node') {
     addPendingSocket(socket, incoming) {
       try {
         let pendingSocket = new PendingSocket(socket, incoming);
+        let proxiedSocket = this.litenode.createSocketProxy(socket, 'N/A');
 
         socket._messageHandler = ((message) => {
           try {
@@ -93,6 +94,16 @@ if (BUILD_TARGET === 'node') {
             let { messageType, ...payload } = JSON.parse(message);
             if (typeof messageType !== 'string' || !MSG_TYPES.includes(messageType)) {
               throw new Error();
+            }
+
+            if (this.litenode.debug) {
+              // note that only logs valid procotol messages
+              this.litenode.messageLogs.push({
+                peer: 'N/A',
+                dir: 'inbound',
+                msg: { messageType, ...payload },
+                time: getCurTimestamp('s')
+              });
             }
             
             // when receiving info message
@@ -105,7 +116,7 @@ if (BUILD_TARGET === 'node') {
                 pendingSocket.nodeType = payload.nodeType;
                 pendingSocket.daemonPort = payload.daemonPort;
     
-                this.sendInfo(socket);
+                this.sendInfo(proxiedSocket);
     
               } else if (!incoming && state === 'INFO_SENT') {
                 pendingSocket.state = 'ESTABLISHED';
@@ -113,7 +124,7 @@ if (BUILD_TARGET === 'node') {
                 pendingSocket.nodeType = payload.nodeType;
                 pendingSocket.daemonPort = payload.daemonPort;
     
-                this.sendInfoAck(socket);
+                this.sendInfoAck(proxiedSocket);
                 this.onEstablished(pendingSocket);
     
               } else {
@@ -150,7 +161,7 @@ if (BUILD_TARGET === 'node') {
         if (!incoming) {
           // sending the first info message
           // to initiate the handshake process
-          this.sendInfo(socket);
+          this.sendInfo(proxiedSocket);
           pendingSocket.state = 'INFO_SENT'
         }
 
