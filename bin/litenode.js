@@ -2,6 +2,7 @@
 
 const os = require('os');
 const path = require('path');
+const yargs = require('yargs');
 const mkdirp = require('mkdirp');
 const { FullNode } = require('../dist/index');
 
@@ -15,7 +16,13 @@ const ops = {
   'dbpath': {
     description: 'Specify path where data will be stored',
     type: 'string'
-  }
+  },
+  'D': {
+    alias: 'debug',
+    description: 'Enable debugging RESTful API server',
+    type: 'boolean',
+    default: undefined
+  },
 };
 
 const defaults = {};
@@ -23,9 +30,9 @@ const defaults = {};
 const usages = `Usages:
   $0 [-H|--help]
   $0 [-V|--version]
-  $0 [-p|--port <num>] [--dbpath <string>] [peer1 [peer2 [...]]]`
+  $0 [-p|--port <num>] [--dbpath <str>] [-D|--debug [true|false]] [peer1 [peer2 [...]]]`
 
-const { argv } = require('yargs')
+const { argv } = yargs
   .usage(usages)
   .alias('H', 'help')
   .alias('V', 'version')
@@ -33,7 +40,8 @@ const { argv } = require('yargs')
   .default(defaults)
   .example('$0 --port 1113 ws://192.168.0.217:1113')
   .example('$0 --dbpath /path/db/directory ws://192.168.0.217:2113')
-  .epilog('Also see https://github.com/bidiu/litemessage');
+  .epilog('Also see https://github.com/bidiu/litemessage')
+  .wrap(Math.min(yargs.terminalWidth(), 100));
 
 argv.dbpath = argv.dbpath || path.join(os.homedir(), '.litemsg', 'data', `${argv.port}`);
 
@@ -42,9 +50,9 @@ process.on('unhandledRejection', (reason) => {
   process.exit(1);
 });
 
-const { port, dbpath, _: initPeerUrls } = argv;
+const { port, dbpath, _: initPeerUrls, debug } = argv;
 
 // create the data directory
 mkdirp.sync(dbpath);
 // start the full litenode daemon
-new FullNode(dbpath, { initPeerUrls, port });
+new FullNode(dbpath, { initPeerUrls, port, debug });

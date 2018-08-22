@@ -36,7 +36,7 @@ class LiteNode extends EventEmitter {
   /**
    * A UUID will be automatically generated.
    */
-  constructor(uuid, { port = 1113, debug = true } = {}) {
+  constructor(uuid, { port = 1113, debug = false } = {}) {
     super();
     this.socketConnectHandler = this.socketConnectHandler.bind(this);
     this.socketMessageHandler = this.socketMessageHandler.bind(this);
@@ -59,7 +59,7 @@ class LiteNode extends EventEmitter {
     // when bound to an network interface
     this.wss.on('listening', (port) => {
       console.log(`${uuid}: Start listening on port ${port}.`);
-      if (this.debug) { console.log('Debug mode is enabled.'); }
+      if (debug) { console.log('Debug mode is enabled.'); }
     });
     // when new connection established
     this.wss.on('connection', this.socketConnectHandler);

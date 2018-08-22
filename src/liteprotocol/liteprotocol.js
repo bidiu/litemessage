@@ -71,8 +71,12 @@ class LiteProtocol extends P2PProtocol {
     // our node can connect to other nodes : P
     this.handshake = new HandshakeManager(this);
 
-    // create and run rest server
-    createRestServer(this).listen(this.litenode.daemonPort + 1);
+    if (this.litenode.debug) {
+      // create and run rest server
+      let debugPort = this.litenode.daemonPort + 1;
+      createRestServer(this).listen(debugPort);
+      console.log(`Debugging RESTful API server listening on port ${debugPort}.`);
+    }
 
     // some schedule tasks (interval timers)
     this.timers = [];

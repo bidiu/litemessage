@@ -2,6 +2,7 @@
 
 const os = require('os');
 const path = require('path');
+const yargs = require('yargs');
 const mkdirp = require('mkdirp');
 const {
   ThinNode, getCurTimestamp, data, createLitemsg,
@@ -13,7 +14,13 @@ const ops = {
     description: 'Specify port daemon will listen on',
     type: 'number',
     default: 2107
-  }
+  },
+  'D': {
+    alias: 'debug',
+    description: 'Enable debugging RESTful API server',
+    type: 'boolean',
+    default: undefined
+  },
 };
 
 const defaults = {};
@@ -21,9 +28,9 @@ const defaults = {};
 const usages = `Usages:
   $0 [-H|--help]
   $0 [-V|--version]
-  $0 [-p|--port <num>] peer1 [peer2 [...]] message`
+  $0 [-p|--port <num>] [-D|--debug [true|false]] peer1 [peer2 [...]] message`
 
-const { argv } = require('yargs')
+const { argv } = yargs
   .usage(usages)
   .alias('H', 'help')
   .alias('V', 'version')
@@ -31,7 +38,8 @@ const { argv } = require('yargs')
   .default(defaults)
   .demandCommand(2)
   .example('$0 --port 2107 ws://192.168.0.217:1113 "hello, world"')
-  .epilog('Also see https://github.com/bidiu/litemessage');
+  .epilog('Also see https://github.com/bidiu/litemessage')
+  .wrap(Math.min(yargs.terminalWidth(), 100));
 
 argv.dbpath = path.join(os.homedir(), '.litemsg', 'data', `${argv.port}`);
 
@@ -40,7 +48,7 @@ process.on('unhandledRejection', (reason) => {
   process.exit(1);
 });
 
-const { port, dbpath } = argv;
+const { port, dbpath, debug } = argv;
 const initPeerUrls = argv._.slice(0, -1);
 const message = argv._[argv._.length - 1];
 
@@ -51,7 +59,7 @@ console.log('Litemessage ID: ' + litemsg.hash);
 // create the data directory
 mkdirp.sync(dbpath);
 // start the thin node
-const node  = new ThinNode(dbpath, { port, initPeerUrls });
+const node  = new ThinNode(dbpath, { port, initPeerUrls, debug });
 
 const timer = 
   setInterval(() => {

@@ -9,8 +9,8 @@ const NODE_TYPE = 'full';
  * TODO fails to bind should crash the client imediately
  */
 class FullNode extends Node {
-  constructor(dbPath, { protocolClass = LiteProtocol, initPeerUrls = [], port } = {}) {
-    super(NODE_TYPE, dbPath, port, protocolClass, initPeerUrls);
+  constructor(dbPath, { protocolClass = LiteProtocol, initPeerUrls = [], port, debug } = {}) {
+    super(NODE_TYPE, dbPath, port, protocolClass, initPeerUrls, debug);
 
     this.timer = setInterval(() => {
       console.log(`Right now, there are ${this.peers().length} connected peers (full & thin).`);

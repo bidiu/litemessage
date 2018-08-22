@@ -4,8 +4,8 @@ const ThinLiteProtocol = require('../liteprotocol/thinprotocol');
 const NODE_TYPE = 'thin';
 
 class ThinNode extends Node {
-  constructor(dbPath, { protocolClass = ThinLiteProtocol, initPeerUrls = [], port } = {}) {
-    super(NODE_TYPE, dbPath, port, protocolClass, initPeerUrls);
+  constructor(dbPath, { protocolClass = ThinLiteProtocol, initPeerUrls = [], port, debug } = {}) {
+    super(NODE_TYPE, dbPath, port, protocolClass, initPeerUrls, debug);
   }
 
   static get nodeType() {

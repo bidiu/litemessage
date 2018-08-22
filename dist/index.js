@@ -1,4 +1,4 @@
-/*! v0.3.0-10-g2bc01a3 */
+/*! v0.4.0 */
 module.exports =
 /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
@@ -396,7 +396,7 @@ const LiteNode = __webpack_require__(19);
  * A UUID identifying this node will be automatically generated.
  */
 class Node {
-  constructor(nodeType, dbPath, port, protocolClass, initPeerUrls) {
+  constructor(nodeType, dbPath, port, protocolClass, initPeerUrls, debug) {
     if (new.target === Node) {
       throw new TypeError("Cannot construct Node instances directly.");
     }
@@ -415,7 +415,7 @@ class Node {
     this.db = levelup(leveldown(dbPath));
 
     // create underlying litenode
-    this.litenode = new LiteNode(this.uuid, { port });
+    this.litenode = new LiteNode(this.uuid, { port, debug });
     // instantiate the protocol manager
     this.protocol = new protocolClass(this);
 
@@ -1153,8 +1153,12 @@ class LiteProtocol extends P2PProtocol {
     // our node can connect to other nodes : P
     this.handshake = new HandshakeManager(this);
 
-    // create and run rest server
-    createRestServer(this).listen(this.litenode.daemonPort + 1);
+    if (this.litenode.debug) {
+      // create and run rest server
+      let debugPort = this.litenode.daemonPort + 1;
+      createRestServer(this).listen(debugPort);
+      console.log(`Debugging RESTful API server listening on port ${debugPort}.`);
+    }
 
     // some schedule tasks (interval timers)
     this.timers = [];
@@ -1576,7 +1580,7 @@ class LiteNode extends EventEmitter {
   /**
    * A UUID will be automatically generated.
    */
-  constructor(uuid, { port = 1113, debug = true } = {}) {
+  constructor(uuid, { port = 1113, debug = false } = {}) {
     super();
     this.socketConnectHandler = this.socketConnectHandler.bind(this);
     this.socketMessageHandler = this.socketMessageHandler.bind(this);
@@ -1599,7 +1603,7 @@ class LiteNode extends EventEmitter {
     // when bound to an network interface
     this.wss.on('listening', (port) => {
       console.log(`${uuid}: Start listening on port ${port}.`);
-      if (this.debug) { console.log('Debug mode is enabled.'); }
+      if (debug) { console.log('Debug mode is enabled.'); }
     });
     // when new connection established
     this.wss.on('connection', this.socketConnectHandler);
@@ -1930,8 +1934,8 @@ const ThinLiteProtocol = __webpack_require__(8);
 const NODE_TYPE = 'thin';
 
 class ThinNode extends Node {
-  constructor(dbPath, { protocolClass = ThinLiteProtocol, initPeerUrls = [], port } = {}) {
-    super(NODE_TYPE, dbPath, port, protocolClass, initPeerUrls);
+  constructor(dbPath, { protocolClass = ThinLiteProtocol, initPeerUrls = [], port, debug } = {}) {
+    super(NODE_TYPE, dbPath, port, protocolClass, initPeerUrls, debug);
   }
 
   static get nodeType() {
@@ -2125,8 +2129,8 @@ const NODE_TYPE = 'full';
  * TODO fails to bind should crash the client imediately
  */
 class FullNode extends Node {
-  constructor(dbPath, { protocolClass = LiteProtocol, initPeerUrls = [], port } = {}) {
-    super(NODE_TYPE, dbPath, port, protocolClass, initPeerUrls);
+  constructor(dbPath, { protocolClass = LiteProtocol, initPeerUrls = [], port, debug } = {}) {
+    super(NODE_TYPE, dbPath, port, protocolClass, initPeerUrls, debug);
 
     this.timer = setInterval(() => {
       console.log(`Right now, there are ${this.peers().length} connected peers (full & thin).`);
