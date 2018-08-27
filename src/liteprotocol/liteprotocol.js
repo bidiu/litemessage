@@ -3,11 +3,12 @@ const LiteProtocolStore = require('./store');
 const Miner = require('./miner');
 const Blockchain = require('../utils/blockchain');
 const HandshakeManager = require('./handshake');
+const InventoryResolver = require('./inv-resolv');
 const createRestServer = require('./rest');
 const createBlock = require('./entities/block');
 const {
   messageTypes, messageValidators, getBlocks, 
-  inv, getData, data, getPendingMsgs
+  inv, data, getPendingMsgs
 } = require('./messages');
 const {
   verifyBlock, verifyLitemsg, calcMerkleRoot, verifySubchain
@@ -194,12 +195,19 @@ class LiteProtocol extends P2PProtocol {
   async invHandler({ messageType, ...payload }, peer) {
     try {
       messageValidators[messageType](payload);
+      // Note the "blocks" here either is a single block just
+      // mined by peer, or is a sub blockchain, which, in
+      // other words, means those blocks are consecutive.
+      // This is just due to how the protocol is designed.
       let { blocks, litemsgs } = payload;
       let blocksToGet = [];
       let litemsgsToGet = [];
 
-      // filter out blocks already have 
-      // blocks off main branch also as being haven
+      // Filter out blocks already have (blocks off main branch 
+      // still as being haven). Also note that those blocks haven
+      // by the current node, if any, must always certainly reside
+      // at the beginning of received `inv`'s blockchain. Again,
+      // this is just due to how the protocol is designed.
       for (let blockId of blocks) {
         if (!(await this.blockchain.hasBlock(blockId, false))) {
           blocksToGet.push(blockId);
@@ -214,10 +222,10 @@ class LiteProtocol extends P2PProtocol {
       }
 
       if (blocksToGet.length || litemsgsToGet.length) {
-        // send response
-        peer.sendJson(
-          getData({ blocks: blocksToGet, litemsgs: litemsgsToGet })
-        );
+        peer._resolver.resolve({
+          blocks: blocksToGet,
+          litemsgs: litemsgsToGet
+        });
       }
 
     } catch (err) {
@@ -363,9 +371,16 @@ class LiteProtocol extends P2PProtocol {
 
   peerConnectHandler(peer) {
     if (peer.nodeType === 'full' && this.node.peers('full').length === 1) {
-      let blockLocators = this.blockchain.getLocatorsSync();
-      peer.sendJson(getBlocks({ blockLocators }));
+      // wait for 30 seconds to retrieve blocks
+      // because of concorrent resolving (it takes
+      // time to construct connections with peers)
+      setTimeout(() => {
+        let blockLocators = this.blockchain.getLocatorsSync();
+        peer.sendJson(getBlocks({ blockLocators }));
+      }, 60000);
     }
+
+    peer._resolver = new InventoryResolver(peer, this);
   }
 
   close() {

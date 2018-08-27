@@ -1,4 +1,4 @@
-/*! v0.4.1 */
+/*! v0.4.2 */
 module.exports =
 /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
@@ -88,12 +88,6 @@ module.exports =
 /************************************************************************/
 /******/ ([
 /* 0 */
-/***/ (function(module, exports) {
-
-module.exports = require("events");
-
-/***/ }),
-/* 1 */
 /***/ (function(module, exports, __webpack_require__) {
 
 if (true) {
@@ -339,7 +333,33 @@ if (true) {
 
 
 /***/ }),
+/* 1 */
+/***/ (function(module, exports) {
+
+module.exports = require("events");
+
+/***/ }),
 /* 2 */
+/***/ (function(module, exports) {
+
+/**
+ * in ms
+ */
+const getCurTimestamp = (unit = 'ms') => {
+  if (unit === 'ms') {
+    return new Date().getTime();
+  } else if (unit === 's') {
+    return Math.round(new Date().getTime() / 1000);
+  } else {
+    throw new Error('Invalid unit: ' + unit + '.');
+  }
+}
+
+exports.getCurTimestamp = getCurTimestamp;
+
+
+/***/ }),
+/* 3 */
 /***/ (function(module, exports) {
 
 const getRemoteAddress = (socket) => {
@@ -363,95 +383,7 @@ exports.getSocketAddress = getSocketAddress;
 
 
 /***/ }),
-/* 3 */
-/***/ (function(module, exports) {
-
-/**
- * in ms
- */
-const getCurTimestamp = (unit = 'ms') => {
-  if (unit === 'ms') {
-    return new Date().getTime();
-  } else if (unit === 's') {
-    return Math.round(new Date().getTime() / 1000);
-  } else {
-    throw new Error('Invalid unit: ' + unit + '.');
-  }
-}
-
-exports.getCurTimestamp = getCurTimestamp;
-
-
-/***/ }),
 /* 4 */
-/***/ (function(module, exports, __webpack_require__) {
-
-const fs = __webpack_require__(15);
-const uuidv1 = __webpack_require__(16);
-const leveldown = __webpack_require__(17);
-const levelup = __webpack_require__(18);
-const LiteNode = __webpack_require__(19);
-
-/**
- * A UUID identifying this node will be automatically generated.
- */
-class Node {
-  constructor(nodeType, dbPath, port, protocolClass, initPeerUrls, debug) {
-    if (new.target === Node) {
-      throw new TypeError("Cannot construct Node instances directly.");
-    }
-
-    // some necessary info
-    this.uuid = uuidv1();
-    this.nodeType = nodeType;
-    this.initPeerUrls = initPeerUrls;
-
-    // initialize the database (Level DB)
-    if (fs.existsSync(dbPath) && fs.statSync(dbPath).isDirectory()) {
-      console.log('Using existing LevelDB directory.');
-    } else {
-      console.log('A new LevelDB directory will be created.');
-    }
-    this.db = levelup(leveldown(dbPath));
-
-    // create underlying litenode
-    this.litenode = new LiteNode(this.uuid, { port, debug });
-    // instantiate the protocol manager
-    this.protocol = new protocolClass(this);
-
-    this.protocol.on('ready', () => {
-      // connect to initial peers
-      this.initPeerUrls.forEach(url => this.litenode.createConnection(url));
-    });
-  }
-
-  /**
-   * @param {string|Array<string>} nodeTypes pass `*` for matching all types
-   */
-  peers(nodeTypes = '*') {
-    if (typeof nodeTypes === 'string' && nodeTypes !== '*') {
-      nodeTypes = [nodeTypes];
-    }
-
-    let peers = this.litenode ? Object.values(this.litenode.peers) : [];
-    return peers.filter(peer => nodeTypes === '*' || nodeTypes.includes(peer.nodeType));
-  }
-
-  /**
-   * Do the cleanup.
-   */
-  close() {
-    this.protocol.close();
-    this.litenode.close();
-    this.db.close();
-  }
-}
-
-module.exports = Node;
-
-
-/***/ }),
-/* 5 */
 /***/ (function(module, exports, __webpack_require__) {
 
 const path = __webpack_require__(10);
@@ -497,6 +429,22 @@ const pickItems = (array, num) => {
   return picked;
 };
 
+const sliceItems = (array, slices) => {
+  slices = Math.max( Math.min(array.length, slices), 1 );
+
+  let l = Math.floor(array.length / slices);
+  let sliced = [];
+
+  for (let i = 0; i < slices; i++) {
+    if (i + 1 === slices) {
+      sliced.push( array.slice(l * i) );
+    } else {
+      sliced.push( array.slice(l * i, l * (i + 1)) );
+    }
+  }
+  return sliced;
+};
+
 const parseChunk = (buffer) => {
   if (buffer.length % 32) { throw new Error('Invalid chunk buffer.'); }
 
@@ -511,21 +459,25 @@ exports.isValidJson = isValidJson;
 exports.getAbsRootPath = getAbsRootPath;
 exports.randomInt = randomInt;
 exports.pickItems = pickItems;
+exports.sliceItems = sliceItems;
 exports.parseChunk = parseChunk;
 
 
 /***/ }),
-/* 6 */
+/* 5 */
 /***/ (function(module, exports) {
 
 const messageTypes = Object.freeze({
   info: 'lite/info',
-  infoAck: 'lite/infoAck',
+  infoAck: 'lite/info_ack',
 
   getBlocks: 'lite/get_blocks',
   inv: 'lite/inv',
   getData: 'lite/get_data',
   data: 'lite/data',
+  getDataPartial: 'lite/get_data_partial',
+  dataPartial: 'lite/data_partial',
+  partialNotFound: 'lite/partial_not_found',
 
   getPendingMsgs: 'lite/get_pending_msgs',
 
@@ -626,6 +578,51 @@ data.validate = ({ blocks, litemsgs }) => {
   }
 };
 
+const getDataPartial = ({ merkleDigest, blocks }) => ({
+  messageType: messageTypes.getDataPartial,
+  merkleDigest,
+  blocks
+});
+
+getDataPartial.validate = ({ merkleDigest, blocks }) => {
+  if (typeof merkleDigest !== 'string') {
+    throw new Error('lite/: Invalid merkle digest.');
+  }
+  if (!(blocks instanceof Array)) {
+    throw new Error('lite/: Invalid blocks.');
+  }
+};
+
+const dataPartial = ({ merkleDigest, blocks }) => ({
+  messageType: messageTypes.dataPartial,
+  merkleDigest,
+  blocks
+});
+
+dataPartial.validate = ({ merkleDigest, blocks }) => {
+  if (typeof merkleDigest !== 'string') {
+    throw new Error('lite/: Invalid merkle digest.');
+  }
+  if (!(blocks instanceof Array)) {
+    throw new Error('lite/: Invalid blocks.');
+  }
+};
+
+const partialNotFound = ({ merkleDigest, blocks }) => ({
+  messageType: messageTypes.partialNotFound,
+  merkleDigest,
+  blocks
+});
+
+partialNotFound.validate = ({ merkleDigest, blocks }) => {
+  if (typeof merkleDigest !== 'string') {
+    throw new Error('lite/: Invalid merkle digest.');
+  }
+  if (!(blocks instanceof Array)) {
+    throw new Error('lite/: Invalid blocks.');
+  }
+};
+
 const getPendingMsgs = () => ({
   messageType: messageTypes.getPendingMsgs
 });
@@ -642,6 +639,9 @@ const messageValidators = Object.freeze({
   [messageTypes.inv]: inv.validate,
   [messageTypes.getData]: getData.validate,
   [messageTypes.data]: data.validate,
+  [messageTypes.getDataPartial]: getDataPartial.validate,
+  [messageTypes.dataPartial]: dataPartial.validate,
+  [messageTypes.partialNotFound]: partialNotFound.validate,
   [messageTypes.getPendingMsgs]: getPendingMsgs.validate
 });
 
@@ -653,7 +653,78 @@ exports.getBlocks = getBlocks;
 exports.inv = inv;
 exports.getData = getData;
 exports.data = data;
+exports.getDataPartial = getDataPartial;
+exports.dataPartial = dataPartial;
+exports.partialNotFound = partialNotFound;
 exports.getPendingMsgs = getPendingMsgs;
+
+
+/***/ }),
+/* 6 */
+/***/ (function(module, exports, __webpack_require__) {
+
+const fs = __webpack_require__(15);
+const uuidv1 = __webpack_require__(16);
+const leveldown = __webpack_require__(17);
+const levelup = __webpack_require__(18);
+const LiteNode = __webpack_require__(19);
+
+/**
+ * A UUID identifying this node will be automatically generated.
+ */
+class Node {
+  constructor(nodeType, dbPath, port, protocolClass, initPeerUrls, debug) {
+    if (new.target === Node) {
+      throw new TypeError("Cannot construct Node instances directly.");
+    }
+
+    // some necessary info
+    this.uuid = uuidv1();
+    this.nodeType = nodeType;
+    this.initPeerUrls = initPeerUrls;
+
+    // initialize the database (Level DB)
+    if (fs.existsSync(dbPath) && fs.statSync(dbPath).isDirectory()) {
+      console.log('Using existing LevelDB directory.');
+    } else {
+      console.log('A new LevelDB directory will be created.');
+    }
+    this.db = levelup(leveldown(dbPath));
+
+    // create underlying litenode
+    this.litenode = new LiteNode(this.uuid, { port, debug });
+    // instantiate the protocol manager
+    this.protocol = new protocolClass(this);
+
+    this.protocol.on('ready', () => {
+      // connect to initial peers
+      this.initPeerUrls.forEach(url => this.litenode.createConnection(url));
+    });
+  }
+
+  /**
+   * @param {string|Array<string>} nodeTypes pass `*` for matching all types
+   */
+  peers(nodeTypes = '*') {
+    if (typeof nodeTypes === 'string' && nodeTypes !== '*') {
+      nodeTypes = [nodeTypes];
+    }
+
+    let peers = this.litenode ? Object.values(this.litenode.peers) : [];
+    return peers.filter(peer => nodeTypes === '*' || nodeTypes.includes(peer.nodeType));
+  }
+
+  /**
+   * Do the cleanup.
+   */
+  close() {
+    this.protocol.close();
+    this.litenode.close();
+    this.db.close();
+  }
+}
+
+module.exports = Node;
 
 
 /***/ }),
@@ -707,7 +778,7 @@ const P2PProtocolStore = __webpack_require__(25);
 const {
   messageTypes, messageValidators, fetchPeers, returnPeers
 } = __webpack_require__(26);
-const { pickItems } = __webpack_require__(5);
+const { pickItems } = __webpack_require__(4);
 
 // look up dns records
 const lookup = promisify(dns.lookup);
@@ -715,7 +786,7 @@ const lookup = promisify(dns.lookup);
 if (true) {
   // running in node
 
-  var EventEmitter = __webpack_require__(0);
+  var EventEmitter = __webpack_require__(1);
 
 } else { var EventEmitter; }
 
@@ -778,7 +849,7 @@ class P2PProtocol extends EventEmitter {
           if (this.node.peers(nodeTypes).length < minPeerNum) {
             this.litenode.broadcastJson(fetchPeers({ nodeTypes }));
           }
-        }, 60000)
+        }, 40000)
       );
 
       // periodically persist peer urls
@@ -878,14 +949,14 @@ const Peer = __webpack_require__(27);
 const {
   messageValidators, info, infoAck,
   messageTypes: { info: infoType, infoAck: infoAckType }
-} = __webpack_require__(6);
-const { getCurTimestamp } = __webpack_require__(3);
-const { getSocketAddress } = __webpack_require__(2);
+} = __webpack_require__(5);
+const { getCurTimestamp } = __webpack_require__(2);
+const { getSocketAddress } = __webpack_require__(3);
 
 if (true) {
   // running in node
 
-  var EventEmitter = __webpack_require__(0);
+  var EventEmitter = __webpack_require__(1);
 
 } else { var EventEmitter; }
 
@@ -1096,17 +1167,18 @@ const LiteProtocolStore = __webpack_require__(29);
 const Miner = __webpack_require__(30);
 const Blockchain = __webpack_require__(35);
 const HandshakeManager = __webpack_require__(11);
-const createRestServer = __webpack_require__(36);
+const InventoryResolver = __webpack_require__(36);
+const createRestServer = __webpack_require__(37);
 const createBlock = __webpack_require__(13);
 const {
   messageTypes, messageValidators, getBlocks, 
-  inv, getData, data, getPendingMsgs
-} = __webpack_require__(6);
+  inv, data, getPendingMsgs
+} = __webpack_require__(5);
 const {
   verifyBlock, verifyLitemsg, calcMerkleRoot, verifySubchain
-} = __webpack_require__(1);
-const { pickItems } = __webpack_require__(5);
-const { getCurTimestamp } = __webpack_require__(3);
+} = __webpack_require__(0);
+const { pickItems } = __webpack_require__(4);
+const { getCurTimestamp } = __webpack_require__(2);
 
 // protcol version
 const VERSION = 1;
@@ -1287,12 +1359,19 @@ class LiteProtocol extends P2PProtocol {
   async invHandler({ messageType, ...payload }, peer) {
     try {
       messageValidators[messageType](payload);
+      // Note the "blocks" here either is a single block just
+      // mined by peer, or is a sub blockchain, which, in
+      // other words, means those blocks are consecutive.
+      // This is just due to how the protocol is designed.
       let { blocks, litemsgs } = payload;
       let blocksToGet = [];
       let litemsgsToGet = [];
 
-      // filter out blocks already have 
-      // blocks off main branch also as being haven
+      // Filter out blocks already have (blocks off main branch 
+      // still as being haven). Also note that those blocks haven
+      // by the current node, if any, must always certainly reside
+      // at the beginning of received `inv`'s blockchain. Again,
+      // this is just due to how the protocol is designed.
       for (let blockId of blocks) {
         if (!(await this.blockchain.hasBlock(blockId, false))) {
           blocksToGet.push(blockId);
@@ -1307,10 +1386,10 @@ class LiteProtocol extends P2PProtocol {
       }
 
       if (blocksToGet.length || litemsgsToGet.length) {
-        // send response
-        peer.sendJson(
-          getData({ blocks: blocksToGet, litemsgs: litemsgsToGet })
-        );
+        peer._resolver.resolve({
+          blocks: blocksToGet,
+          litemsgs: litemsgsToGet
+        });
       }
 
     } catch (err) {
@@ -1456,9 +1535,16 @@ class LiteProtocol extends P2PProtocol {
 
   peerConnectHandler(peer) {
     if (peer.nodeType === 'full' && this.node.peers('full').length === 1) {
-      let blockLocators = this.blockchain.getLocatorsSync();
-      peer.sendJson(getBlocks({ blockLocators }));
+      // wait for 30 seconds to retrieve blocks
+      // because of concorrent resolving (it takes
+      // time to construct connections with peers)
+      setTimeout(() => {
+        let blockLocators = this.blockchain.getLocatorsSync();
+        peer.sendJson(getBlocks({ blockLocators }));
+      }, 60000);
     }
+
+    peer._resolver = new InventoryResolver(peer, this);
   }
 
   close() {
@@ -1477,7 +1563,7 @@ module.exports = LiteProtocol;
 /* 13 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const { sha256 } = __webpack_require__(1);
+const { sha256 } = __webpack_require__(0);
 
 /**
  * Note for genesis block, its `height` must be 0, and `prevBlock` be `undefined`.
@@ -1510,17 +1596,17 @@ module.exports = createBlock;
 if (true) {
   // node (output as commonjs)
 
-  exports.Node = __webpack_require__(4);
+  exports.Node = __webpack_require__(6);
   exports.ThinNode = __webpack_require__(22);
   exports.FullNode = __webpack_require__(28);
 
-  exports.createLitemsg = __webpack_require__(42);
+  exports.createLitemsg = __webpack_require__(43);
   exports.LiteProtocol = __webpack_require__(12);
   exports.ThinLiteProtocol = __webpack_require__(8);
-  module.exports = exports =  { ...exports, ...__webpack_require__(6) };
+  module.exports = exports =  { ...exports, ...__webpack_require__(5) };
 
-  module.exports = exports = { ...exports, ...__webpack_require__(1) };
-  module.exports = exports = { ...exports, ...__webpack_require__(3) };
+  module.exports = exports = { ...exports, ...__webpack_require__(0) };
+  module.exports = exports = { ...exports, ...__webpack_require__(2) };
   
 } else {}
 
@@ -1553,10 +1639,10 @@ module.exports = require("levelup");
 /* 19 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const EventEmitter = __webpack_require__(0);
+const EventEmitter = __webpack_require__(1);
 const WSServer = __webpack_require__(20);
-const { getSocketAddress } = __webpack_require__(2);
-const { getCurTimestamp } = __webpack_require__(3);
+const { getSocketAddress } = __webpack_require__(3);
+const { getCurTimestamp } = __webpack_require__(2);
 
 /**
  * This class is the abstraction of "node" (litenode) inside the litemessage
@@ -1784,10 +1870,10 @@ module.exports = LiteNode;
 /* 20 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const EventEmitter = __webpack_require__(0);
+const EventEmitter = __webpack_require__(1);
 const WebSocket = __webpack_require__(21);
 const { URL } = __webpack_require__(7);
-const { getSocketAddress } = __webpack_require__(2);
+const { getSocketAddress } = __webpack_require__(3);
 
 /**
  * Provide abstraction for underlaying transportation protocol. It behaves 
@@ -1944,7 +2030,7 @@ module.exports = require("ws");
 /* 22 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const Node = __webpack_require__(4);
+const Node = __webpack_require__(6);
 const ThinLiteProtocol = __webpack_require__(8);
 
 const NODE_TYPE = 'thin';
@@ -2081,7 +2167,7 @@ exports.returnPeers = returnPeers;
 /* 27 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const { getRemoteAddress } = __webpack_require__(2);
+const { getRemoteAddress } = __webpack_require__(3);
 
 class Peer {
   /**
@@ -2134,7 +2220,7 @@ module.exports = Peer;
 /* 28 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const Node = __webpack_require__(4);
+const Node = __webpack_require__(6);
 const LiteProtocol = __webpack_require__(12);
 
 const NODE_TYPE = 'full';
@@ -2326,7 +2412,7 @@ module.exports = LiteProtocolStore;
 /* 30 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const { mine } = __webpack_require__(1);
+const { mine } = __webpack_require__(0);
 const createBlock = __webpack_require__(13);
 
 /**
@@ -2411,7 +2497,7 @@ module.exports = require("buffer");
 /* 35 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const EventEmitter = __webpack_require__(0);
+const EventEmitter = __webpack_require__(1);
 
 /**
  * A chunk is a fixed number of consecutive blocks (only block id) grouped
@@ -2717,12 +2803,279 @@ module.exports = Blockchain;
 /* 36 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const http = __webpack_require__(37);
-const express = __webpack_require__(38);
-const logger = __webpack_require__(39);
-const cookieParser = __webpack_require__(40);
-const bodyParser = __webpack_require__(41);
-const { isValidJson, parseChunk } = __webpack_require__(5);
+const { sliceItems } = __webpack_require__(4);
+const { getCurTimestamp } = __webpack_require__(2);
+const { calcMerkleRoot, verifyBlock } = __webpack_require__(0);
+const {
+  messageTypes, messageValidators, getData, data,
+  getDataPartial, dataPartial, partialNotFound
+} = __webpack_require__(5);
+
+/**
+ * Abstraction of the inventory (only for blocks) to resolve.
+ */
+class BlockInventory {
+  /**
+   * @param {*} blocks block ids
+   * @param {*} slices number of slices   
+   */
+  constructor(blocks, slices) {
+    // chain's merkle digest
+    this.merkleDigest = calcMerkleRoot(blocks);
+    // chunk digest (sub merkle) => chunk data
+    this.chunks = {};
+    // the timestamp when resolving given blocks
+    this.timestamp = null;
+
+    for (let blockIds of sliceItems(blocks, slices)) {
+      let digest = calcMerkleRoot(blockIds);
+
+      this.chunks[digest] = {
+        // merkle root digest
+        digest,
+        // the block ids
+        ids: blockIds,
+        // the actual block data
+        blocks: undefined,
+        // the timestamp when resolving each chunk
+        timestamp: undefined
+      };
+    }
+  }
+
+  * [Symbol.iterator]() {
+    for (let chunk of Object.values(this.chunks)) {
+      yield chunk;
+    }
+  }
+
+  getBlocks() {
+    let blockArrays = Object.values(this.chunks).map(chunk => chunk.blocks);
+    let blocks = [];
+
+    for (let array of blockArrays) {
+      blocks.push(...array);
+    }
+    return blocks;
+  }
+
+  /**
+   * Whether this block inventory is resolved (a boolean).
+   */
+  resolved() {
+    for (let chunk of this) {
+      if (!chunk.blocks) { return false; }
+    }
+    return true;
+  }
+}
+
+/**
+ * This class is an abstraction of inventory resolver, which uses
+ * specific types of protocol messages (namely, `getDataPartial`, 
+ * `dataPartial`, and `partialNotFound`) to enable resolving inventory
+ * objects by communicating MULTIPLE peers in parallel, mainly for
+ * better efficiency and scalability.
+ * 
+ * Resolving inventory objects here just means to convert block id or
+ * message id to the actual corresponding block or message data.
+ * 
+ * The logic here is almost transparent to the rest of the protocol
+ * implementation, except you have to call the interface exposed here
+ * if you want to optionally jump in the performance & scalability
+ * optimization provided by this class.
+ * 
+ * Note that the resolved blocks will only go through some basic
+ * veriffication - more specificlly, to be individually verified.
+ * Since this is mostly transparent to other modules, all existing
+ * verificaitions afterwards will be invoked automatically.
+ * 
+ * TODO move handlers to somewhere else (resolv-handler.js)
+ */
+class InventoryResolver {
+  /**
+   * @param {*} socket        the peer whose inventory needs to resolve
+   * @param {*} liteprotocol  the protocol implementation itself
+   * @param {*} options
+   *                `slices`  number of slices
+   *        `blockThreshold`  the length threshold for sub blockchain. When
+   *                          sub blockchain's length is less than this
+   *                          threshold, the resolving will fall back
+   *                          to original approach (only by communicating one
+   *                          peer), which is via the `getData` message type.
+   *                          By default, this is undefined - always using
+   *                          parallel resolving.
+   */
+  constructor(peer, liteprotocol, { slices = 16, blockThreshold } = {}) {
+    this.peerDisconnectHandler = this.peerDisconnectHandler.bind(this);
+    this.getDataPartialHandler = this.getDataPartialHandler.bind(this);
+    this.dataPartialHandler = this.dataPartialHandler.bind(this);
+    this.partialNotFoundHandler = this.partialNotFoundHandler.bind(this);
+
+    this.peer = peer;
+    this.node = liteprotocol.node;
+    this.litenode = liteprotocol.litenode;
+    this.blockchain = liteprotocol.blockchain;
+    this.slices = slices;
+    this.blockThreshold = blockThreshold || 1;
+
+    // merkle digest => block inventory to resolve
+    this.blockInventories = {};
+
+    this.litenode.on(`message/${messageTypes.getDataPartial}`, this.getDataPartialHandler);
+    this.litenode.on(`message/${messageTypes.dataPartial}`, this.dataPartialHandler);
+    this.litenode.on(`message/${messageTypes.partialNotFound}`, this.partialNotFoundHandler);
+  }
+
+  _resolveBlocks(blocks) {
+    if (blocks.length < this.blockThreshold) {
+      this.peer.sendJson(getData({ blocks }));
+    }
+
+    let blockInv = new BlockInventory(blocks, this.slices);
+    let chunks = [...blockInv];
+    let peers = this.node.peers('full');
+
+    if (this.blockInventories[ blockInv.merkleDigest ]) {
+      return;
+    }
+
+    // using round robin across peers
+    for (let i = 0; i < chunks.length; i++) {
+      // make sure request the last (latest) chunk
+      // from the peer which is the owner of the 
+      // inventory to be resolved here (because
+      // other peers might not have the latest
+      // blocks of the chunk just mined)
+      let peer = i + 1 === chunks.length ?
+        this.peer : peers[i % peers.length];
+
+      peer.sendJson(
+        getDataPartial({
+          merkleDigest: blockInv.merkleDigest, 
+          blocks: chunks[i].ids
+        })
+      ); // end of sendJson
+
+      chunks[i].timestamp = getCurTimestamp();
+      chunks[i].peer = peer;
+    } // end of loop
+    
+    this.blockInventories[ blockInv.merkleDigest ] = blockInv;
+  }
+
+  _resolveLitemsgs(litemsgs) {
+    this.peer.sendJson(getData({ litemsgs }));
+  }
+
+  /**
+   * Note you don't have to provide the exact raw `inv` message
+   * here, but just an `inv`-like object. An `inv`-like object
+   * is any object which has either `blocks` or `litemsgs`
+   * properties, or both to resolve.
+   * 
+   * @param {*} inv an `inv`-like object here
+   */
+  resolve({ blocks = [], litemsgs = [] }) {
+    if (blocks.length) {
+      this._resolveBlocks(blocks);
+    }
+    if (litemsgs.length) {
+      this._resolveLitemsgs(litemsgs);
+    }
+  }
+
+  async getDataPartialHandler({ messageType, ...payload }, peer) {
+    if (peer.uuid !== this.peer.uuid) { return; }
+
+    try {
+      messageValidators[messageType](payload);
+      let { merkleDigest, blocks: blockIds } = payload;
+      let blocks = await Promise.all(
+        blockIds.map(id => this.blockchain.getBlock(id))
+      );
+
+      if (blocks.some(block => !block)) {
+        peer.sendJson(
+          partialNotFound({
+            merkleDigest, 
+            blocks: blockIds
+          })
+        ); // end of sendJson
+
+      } else {
+        peer.sendJson(
+          dataPartial({
+            merkleDigest,
+            blocks
+          })
+        ); // end of sendJson
+      } // end of else
+
+    } catch (err) {
+      console.warn(err);
+    }
+  }
+
+  async dataPartialHandler({ messageType, ...payload }, peer) {
+    try {
+      messageValidators[messageType](payload);
+      let { merkleDigest, blocks } = payload;
+      let blockInv = this.blockInventories[merkleDigest];
+      if (!blockInv) { return; }
+
+      blocks.filter(block => verifyBlock(block));
+      let blockIds = blocks.map(block => block.hash);
+      let chunk = blockInv.chunks[calcMerkleRoot(blockIds)];
+      if (!chunk || chunk.blocks) { return; }
+
+      // save block data to inventory
+      chunk.blocks = blocks;
+
+      if (blockInv.resolved()) {
+        this.litenode.emit(
+          `message/${messageTypes.data}`, 
+          data({ blocks: blockInv.getBlocks() }),
+          this.peer
+        );
+
+        delete this.blockInventories[merkleDigest];
+      }
+
+    } catch (err) {
+      console.warn(err);
+    }
+  }
+
+  async partialNotFoundHandler({ messageType, ...payload }, peer) {
+    if (peer.uuid !== this.peer.uuid) { return; }
+  }
+
+  peerDisconnectHandler() {
+    // TODO
+  }
+
+  /**
+   * Do the cleanup.
+   */
+  close() {
+    // TODO
+  }
+}
+
+module.exports = InventoryResolver;
+
+
+/***/ }),
+/* 37 */
+/***/ (function(module, exports, __webpack_require__) {
+
+const http = __webpack_require__(38);
+const express = __webpack_require__(39);
+const logger = __webpack_require__(40);
+const cookieParser = __webpack_require__(41);
+const bodyParser = __webpack_require__(42);
+const { isValidJson, parseChunk } = __webpack_require__(4);
 
 const notfoundPayload = { 'not-found': true };
 
@@ -2861,40 +3214,40 @@ module.exports = createRestServer;
 
 
 /***/ }),
-/* 37 */
+/* 38 */
 /***/ (function(module, exports) {
 
 module.exports = require("http");
 
 /***/ }),
-/* 38 */
+/* 39 */
 /***/ (function(module, exports) {
 
 module.exports = require("express");
 
 /***/ }),
-/* 39 */
+/* 40 */
 /***/ (function(module, exports) {
 
 module.exports = require("morgan");
 
 /***/ }),
-/* 40 */
+/* 41 */
 /***/ (function(module, exports) {
 
 module.exports = require("cookie-parser");
 
 /***/ }),
-/* 41 */
+/* 42 */
 /***/ (function(module, exports) {
 
 module.exports = require("body-parser");
 
 /***/ }),
-/* 42 */
+/* 43 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const { sha256 } = __webpack_require__(1);
+const { sha256 } = __webpack_require__(0);
 
 /**
  * @param {string} ver      version number (now hardcoded to 1, I don't have time :|)

@@ -80,7 +80,7 @@ class P2PProtocol extends EventEmitter {
           if (this.node.peers(nodeTypes).length < minPeerNum) {
             this.litenode.broadcastJson(fetchPeers({ nodeTypes }));
           }
-        }, 60000)
+        }, 40000)
       );
 
       // periodically persist peer urls

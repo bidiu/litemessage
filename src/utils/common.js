@@ -41,6 +41,22 @@ const pickItems = (array, num) => {
   return picked;
 };
 
+const sliceItems = (array, slices) => {
+  slices = Math.max( Math.min(array.length, slices), 1 );
+
+  let l = Math.floor(array.length / slices);
+  let sliced = [];
+
+  for (let i = 0; i < slices; i++) {
+    if (i + 1 === slices) {
+      sliced.push( array.slice(l * i) );
+    } else {
+      sliced.push( array.slice(l * i, l * (i + 1)) );
+    }
+  }
+  return sliced;
+};
+
 const parseChunk = (buffer) => {
   if (buffer.length % 32) { throw new Error('Invalid chunk buffer.'); }
 
@@ -55,4 +71,5 @@ exports.isValidJson = isValidJson;
 exports.getAbsRootPath = getAbsRootPath;
 exports.randomInt = randomInt;
 exports.pickItems = pickItems;
+exports.sliceItems = sliceItems;
 exports.parseChunk = parseChunk;

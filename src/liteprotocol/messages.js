@@ -1,11 +1,14 @@
 const messageTypes = Object.freeze({
   info: 'lite/info',
-  infoAck: 'lite/infoAck',
+  infoAck: 'lite/info_ack',
 
   getBlocks: 'lite/get_blocks',
   inv: 'lite/inv',
   getData: 'lite/get_data',
   data: 'lite/data',
+  getDataPartial: 'lite/get_data_partial',
+  dataPartial: 'lite/data_partial',
+  partialNotFound: 'lite/partial_not_found',
 
   getPendingMsgs: 'lite/get_pending_msgs',
 
@@ -106,6 +109,51 @@ data.validate = ({ blocks, litemsgs }) => {
   }
 };
 
+const getDataPartial = ({ merkleDigest, blocks }) => ({
+  messageType: messageTypes.getDataPartial,
+  merkleDigest,
+  blocks
+});
+
+getDataPartial.validate = ({ merkleDigest, blocks }) => {
+  if (typeof merkleDigest !== 'string') {
+    throw new Error('lite/: Invalid merkle digest.');
+  }
+  if (!(blocks instanceof Array)) {
+    throw new Error('lite/: Invalid blocks.');
+  }
+};
+
+const dataPartial = ({ merkleDigest, blocks }) => ({
+  messageType: messageTypes.dataPartial,
+  merkleDigest,
+  blocks
+});
+
+dataPartial.validate = ({ merkleDigest, blocks }) => {
+  if (typeof merkleDigest !== 'string') {
+    throw new Error('lite/: Invalid merkle digest.');
+  }
+  if (!(blocks instanceof Array)) {
+    throw new Error('lite/: Invalid blocks.');
+  }
+};
+
+const partialNotFound = ({ merkleDigest, blocks }) => ({
+  messageType: messageTypes.partialNotFound,
+  merkleDigest,
+  blocks
+});
+
+partialNotFound.validate = ({ merkleDigest, blocks }) => {
+  if (typeof merkleDigest !== 'string') {
+    throw new Error('lite/: Invalid merkle digest.');
+  }
+  if (!(blocks instanceof Array)) {
+    throw new Error('lite/: Invalid blocks.');
+  }
+};
+
 const getPendingMsgs = () => ({
   messageType: messageTypes.getPendingMsgs
 });
@@ -122,6 +170,9 @@ const messageValidators = Object.freeze({
   [messageTypes.inv]: inv.validate,
   [messageTypes.getData]: getData.validate,
   [messageTypes.data]: data.validate,
+  [messageTypes.getDataPartial]: getDataPartial.validate,
+  [messageTypes.dataPartial]: dataPartial.validate,
+  [messageTypes.partialNotFound]: partialNotFound.validate,
   [messageTypes.getPendingMsgs]: getPendingMsgs.validate
 });
 
@@ -133,4 +184,7 @@ exports.getBlocks = getBlocks;
 exports.inv = inv;
 exports.getData = getData;
 exports.data = data;
+exports.getDataPartial = getDataPartial;
+exports.dataPartial = dataPartial;
+exports.partialNotFound = partialNotFound;
 exports.getPendingMsgs = getPendingMsgs;
