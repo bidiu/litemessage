@@ -1,4 +1,4 @@
-/*! v0.4.1 */
+/*! v0.4.2-1-g1995c94 */
 module.exports =
 /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
@@ -2081,7 +2081,7 @@ exports.returnPeers = returnPeers;
 /* 27 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const { getRemoteAddress } = __webpack_require__(2);
+const { getRemoteAddress, getSocketAddress } = __webpack_require__(2);
 
 class Peer {
   /**
@@ -2124,6 +2124,16 @@ class Peer {
 
   toString() {
     return `${this.nodeType} - ${this.url}`;
+  }
+
+  toJSON() {
+    return {
+      uuid: this.uuid,
+      remoteAddr: getSocketAddress(this.socket),
+      daemonPort: this.daemonPort,
+      incoming: this.incoming,
+      type: this.nodeType
+    };
   }
 }
 
@@ -2743,6 +2753,7 @@ function logFilter(logs, { peer, dir, type, since }) {
  */
 function createRestServer(liteProtocol) {
   const app = express();
+  const node = liteProtocol.node;
   const blockchain = liteProtocol.blockchain;
   const liteStore = liteProtocol.liteStore;
   const leveldb = liteProtocol.liteStore.db;
@@ -2755,6 +2766,7 @@ function createRestServer(liteProtocol) {
   app.get('/', (req, res) => {
     res.status(200).json({
       endpoints: [
+        { '/peers': 'peer information' },
         { '/msgpool': 'pending litemessage pool' },
         { '/blocks': 'get all blocks on the main branch' },
         { '/blocks/:blockId': 'get specified block' },
@@ -2764,6 +2776,11 @@ function createRestServer(liteProtocol) {
         { '/locators': 'get the block locator hashes' }
       ]
     });
+  });
+
+  app.get('/peers', (req, res) => {
+    let { type } = req.query;
+    res.status(200).json(node.peers(type));
   });
 
   app.get('/msgpool', (req, res) => {

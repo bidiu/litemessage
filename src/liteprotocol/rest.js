@@ -24,6 +24,7 @@ function logFilter(logs, { peer, dir, type, since }) {
  */
 function createRestServer(liteProtocol) {
   const app = express();
+  const node = liteProtocol.node;
   const blockchain = liteProtocol.blockchain;
   const liteStore = liteProtocol.liteStore;
   const leveldb = liteProtocol.liteStore.db;
@@ -36,6 +37,7 @@ function createRestServer(liteProtocol) {
   app.get('/', (req, res) => {
     res.status(200).json({
       endpoints: [
+        { '/peers': 'peer information' },
         { '/msgpool': 'pending litemessage pool' },
         { '/blocks': 'get all blocks on the main branch' },
         { '/blocks/:blockId': 'get specified block' },
@@ -45,6 +47,11 @@ function createRestServer(liteProtocol) {
         { '/locators': 'get the block locator hashes' }
       ]
     });
+  });
+
+  app.get('/peers', (req, res) => {
+    let { type } = req.query;
+    res.status(200).json(node.peers(type));
   });
 
   app.get('/msgpool', (req, res) => {

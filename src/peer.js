@@ -1,4 +1,4 @@
-const { getRemoteAddress } = require('./utils/network');
+const { getRemoteAddress, getSocketAddress } = require('./utils/network');
 
 class Peer {
   /**
@@ -41,6 +41,16 @@ class Peer {
 
   toString() {
     return `${this.nodeType} - ${this.url}`;
+  }
+
+  toJSON() {
+    return {
+      uuid: this.uuid,
+      remoteAddr: getSocketAddress(this.socket),
+      daemonPort: this.daemonPort,
+      incoming: this.incoming,
+      type: this.nodeType
+    };
   }
 }
 
