@@ -33,9 +33,6 @@ const { getCurTimestamp } = require('./utils/time');
  * worry about : P
  */
 class LiteNode extends EventEmitter {
-  /**
-   * A UUID will be automatically generated.
-   */
   constructor(uuid, { port = 1113, debug = false } = {}) {
     super();
     this.socketConnectHandler = this.socketConnectHandler.bind(this);
@@ -47,7 +44,7 @@ class LiteNode extends EventEmitter {
 
     // node's uuid => peer
     this.peers = {};
-    // socket addresses => peers
+    // remote socket addresses (str) => peers
     this.socketsToPeers = {};
 
     // used for debugging (view all protocol messages since start)
@@ -197,7 +194,7 @@ class LiteNode extends EventEmitter {
       return;
     }
 
-    peer.socket = socket = this.createSocketProxy(socket);
+    peer.socket = socket = this.createSocketProxy(socket, uuid);
     this.peers[uuid] = peer;
     this.socketsToPeers[socketAddress] = peer;
     socket.on('message', (message) => 
@@ -211,6 +208,28 @@ class LiteNode extends EventEmitter {
 
     // notify listeners
     this.emit('peerconnect', peer);
+  }
+
+  /**
+   * Get some useful information about this node.
+   */
+  getInfo() {
+    let network = this.wss.getInfo();
+
+    if (network.sockets) {
+      for (let socketInfo of network.sockets) {
+        let peer = this.socketsToPeers[socketInfo.remoteSocketAddr];
+
+        socketInfo.remoteUuid = peer.uuid;
+        socketInfo.remoteDaemonPort = peer.daemonPort;
+      }
+    }
+
+    return {
+      uuid: this.uuid,
+      daemonPort: this.daemonPort,
+      network,
+    };
   }
 
   /**

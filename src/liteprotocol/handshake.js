@@ -154,9 +154,11 @@ if (BUILD_TARGET === 'node') {
 
         }).bind(this); // end of _messageHandler
 
-
-        this.pendingSockets.set(socket, pendingSocket);
         socket.on('message', socket._messageHandler);
+        socket.on('close', (code, reason) => {
+          this.pendingSockets.delete(socket);
+        });
+        this.pendingSockets.set(socket, pendingSocket);
 
         if (!incoming) {
           // sending the first info message
