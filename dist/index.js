@@ -1,4 +1,4 @@
-/*! v0.4.2-2-gb348fde */
+/*! v0.4.2-3-g1728d5d */
 module.exports =
 /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
@@ -353,13 +353,36 @@ const getRemotePort = (socket) => {
   return socket._socket.remotePort + '';
 };
 
+/**
+ * Of remote end.
+ * 
+ * @param {*} socket 
+ */
 const getSocketAddress = (socket) => {
   return `${getRemoteAddress(socket)}:${getRemotePort(socket)}`;
 };
 
+const getLocalAddress = (socket) => 
+  socket._socket.localAddress.replace(/^.*:/, '');
+
+const getLocalPort = (socket) => 
+  socket._socket.localPort;
+
+const getLocalSocketAddr = (socket) =>
+  `${getLocalAddress(socket)}:${getLocalPort(socket)}`;
+
+const getSocketInfo = (socket) => ({
+  localSocketAddr: getLocalSocketAddr(socket),
+  remoteSocketAddr: getSocketAddress(socket)
+});
+
 exports.getRemoteAddress = getRemoteAddress;
 exports.getRemotePort = getRemotePort;
 exports.getSocketAddress = getSocketAddress;
+exports.getLocalAddress = getLocalAddress;
+exports.getLocalPort = getLocalPort;
+exports.getLocalSocketAddr = getLocalSocketAddr;
+exports.getSocketInfo = getSocketInfo;
 
 
 /***/ }),
@@ -1026,9 +1049,11 @@ if (true) {
 
         }).bind(this); // end of _messageHandler
 
-
-        this.pendingSockets.set(socket, pendingSocket);
         socket.on('message', socket._messageHandler);
+        socket.on('close', (code, reason) => {
+          this.pendingSockets.delete(socket);
+        });
+        this.pendingSockets.set(socket, pendingSocket);
 
         if (!incoming) {
           // sending the first info message
@@ -1588,9 +1613,6 @@ const { getCurTimestamp } = __webpack_require__(3);
  * worry about : P
  */
 class LiteNode extends EventEmitter {
-  /**
-   * A UUID will be automatically generated.
-   */
   constructor(uuid, { port = 1113, debug = false } = {}) {
     super();
     this.socketConnectHandler = this.socketConnectHandler.bind(this);
@@ -1602,7 +1624,7 @@ class LiteNode extends EventEmitter {
 
     // node's uuid => peer
     this.peers = {};
-    // socket addresses => peers
+    // remote socket addresses (str) => peers
     this.socketsToPeers = {};
 
     // used for debugging (view all protocol messages since start)
@@ -1769,6 +1791,28 @@ class LiteNode extends EventEmitter {
   }
 
   /**
+   * Get some useful information about this node.
+   */
+  getInfo() {
+    let network = this.wss.getInfo();
+
+    if (network.sockets) {
+      for (let socketInfo of network.sockets) {
+        let peer = this.socketsToPeers[socketInfo.remoteSocketAddr];
+
+        socketInfo.remoteUuid = peer.uuid;
+        socketInfo.remoteDaemonPort = peer.daemonPort;
+      }
+    }
+
+    return {
+      uuid: this.uuid,
+      daemonPort: this.daemonPort,
+      network,
+    };
+  }
+
+  /**
    * Close this node (both server and outgoing socket connections will
    * be closed)
    */
@@ -1787,7 +1831,7 @@ module.exports = LiteNode;
 const EventEmitter = __webpack_require__(0);
 const WebSocket = __webpack_require__(21);
 const { URL } = __webpack_require__(7);
-const { getSocketAddress } = __webpack_require__(2);
+const { getSocketAddress, getSocketInfo } = __webpack_require__(2);
 
 /**
  * Provide abstraction for underlaying transportation protocol. It behaves 
@@ -1919,6 +1963,31 @@ class WSServer extends EventEmitter {
 
   socketAlive(socket) {
     return socket.readyState === WebSocket.OPEN;
+  }
+
+  /**
+   * Get some useful information about the network.
+   */
+  getInfo() {
+    let sockets = [];
+
+    for (let socket of this.wss.clients) {
+      sockets.push({
+        dir: 'inbound',
+        ...getSocketInfo(socket)
+      });
+    }
+    for (let socket of Object.values(this.servers)) {
+      sockets.push({
+        dir: 'outbound',
+        ...getSocketInfo(socket)
+      });
+    }
+
+    return {
+      port: this.port,
+      sockets
+    };
   }
 
   /**
@@ -2087,7 +2156,7 @@ class Peer {
   /**
    * @param {string} uuid             peer's uuid
    * @param {*} socket                network socket to the peer
-   * @param {boolean} incoming        whehter the connection is incoming
+   * @param {boolean} incoming        whether the connection is incoming
    * @param {string} daemonPort       peer's daemon port
    * @param {string} nodeType         peer's node type
    */
@@ -2754,6 +2823,7 @@ function logFilter(logs, { peer, dir, type, since }) {
 function createRestServer(liteProtocol) {
   const app = express();
   const node = liteProtocol.node;
+  const litenode = liteProtocol.litenode;
   const blockchain = liteProtocol.blockchain;
   const liteStore = liteProtocol.liteStore;
   const leveldb = liteProtocol.liteStore.db;
@@ -2766,6 +2836,7 @@ function createRestServer(liteProtocol) {
   app.get('/', (req, res) => {
     res.status(200).json({
       endpoints: [
+        { '/info': 'all sorts of info about this node' },
         { '/peers': 'peer information' },
         { '/msgpool': 'pending litemessage pool' },
         { '/blocks': 'get all blocks on the main branch' },
@@ -2776,6 +2847,10 @@ function createRestServer(liteProtocol) {
         { '/locators': 'get the block locator hashes' }
       ]
     });
+  });
+
+  app.get('/info', (req, res) => {
+    res.status(200).json(litenode.getInfo());
   });
 
   app.get('/peers', (req, res) => {

@@ -4,7 +4,7 @@ class Peer {
   /**
    * @param {string} uuid             peer's uuid
    * @param {*} socket                network socket to the peer
-   * @param {boolean} incoming        whehter the connection is incoming
+   * @param {boolean} incoming        whether the connection is incoming
    * @param {string} daemonPort       peer's daemon port
    * @param {string} nodeType         peer's node type
    */

@@ -1,7 +1,7 @@
 const EventEmitter = require('events');
 const WebSocket = require('ws');
 const { URL } = require('url');
-const { getSocketAddress } = require('./utils/network');
+const { getSocketAddress, getSocketInfo } = require('./utils/network');
 
 /**
  * Provide abstraction for underlaying transportation protocol. It behaves 
@@ -133,6 +133,31 @@ class WSServer extends EventEmitter {
 
   socketAlive(socket) {
     return socket.readyState === WebSocket.OPEN;
+  }
+
+  /**
+   * Get some useful information about the network.
+   */
+  getInfo() {
+    let sockets = [];
+
+    for (let socket of this.wss.clients) {
+      sockets.push({
+        dir: 'inbound',
+        ...getSocketInfo(socket)
+      });
+    }
+    for (let socket of Object.values(this.servers)) {
+      sockets.push({
+        dir: 'outbound',
+        ...getSocketInfo(socket)
+      });
+    }
+
+    return {
+      port: this.port,
+      sockets
+    };
   }
 
   /**
