@@ -197,7 +197,7 @@ class LiteNode extends EventEmitter {
       return;
     }
 
-    peer.socket = socket = this.createSocketProxy(socket);
+    peer.socket = socket = this.createSocketProxy(socket, uuid);
     this.peers[uuid] = peer;
     this.socketsToPeers[socketAddress] = peer;
     socket.on('message', (message) => 

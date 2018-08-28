@@ -1,4 +1,4 @@
-/*! v0.4.2-1-g1995c94 */
+/*! v0.4.2-2-gb348fde */
 module.exports =
 /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
@@ -1752,7 +1752,7 @@ class LiteNode extends EventEmitter {
       return;
     }
 
-    peer.socket = socket = this.createSocketProxy(socket);
+    peer.socket = socket = this.createSocketProxy(socket, uuid);
     this.peers[uuid] = peer;
     this.socketsToPeers[socketAddress] = peer;
     socket.on('message', (message) => 
