@@ -237,6 +237,7 @@ class LiteNode extends EventEmitter {
    * be closed)
    */
   close() {
+    this.removeAllListeners();
     this.wss.close();
   }
 }

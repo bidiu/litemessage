@@ -3,6 +3,7 @@ const LiteProtocolStore = require('./store');
 const Miner = require('./miner');
 const Blockchain = require('../utils/blockchain');
 const HandshakeManager = require('./handshake');
+const InvResolveHandler = require('./resolv-handler');
 const InventoryResolver = require('./inv-resolv');
 const createRestServer = require('./rest');
 const createBlock = require('./entities/block');
@@ -71,6 +72,8 @@ class LiteProtocol extends P2PProtocol {
     // instantiate a handshake manager so that
     // our node can connect to other nodes : P
     this.handshake = new HandshakeManager(this);
+    // this node supports inventory resolution : P
+    this.invResolvHandler = new InvResolveHandler(this);
 
     if (this.litenode.debug) {
       // create and run rest server

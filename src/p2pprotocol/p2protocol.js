@@ -159,6 +159,7 @@ class P2PProtocol extends EventEmitter {
   }
 
   close() {
+    this.removeAllListeners();
     this.intervalTimers.forEach(t => clearInterval(t));
   }
 }

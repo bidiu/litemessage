@@ -1,4 +1,4 @@
-/*! v0.4.2-1-g35e7425 */
+/*! v0.4.2-6-gd2d795e */
 module.exports =
 /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
@@ -362,134 +362,6 @@ exports.getCurTimestamp = getCurTimestamp;
 /* 3 */
 /***/ (function(module, exports) {
 
-const getRemoteAddress = (socket) => {
-  return socket._socket.remoteAddress.replace(/^.*:/, '');
-};
-
-/**
- * Note that a string will be returned.
- */
-const getRemotePort = (socket) => {
-  return socket._socket.remotePort + '';
-};
-
-/**
- * Of remote end.
- * 
- * @param {*} socket 
- */
-const getSocketAddress = (socket) => {
-  return `${getRemoteAddress(socket)}:${getRemotePort(socket)}`;
-};
-
-const getLocalAddress = (socket) => 
-  socket._socket.localAddress.replace(/^.*:/, '');
-
-const getLocalPort = (socket) => 
-  socket._socket.localPort;
-
-const getLocalSocketAddr = (socket) =>
-  `${getLocalAddress(socket)}:${getLocalPort(socket)}`;
-
-const getSocketInfo = (socket) => ({
-  localSocketAddr: getLocalSocketAddr(socket),
-  remoteSocketAddr: getSocketAddress(socket)
-});
-
-exports.getRemoteAddress = getRemoteAddress;
-exports.getRemotePort = getRemotePort;
-exports.getSocketAddress = getSocketAddress;
-exports.getLocalAddress = getLocalAddress;
-exports.getLocalPort = getLocalPort;
-exports.getLocalSocketAddr = getLocalSocketAddr;
-exports.getSocketInfo = getSocketInfo;
-
-
-/***/ }),
-/* 4 */
-/***/ (function(module, exports, __webpack_require__) {
-
-const path = __webpack_require__(10);
-
-const isValidJson = (json) => {
-  if (typeof json !== 'string' || !json) {
-    return false;
-  }
-
-  try {
-    JSON.parse(json);
-    return true;
-  } catch (e) { }
-  return false;
-};
-
-/**
- * project's root path, of course this file cannot be moved around
- */
-const getAbsRootPath = () => {
-  return path.join(__dirname, '../..');
-};
-
-/**
- * From 0 (inclusive) to `max` (exclusive).
- */
-const randomInt = (max) => {
-  return Math.floor(Math.random() * Math.floor(max));
-};
-
-/**
- * Randomly pick `num` items from an array. Note that original array 
- * won't be altered. And also the order of items won't be preserved 
- * in the picked array.
- */
-const pickItems = (array, num) => {
-  let copiedArray = [...array];
-  let picked = [];
-  num = Math.min(array.length, num);
-  for (let i = 0; i < num; i++) {
-    picked.push(...copiedArray.splice(randomInt(copiedArray.length), 1));
-  }
-  return picked;
-};
-
-const sliceItems = (array, slices) => {
-  slices = Math.max( Math.min(array.length, slices), 1 );
-
-  let l = Math.floor(array.length / slices);
-  let sliced = [];
-
-  for (let i = 0; i < slices; i++) {
-    if (i + 1 === slices) {
-      sliced.push( array.slice(l * i) );
-    } else {
-      sliced.push( array.slice(l * i, l * (i + 1)) );
-    }
-  }
-  return sliced;
-};
-
-const parseChunk = (buffer) => {
-  if (buffer.length % 32) { throw new Error('Invalid chunk buffer.'); }
-
-  let hashes = [];
-  for (let i = 0; i < buffer.length; i += 32) {
-    hashes.push(buffer.slice(i, i + 32).toString('hex'));
-  }
-  return hashes;
-};
-
-exports.isValidJson = isValidJson;
-exports.getAbsRootPath = getAbsRootPath;
-exports.randomInt = randomInt;
-exports.pickItems = pickItems;
-exports.sliceItems = sliceItems;
-exports.parseChunk = parseChunk;
-
-
-/***/ }),
-/* 5 */
-/***/ (function(module, exports) {
-
 const messageTypes = Object.freeze({
   info: 'lite/info',
   infoAck: 'lite/info_ack',
@@ -683,6 +555,134 @@ exports.getPendingMsgs = getPendingMsgs;
 
 
 /***/ }),
+/* 4 */
+/***/ (function(module, exports) {
+
+const getRemoteAddress = (socket) => {
+  return socket._socket.remoteAddress.replace(/^.*:/, '');
+};
+
+/**
+ * Note that a string will be returned.
+ */
+const getRemotePort = (socket) => {
+  return socket._socket.remotePort + '';
+};
+
+/**
+ * Of remote end.
+ * 
+ * @param {*} socket 
+ */
+const getSocketAddress = (socket) => {
+  return `${getRemoteAddress(socket)}:${getRemotePort(socket)}`;
+};
+
+const getLocalAddress = (socket) => 
+  socket._socket.localAddress.replace(/^.*:/, '');
+
+const getLocalPort = (socket) => 
+  socket._socket.localPort;
+
+const getLocalSocketAddr = (socket) =>
+  `${getLocalAddress(socket)}:${getLocalPort(socket)}`;
+
+const getSocketInfo = (socket) => ({
+  localSocketAddr: getLocalSocketAddr(socket),
+  remoteSocketAddr: getSocketAddress(socket)
+});
+
+exports.getRemoteAddress = getRemoteAddress;
+exports.getRemotePort = getRemotePort;
+exports.getSocketAddress = getSocketAddress;
+exports.getLocalAddress = getLocalAddress;
+exports.getLocalPort = getLocalPort;
+exports.getLocalSocketAddr = getLocalSocketAddr;
+exports.getSocketInfo = getSocketInfo;
+
+
+/***/ }),
+/* 5 */
+/***/ (function(module, exports, __webpack_require__) {
+
+const path = __webpack_require__(10);
+
+const isValidJson = (json) => {
+  if (typeof json !== 'string' || !json) {
+    return false;
+  }
+
+  try {
+    JSON.parse(json);
+    return true;
+  } catch (e) { }
+  return false;
+};
+
+/**
+ * project's root path, of course this file cannot be moved around
+ */
+const getAbsRootPath = () => {
+  return path.join(__dirname, '../..');
+};
+
+/**
+ * From 0 (inclusive) to `max` (exclusive).
+ */
+const randomInt = (max) => {
+  return Math.floor(Math.random() * Math.floor(max));
+};
+
+/**
+ * Randomly pick `num` items from an array. Note that original array 
+ * won't be altered. And also the order of items won't be preserved 
+ * in the picked array.
+ */
+const pickItems = (array, num) => {
+  let copiedArray = [...array];
+  let picked = [];
+  num = Math.min(array.length, num);
+  for (let i = 0; i < num; i++) {
+    picked.push(...copiedArray.splice(randomInt(copiedArray.length), 1));
+  }
+  return picked;
+};
+
+const sliceItems = (array, slices) => {
+  slices = Math.max( Math.min(array.length, slices), 1 );
+
+  let l = Math.floor(array.length / slices);
+  let sliced = [];
+
+  for (let i = 0; i < slices; i++) {
+    if (i + 1 === slices) {
+      sliced.push( array.slice(l * i) );
+    } else {
+      sliced.push( array.slice(l * i, l * (i + 1)) );
+    }
+  }
+  return sliced;
+};
+
+const parseChunk = (buffer) => {
+  if (buffer.length % 32) { throw new Error('Invalid chunk buffer.'); }
+
+  let hashes = [];
+  for (let i = 0; i < buffer.length; i += 32) {
+    hashes.push(buffer.slice(i, i + 32).toString('hex'));
+  }
+  return hashes;
+};
+
+exports.isValidJson = isValidJson;
+exports.getAbsRootPath = getAbsRootPath;
+exports.randomInt = randomInt;
+exports.pickItems = pickItems;
+exports.sliceItems = sliceItems;
+exports.parseChunk = parseChunk;
+
+
+/***/ }),
 /* 6 */
 /***/ (function(module, exports, __webpack_require__) {
 
@@ -801,7 +801,7 @@ const P2PProtocolStore = __webpack_require__(25);
 const {
   messageTypes, messageValidators, fetchPeers, returnPeers
 } = __webpack_require__(26);
-const { pickItems } = __webpack_require__(4);
+const { pickItems } = __webpack_require__(5);
 
 // look up dns records
 const lookup = promisify(dns.lookup);
@@ -951,6 +951,7 @@ class P2PProtocol extends EventEmitter {
   }
 
   close() {
+    this.removeAllListeners();
     this.intervalTimers.forEach(t => clearInterval(t));
   }
 }
@@ -972,9 +973,9 @@ const Peer = __webpack_require__(27);
 const {
   messageValidators, info, infoAck,
   messageTypes: { info: infoType, infoAck: infoAckType }
-} = __webpack_require__(5);
+} = __webpack_require__(3);
 const { getCurTimestamp } = __webpack_require__(2);
-const { getSocketAddress } = __webpack_require__(3);
+const { getSocketAddress } = __webpack_require__(4);
 
 if (true) {
   // running in node
@@ -1192,17 +1193,18 @@ const LiteProtocolStore = __webpack_require__(29);
 const Miner = __webpack_require__(30);
 const Blockchain = __webpack_require__(35);
 const HandshakeManager = __webpack_require__(11);
-const InventoryResolver = __webpack_require__(36);
-const createRestServer = __webpack_require__(37);
+const InvResolveHandler = __webpack_require__(36);
+const InventoryResolver = __webpack_require__(37);
+const createRestServer = __webpack_require__(38);
 const createBlock = __webpack_require__(13);
 const {
   messageTypes, messageValidators, getBlocks, 
   inv, data, getPendingMsgs
-} = __webpack_require__(5);
+} = __webpack_require__(3);
 const {
   verifyBlock, verifyLitemsg, calcMerkleRoot, verifySubchain
 } = __webpack_require__(0);
-const { pickItems } = __webpack_require__(4);
+const { pickItems } = __webpack_require__(5);
 const { getCurTimestamp } = __webpack_require__(2);
 
 // protcol version
@@ -1260,6 +1262,8 @@ class LiteProtocol extends P2PProtocol {
     // instantiate a handshake manager so that
     // our node can connect to other nodes : P
     this.handshake = new HandshakeManager(this);
+    // this node supports inventory resolution : P
+    this.invResolvHandler = new InvResolveHandler(this);
 
     if (this.litenode.debug) {
       // create and run rest server
@@ -1625,10 +1629,10 @@ if (true) {
   exports.ThinNode = __webpack_require__(22);
   exports.FullNode = __webpack_require__(28);
 
-  exports.createLitemsg = __webpack_require__(43);
+  exports.createLitemsg = __webpack_require__(44);
   exports.LiteProtocol = __webpack_require__(12);
   exports.ThinLiteProtocol = __webpack_require__(8);
-  module.exports = exports =  { ...exports, ...__webpack_require__(5) };
+  module.exports = exports =  { ...exports, ...__webpack_require__(3) };
 
   module.exports = exports = { ...exports, ...__webpack_require__(0) };
   module.exports = exports = { ...exports, ...__webpack_require__(2) };
@@ -1666,7 +1670,7 @@ module.exports = require("levelup");
 
 const EventEmitter = __webpack_require__(1);
 const WSServer = __webpack_require__(20);
-const { getSocketAddress } = __webpack_require__(3);
+const { getSocketAddress } = __webpack_require__(4);
 const { getCurTimestamp } = __webpack_require__(2);
 
 /**
@@ -1903,6 +1907,7 @@ class LiteNode extends EventEmitter {
    * be closed)
    */
   close() {
+    this.removeAllListeners();
     this.wss.close();
   }
 }
@@ -1917,7 +1922,7 @@ module.exports = LiteNode;
 const EventEmitter = __webpack_require__(1);
 const WebSocket = __webpack_require__(21);
 const { URL } = __webpack_require__(7);
-const { getSocketAddress, getSocketInfo } = __webpack_require__(3);
+const { getSocketAddress, getSocketInfo } = __webpack_require__(4);
 
 /**
  * Provide abstraction for underlaying transportation protocol. It behaves 
@@ -2081,6 +2086,7 @@ class WSServer extends EventEmitter {
    * be closed)
    */
   close() {
+    this.removeAllListeners();
     clearInterval(this.timer);
     this.wss.close();
   }
@@ -2236,7 +2242,7 @@ exports.returnPeers = returnPeers;
 /* 27 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const { getRemoteAddress, getSocketAddress } = __webpack_require__(3);
+const { getRemoteAddress, getSocketAddress } = __webpack_require__(4);
 
 class Peer {
   /**
@@ -2882,13 +2888,74 @@ module.exports = Blockchain;
 /* 36 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const { sliceItems } = __webpack_require__(4);
+const {
+  messageTypes, messageValidators, dataPartial, 
+  partialNotFound
+} = __webpack_require__(3);
+
+/**
+ * This inventory resolve handler is used to serve requests
+ * sent by inventory resolvers.
+ * 
+ * For nodes supporting serving the new inventory resolution
+ * mechanism, you need to instantiate this handler when
+ * bootstrapping the protocol.
+ */
+class InvResolveHandler {
+  constructor(liteprotocol) {
+    this.getDataPartialHandler = this.getDataPartialHandler.bind(this);
+
+    this.litenode = liteprotocol.litenode;
+    this.blockchain = liteprotocol.blockchain;
+
+    this.litenode.on(`message/${messageTypes.getDataPartial}`, this.getDataPartialHandler);
+  }
+
+  async getDataPartialHandler({ messageType, ...payload }, peer) {
+    try {
+      messageValidators[messageType](payload);
+      let { merkleDigest, blocks: blockIds } = payload;
+      let blocks = await Promise.all(
+        blockIds.map(id => this.blockchain.getBlock(id))
+      );
+
+      if (blocks.some(block => !block)) {
+        peer.sendJson(
+          partialNotFound({
+            merkleDigest, 
+            blocks: blockIds
+          })
+        ); // end of sendJson
+
+      } else {
+        peer.sendJson(
+          dataPartial({
+            merkleDigest,
+            blocks
+          })
+        ); // end of sendJson
+      } // end of else
+
+    } catch (err) {
+      console.warn(err);
+    }
+  }
+}
+
+module.exports = InvResolveHandler;
+
+
+/***/ }),
+/* 37 */
+/***/ (function(module, exports, __webpack_require__) {
+
+const { sliceItems } = __webpack_require__(5);
 const { getCurTimestamp } = __webpack_require__(2);
 const { calcMerkleRoot, verifyBlock } = __webpack_require__(0);
 const {
   messageTypes, messageValidators, getData, data,
-  getDataPartial, dataPartial, partialNotFound
-} = __webpack_require__(5);
+  getDataPartial
+} = __webpack_require__(3);
 
 /**
  * Abstraction of the inventory (only for blocks) to resolve.
@@ -2987,7 +3054,6 @@ class InventoryResolver {
    */
   constructor(peer, liteprotocol, { slices = 16, blockThreshold } = {}) {
     this.peerDisconnectHandler = this.peerDisconnectHandler.bind(this);
-    this.getDataPartialHandler = this.getDataPartialHandler.bind(this);
     this.dataPartialHandler = this.dataPartialHandler.bind(this);
     this.partialNotFoundHandler = this.partialNotFoundHandler.bind(this);
 
@@ -3001,7 +3067,6 @@ class InventoryResolver {
     // merkle digest => block inventory to resolve
     this.blockInventories = {};
 
-    this.litenode.on(`message/${messageTypes.getDataPartial}`, this.getDataPartialHandler);
     this.litenode.on(`message/${messageTypes.dataPartial}`, this.dataPartialHandler);
     this.litenode.on(`message/${messageTypes.partialNotFound}`, this.partialNotFoundHandler);
   }
@@ -3064,38 +3129,6 @@ class InventoryResolver {
     }
   }
 
-  async getDataPartialHandler({ messageType, ...payload }, peer) {
-    if (peer.uuid !== this.peer.uuid) { return; }
-
-    try {
-      messageValidators[messageType](payload);
-      let { merkleDigest, blocks: blockIds } = payload;
-      let blocks = await Promise.all(
-        blockIds.map(id => this.blockchain.getBlock(id))
-      );
-
-      if (blocks.some(block => !block)) {
-        peer.sendJson(
-          partialNotFound({
-            merkleDigest, 
-            blocks: blockIds
-          })
-        ); // end of sendJson
-
-      } else {
-        peer.sendJson(
-          dataPartial({
-            merkleDigest,
-            blocks
-          })
-        ); // end of sendJson
-      } // end of else
-
-    } catch (err) {
-      console.warn(err);
-    }
-  }
-
   async dataPartialHandler({ messageType, ...payload }, peer) {
     try {
       messageValidators[messageType](payload);
@@ -3146,15 +3179,15 @@ module.exports = InventoryResolver;
 
 
 /***/ }),
-/* 37 */
+/* 38 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const http = __webpack_require__(38);
-const express = __webpack_require__(39);
-const logger = __webpack_require__(40);
-const cookieParser = __webpack_require__(41);
-const bodyParser = __webpack_require__(42);
-const { isValidJson, parseChunk } = __webpack_require__(4);
+const http = __webpack_require__(39);
+const express = __webpack_require__(40);
+const logger = __webpack_require__(41);
+const cookieParser = __webpack_require__(42);
+const bodyParser = __webpack_require__(43);
+const { isValidJson, parseChunk } = __webpack_require__(5);
 
 const notfoundPayload = { 'not-found': true };
 
@@ -3306,37 +3339,37 @@ module.exports = createRestServer;
 
 
 /***/ }),
-/* 38 */
+/* 39 */
 /***/ (function(module, exports) {
 
 module.exports = require("http");
 
 /***/ }),
-/* 39 */
+/* 40 */
 /***/ (function(module, exports) {
 
 module.exports = require("express");
 
 /***/ }),
-/* 40 */
+/* 41 */
 /***/ (function(module, exports) {
 
 module.exports = require("morgan");
 
 /***/ }),
-/* 41 */
+/* 42 */
 /***/ (function(module, exports) {
 
 module.exports = require("cookie-parser");
 
 /***/ }),
-/* 42 */
+/* 43 */
 /***/ (function(module, exports) {
 
 module.exports = require("body-parser");
 
 /***/ }),
-/* 43 */
+/* 44 */
 /***/ (function(module, exports, __webpack_require__) {
 
 const { sha256 } = __webpack_require__(0);

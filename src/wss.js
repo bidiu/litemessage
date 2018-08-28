@@ -165,6 +165,7 @@ class WSServer extends EventEmitter {
    * be closed)
    */
   close() {
+    this.removeAllListeners();
     clearInterval(this.timer);
     this.wss.close();
   }

@@ -3,7 +3,7 @@ const { getCurTimestamp } = require('../utils/time');
 const { calcMerkleRoot, verifyBlock } = require('../utils/litecrypto');
 const {
   messageTypes, messageValidators, getData, data,
-  getDataPartial, dataPartial, partialNotFound
+  getDataPartial
 } = require('./messages');
 
 /**
@@ -84,8 +84,6 @@ class BlockInventory {
  * veriffication - more specificlly, to be individually verified.
  * Since this is mostly transparent to other modules, all existing
  * verificaitions afterwards will be invoked automatically.
- * 
- * TODO move handlers to somewhere else (resolv-handler.js)
  */
 class InventoryResolver {
   /**
@@ -103,7 +101,6 @@ class InventoryResolver {
    */
   constructor(peer, liteprotocol, { slices = 16, blockThreshold } = {}) {
     this.peerDisconnectHandler = this.peerDisconnectHandler.bind(this);
-    this.getDataPartialHandler = this.getDataPartialHandler.bind(this);
     this.dataPartialHandler = this.dataPartialHandler.bind(this);
     this.partialNotFoundHandler = this.partialNotFoundHandler.bind(this);
 
@@ -117,7 +114,6 @@ class InventoryResolver {
     // merkle digest => block inventory to resolve
     this.blockInventories = {};
 
-    this.litenode.on(`message/${messageTypes.getDataPartial}`, this.getDataPartialHandler);
     this.litenode.on(`message/${messageTypes.dataPartial}`, this.dataPartialHandler);
     this.litenode.on(`message/${messageTypes.partialNotFound}`, this.partialNotFoundHandler);
   }
@@ -177,38 +173,6 @@ class InventoryResolver {
     }
     if (litemsgs.length) {
       this._resolveLitemsgs(litemsgs);
-    }
-  }
-
-  async getDataPartialHandler({ messageType, ...payload }, peer) {
-    if (peer.uuid !== this.peer.uuid) { return; }
-
-    try {
-      messageValidators[messageType](payload);
-      let { merkleDigest, blocks: blockIds } = payload;
-      let blocks = await Promise.all(
-        blockIds.map(id => this.blockchain.getBlock(id))
-      );
-
-      if (blocks.some(block => !block)) {
-        peer.sendJson(
-          partialNotFound({
-            merkleDigest, 
-            blocks: blockIds
-          })
-        ); // end of sendJson
-
-      } else {
-        peer.sendJson(
-          dataPartial({
-            merkleDigest,
-            blocks
-          })
-        ); // end of sendJson
-      } // end of else
-
-    } catch (err) {
-      console.warn(err);
     }
   }
 
