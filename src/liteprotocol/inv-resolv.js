@@ -65,6 +65,8 @@ class BlockInventory {
   }
 }
 
+const RESOLV_TIMEOUT = 90000;
+
 /**
  * This class is an abstraction of inventory resolver, which uses
  * specific types of protocol messages (namely, `getDataPartial`, 
@@ -83,7 +85,15 @@ class BlockInventory {
  * Note that the resolved blocks will only go through some basic
  * veriffication - more specificlly, to be individually verified.
  * Since this is mostly transparent to other modules, all existing
- * verificaitions afterwards will be invoked automatically.
+ * verificaitions afterwards will be invoked automatically. There
+ * is no need to do thorough veirification here.
+ * 
+ * TODO implement `partialNotFoundHandler`
+ * TODO only create resolver when peer is "full" node
+ * TODO receiving invalid blocks from non-target peers cuases timeout
+ * TODO disconnection from non-target peers causes timeout
+ * TODO when receiving invalid blocks from target peer, abort resolving
+ *      immediately
  */
 class InventoryResolver {
   /**
@@ -99,7 +109,7 @@ class InventoryResolver {
    *                          By default, this is undefined - always using
    *                          parallel resolving.
    */
-  constructor(peer, liteprotocol, { slices = 16, blockThreshold } = {}) {
+  constructor(peer, liteprotocol, { slices = 10, blockThreshold = 1000 } = {}) {
     this.peerDisconnectHandler = this.peerDisconnectHandler.bind(this);
     this.dataPartialHandler = this.dataPartialHandler.bind(this);
     this.partialNotFoundHandler = this.partialNotFoundHandler.bind(this);
@@ -109,13 +119,52 @@ class InventoryResolver {
     this.litenode = liteprotocol.litenode;
     this.blockchain = liteprotocol.blockchain;
     this.slices = slices;
-    this.blockThreshold = blockThreshold || 1;
+    this.blockThreshold = blockThreshold;
 
     // merkle digest => block inventory to resolve
     this.blockInventories = {};
 
     this.litenode.on(`message/${messageTypes.dataPartial}`, this.dataPartialHandler);
     this.litenode.on(`message/${messageTypes.partialNotFound}`, this.partialNotFoundHandler);
+    this.litenode.on('peerdisconnect', this.peerDisconnectHandler);
+
+    this.timer = setInterval(() => {
+      let now = getCurTimestamp();
+
+      for (let blockInv of Object.values(this.blockInventories)) {
+        // filter to get those timeout chunks
+        let chunks = [...blockInv].filter(chunk => 
+          !chunk.blocks && now - chunk.timestamp >= RESOLV_TIMEOUT);
+        
+        if (chunks.some(chunk => chunk.peer.uuid === this.peer.uuid)) {
+          // abort resolving
+          delete this.blockInventories[ blockInv.merkleDigest ];
+          continue;
+        }
+
+        for (let chunk of chunks) {
+          this._resolveChunk(chunk, this.peer, blockInv);
+        }
+      } // end of loop
+
+    }, 30000);
+  }
+
+  /**
+   * Resolve the chunk (a slice of block inventory) by using
+   * the given peer. You should also pass the block inventory
+   * to which the chunk belongs.
+   */
+  _resolveChunk(chunk, peer, blockInv) {
+    peer.sendJson(
+      getDataPartial({
+        merkleDigest: blockInv.merkleDigest, 
+        blocks: chunk.ids
+      })
+    );
+
+    chunk.timestamp = getCurTimestamp();
+    chunk.peer = peer;
   }
 
   _resolveBlocks(blocks) {
@@ -141,15 +190,7 @@ class InventoryResolver {
       let peer = i + 1 === chunks.length ?
         this.peer : peers[i % peers.length];
 
-      peer.sendJson(
-        getDataPartial({
-          merkleDigest: blockInv.merkleDigest, 
-          blocks: chunks[i].ids
-        })
-      ); // end of sendJson
-
-      chunks[i].timestamp = getCurTimestamp();
-      chunks[i].peer = peer;
+      this._resolveChunk(chunks[i], peer, blockInv);
     } // end of loop
     
     this.blockInventories[ blockInv.merkleDigest ] = blockInv;
@@ -181,9 +222,12 @@ class InventoryResolver {
       messageValidators[messageType](payload);
       let { merkleDigest, blocks } = payload;
       let blockInv = this.blockInventories[merkleDigest];
-      if (!blockInv) { return; }
+      if (!blockInv) { /* not interested in the resolved blocks */ return; }
 
-      blocks.filter(block => verifyBlock(block));
+      // Here we just verify the resolved blocks separately,
+      // the reason is explained in the doc on this resolver
+      // class.
+      blocks = blocks.filter(block => verifyBlock(block));
       let blockIds = blocks.map(block => block.hash);
       let chunk = blockInv.chunks[calcMerkleRoot(blockIds)];
       if (!chunk || chunk.blocks) { return; }
@@ -207,18 +251,16 @@ class InventoryResolver {
   }
 
   async partialNotFoundHandler({ messageType, ...payload }, peer) {
+    // TODO
+  }
+
+  peerDisconnectHandler(peer) {
     if (peer.uuid !== this.peer.uuid) { return; }
-  }
 
-  peerDisconnectHandler() {
-    // TODO
-  }
-
-  /**
-   * Do the cleanup.
-   */
-  close() {
-    // TODO
+    clearInterval(this.timer);
+    this.litenode.removeListener(`message/${messageTypes.dataPartial}`, this.dataPartialHandler);
+    this.litenode.removeListener(`message/${messageTypes.partialNotFound}`, this.partialNotFoundHandler);
+    this.litenode.removeListener('peerdisconnect', this.peerDisconnectHandler);
   }
 }
 
