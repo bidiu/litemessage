@@ -27,8 +27,8 @@ function createRestServer(liteProtocol) {
   const node = liteProtocol.node;
   const litenode = liteProtocol.litenode;
   const blockchain = liteProtocol.blockchain;
-  const liteStore = liteProtocol.liteStore;
-  const leveldb = liteProtocol.liteStore.db;
+  const litestore = liteProtocol.litestore;
+  const leveldb = liteProtocol.litestore.db;
 
   app.use(logger('dev'));
   app.use(cookieParser());
@@ -94,7 +94,7 @@ function createRestServer(liteProtocol) {
   app.get('/litemsgs/:litemsgId', async (req, res, next) => {
     try {
       let { litemsgId } = req.params;
-      let at = await liteStore.readLitemsg(litemsgId);
+      let at = await litestore.readLitemsg(litemsgId);
 
       if (typeof at === 'undefined') {
         res.status(404).json(notfoundPayload);

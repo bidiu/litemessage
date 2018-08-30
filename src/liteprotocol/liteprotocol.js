@@ -9,7 +9,8 @@ const createRestServer = require('./rest');
 const createBlock = require('./entities/block');
 const {
   messageTypes, messageValidators, getBlocks, 
-  inv, data, getPendingMsgs
+  inv, data, getPendingMsgs, headers, 
+  litemsgLocators
 } = require('./messages');
 const {
   verifyBlock, verifyLitemsg, calcMerkleRoot, verifySubchain
@@ -24,7 +25,7 @@ const BITS = 22;
 // block size limit
 const BLOCK_LIMIT = 2048;
 // node types to re/connect automatically
-const AUTO_CONN_NODE_TYPES = ['full']
+const AUTO_CONN_NODE_TYPES = ['full'];
 
 /**
  * This is the actual litemessage protocol implementation
@@ -40,13 +41,15 @@ class LiteProtocol extends P2PProtocol {
     this.getBlocksHandler = this.getBlocksHandler.bind(this);
     this.invHandler = this.invHandler.bind(this);
     this.getDataHandler = this.getDataHandler.bind(this);
+    this.getHeadersHandler = this.getHeadersHandler.bind(this);
     this.dataHandler = this.dataHandler.bind(this);
+    this.locateLitemsgsHandler = this.locateLitemsgsHandler.bind(this);
     this.getPendingMsgsHandler = this.getPendingMsgsHandler.bind(this);
     this.peerConnectHandler = this.peerConnectHandler.bind(this);
 
-    this.liteStore = new LiteProtocolStore(node.db);
+    this.litestore = new LiteProtocolStore(node.db);
     // a blockchain manager
-    this.blockchain = new Blockchain(this.liteStore);
+    this.blockchain = new Blockchain(this.litestore);
     this.miner = new Miner();
     // map litemessage id to litemessage itself (pending litemessages)
     this.litemsgPool = {};
@@ -65,7 +68,9 @@ class LiteProtocol extends P2PProtocol {
     this.litenode.on(`message/${messageTypes.getBlocks}`, this.getBlocksHandler);
     this.litenode.on(`message/${messageTypes.inv}`, this.invHandler);
     this.litenode.on(`message/${messageTypes.getData}`, this.getDataHandler);
+    this.litenode.on(`message/${messageTypes.getHeaders}`, this.getHeadersHandler);
     this.litenode.on(`message/${messageTypes.data}`, this.dataHandler);
+    this.litenode.on(`message/${messageTypes.locateLitemsgs}`, this.locateLitemsgsHandler);
     this.litenode.on(`message/${messageTypes.getPendingMsgs}`, this.getPendingMsgsHandler);
     this.litenode.on('peerconnect', this.peerConnectHandler);
 
@@ -175,7 +180,7 @@ class LiteProtocol extends P2PProtocol {
    * or it's in the pending pool, the return value will be `true`.
    */
   async hasLitemsg(litemsgId) {
-    return (await this.liteStore.hasLitemsg(litemsgId))
+    return (await this.litestore.hasLitemsg(litemsgId))
       || this.inLitemsgPool(litemsgId);
   }
 
@@ -267,6 +272,35 @@ class LiteProtocol extends P2PProtocol {
     }
   }
 
+  async getHeadersHandler({ messageType, ...payload }, peer) {
+    try {
+      messageValidators[messageType](payload);
+      let { blocks } = payload;
+
+      // give blocks no matter which branch they are on
+      let respBlocks = (await Promise.all(
+          blocks.map(blockId => 
+            this.blockchain.getBlock(blockId))
+        ))
+        .filter(block => typeof block !== 'undefined');
+
+      // strip off block bodies
+      for (let block of respBlocks) {
+        delete block['litemsgs'];
+      }
+
+      if (respBlocks.length) {
+        // send response
+        peer.sendJson(
+          headers({ blocks: respBlocks })
+        );
+      }
+
+    } catch (err) {
+      console.warn(err);
+    }
+  }
+
   /**
    * TODO sync pool and restart mining?
    */
@@ -329,7 +363,9 @@ class LiteProtocol extends P2PProtocol {
 
             if (headBlockId === this.blockchain.getHeadBlockIdSync()) {
               this.cleanPoolAndRestartMining(blocks);
-              // switch the blockchain to another branch
+              // switch the blockchain to another branch,
+              // for efficiency, don't await it finishing
+              // (no await here)
               this.blockchain.appendAt([...extendedBlocks, ...blocks]);
             }
           }
@@ -349,6 +385,32 @@ class LiteProtocol extends P2PProtocol {
         this.litenode.broadcastJson(
           inv({ blocks: relayBlocks, litemsgs: relayLitemsgs }),
           [peer.uuid]
+        );
+      }
+
+    } catch (err) {
+      console.warn(err);
+    }
+  }
+
+  async locateLitemsgsHandler({ messageType, ...payload }, peer) {
+    try {
+      messageValidators[messageType](payload);
+      let { litemsgs } = payload;
+
+      let lookup = await Promise.all(
+        litemsgs.map(id => this.litestore.readLitemsg(id))
+      );
+      let blocks = await Promise.all(
+        [...new Set(lookup)]
+          .filter(id => id)
+          .map(id => this.blockchain.getBlock(id))
+      );
+
+      if (litemsgs.length) {
+        // send response
+        peer.sendJson(
+          litemsgLocators({ litemsgs, blocks, lookup })
         );
       }
 

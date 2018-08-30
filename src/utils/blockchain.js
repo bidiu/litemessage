@@ -128,7 +128,7 @@ class Blockchain extends EventEmitter {
 
     let at = blocks[0].height;
     let blockIds = blocks.map(block => block.hash);
-    this.blockchain.splice(at, Number.MAX_SAFE_INTEGER, ...blockIds);
+    let offBlockIds = this.blockchain.splice(at, Number.MAX_SAFE_INTEGER, ...blockIds);
 
     let chunkAt = Math.floor(at / chunkSize);
     let ops = [];
@@ -138,7 +138,31 @@ class Blockchain extends EventEmitter {
       ops.push({ type: 'put', key: this.genKey(`chunk_${i / chunkSize}`), value: buf });
     }
 
-    return this.store.appendBlocksAt(blocks, ops);
+    // append the new branch
+    await this.store.appendBlocksAt(blocks, ops);
+
+    // following removes stale litemessage indices
+    let offBlocks = await Promise.all(
+      offBlockIds.map(id => this.getBlock(id))
+    );
+    let offLitemsgs = [];
+
+    for (let block of offBlocks) {
+      if (block.litemsgs) {
+        offLitemsgs.push(...block.litemsgs);
+      }
+    }
+    await Promise.all(
+      offLitemsgs.map(async ({ hash }) => {
+        let blockId = await this.store.readLitemsg(hash);
+
+        if (!this.onMainBranchSync(blockId)) {
+          return this.store.removeLitemsg(hash);
+        }
+      })
+    );
+    // resolve nothing when success
+    // reject with error when error
   }
 
   /**

@@ -3,6 +3,9 @@ const { sha256 } = require('../../utils/litecrypto');
 /**
  * Note for genesis block, its `height` must be 0, and `prevBlock` be `undefined`.
  * 
+ * All fields together except `litemsgs` are called block header, while `litemsgs`
+ * is called block body.
+ * 
  * @param {*} ver         version number (now hardcoded to 1, I don't have time :|)
  * @param {*} time        timestamp (unix time)
  * @param {*} height

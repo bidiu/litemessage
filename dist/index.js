@@ -1,4 +1,4 @@
-/*! v0.4.3-4-g9b10353 */
+/*! v0.4.3-5-g032aae9 */
 module.exports =
 /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
@@ -83,7 +83,7 @@ module.exports =
 /******/
 /******/
 /******/ 	// Load entry module and return exports
-/******/ 	return __webpack_require__(__webpack_require__.s = 14);
+/******/ 	return __webpack_require__(__webpack_require__.s = 17);
 /******/ })
 /************************************************************************/
 /******/ ([
@@ -94,10 +94,10 @@ if (true) {
   // node
 
   var path = __webpack_require__(10);
-  var crypto = __webpack_require__(31);
-  var { fork } = __webpack_require__(32);
-  var Promise = __webpack_require__(33);
-  var Buffer = __webpack_require__(34).Buffer;
+  var crypto = __webpack_require__(36);
+  var { fork } = __webpack_require__(37);
+  var Promise = __webpack_require__(38);
+  var Buffer = __webpack_require__(39).Buffer;
 
   Promise.config({
     // enable warnings
@@ -299,6 +299,57 @@ const verifyBlock = (block, prevBlock) => {
 };
 
 /**
+ * Similar to `verifyBlock`. However, `litemsgs` MUST be `undefined`.
+ * 
+ * TODO validate timestamp, bits (its value)
+ */
+const verifyHeader = (block, prevBlock) => {
+  if (!block) { return false; }
+
+  let { ver, time, height, merkleRoot, bits, nonce, litemsgs } = block;
+
+  if (typeof ver !== 'number') {
+    return false;
+  }
+  if (typeof time !== 'number') {
+    return false;
+  }
+  if (typeof height !== 'number' || height < 0 || 
+    (height === 0 && typeof block.prevBlock !== 'undefined') ||
+    (height !== 0 && typeof block.prevBlock === 'undefined')) {
+
+    return false;
+  }
+  if (litemsgs !== undefined) {
+    return false;
+  }
+  if (typeof merkleRoot !== 'string') {
+    return false;
+  }
+  
+  /* bits, nonce, hash */
+  if (typeof bits !== 'number'|| typeof nonce !== 'number'
+    || nonce < 0 || typeof block.hash !== 'string') {
+    
+    return false;
+  }
+  let hash = sha256(`${ver}${time}${height}${block.prevBlock}${merkleRoot}${bits}${nonce}`);
+  if (hash !== block.hash || leadingZeroBits(hash) < bits) {
+    return false;
+  }
+
+  /* height, prevBlock */
+  if (typeof prevBlock !== 'undefined') {
+    if (typeof block.prevBlock !== 'string' || prevBlock.hash !== block.prevBlock) {
+      return false;
+    }
+
+    if (prevBlock.height + 1 !== height) { return false; }
+  }
+  return true;
+};
+
+/**
  * Note that `subchain` start from elder blocks to newer blocks, which is a
  * block array.
  * 
@@ -316,6 +367,19 @@ const verifySubchain = (subchain, prevBlock) => {
   return true;
 };
 
+/**
+ * Similar to `verifySubchain`.
+ */
+const verifyHeaderChain = (headerChain, prevHeader) => {
+  for (let block of headerChain) {
+    if (!verifyHeader(block, prevHeader)) {
+      return false;
+    }
+    prevHeader = block;
+  }
+  return true;
+};
+
 exports.sha256 = sha256;
 exports.calcMerkleRoot = calcMerkleRoot;
 exports.verifyMerkleRoot = verifyMerkleRoot;
@@ -323,6 +387,8 @@ exports.leadingZeroBits = leadingZeroBits;
 exports.verifyLitemsg = verifyLitemsg;
 exports.verifyBlock = verifyBlock;
 exports.verifySubchain = verifySubchain;
+exports.verifyHeader = verifyHeader;
+exports.verifyHeaderChain = verifyHeaderChain;
 
 if (true) {
   // node
@@ -334,32 +400,6 @@ if (true) {
 
 /***/ }),
 /* 1 */
-/***/ (function(module, exports) {
-
-module.exports = require("events");
-
-/***/ }),
-/* 2 */
-/***/ (function(module, exports) {
-
-/**
- * in ms
- */
-const getCurTimestamp = (unit = 'ms') => {
-  if (unit === 'ms') {
-    return new Date().getTime();
-  } else if (unit === 's') {
-    return Math.round(new Date().getTime() / 1000);
-  } else {
-    throw new Error('Invalid unit: ' + unit + '.');
-  }
-}
-
-exports.getCurTimestamp = getCurTimestamp;
-
-
-/***/ }),
-/* 3 */
 /***/ (function(module, exports) {
 
 const messageTypes = Object.freeze({
@@ -377,7 +417,9 @@ const messageTypes = Object.freeze({
   getPendingMsgs: 'lite/get_pending_msgs',
 
   getHeaders: 'lite/get_headers',
-  headers: 'lite/headers'
+  headers: 'lite/headers',
+  locateLitemsgs: 'lite/locate_litemsgs',
+  litemsgLocators: 'lite/litemsg_locators',
 });
 
 const info = ({ uuid, nodeType, daemonPort }) => ({
@@ -526,6 +568,67 @@ getPendingMsgs.validate = () => {
   // nothing
 };
 
+const getHeaders = ({ blocks }) => ({
+  messageType: messageTypes.getHeaders,
+  blocks
+});
+
+getHeaders.validate = ({ blocks }) => {
+  if (!(blocks instanceof Array)) {
+    throw new Error('lite/: Invalid blocks.');
+  }
+};
+
+const headers = ({ blocks }) => ({
+  messageType: messageTypes.headers,
+  blocks
+});
+
+headers.validate = ({ blocks }) => {
+  if (!(blocks instanceof Array)) {
+    throw new Error('lite/: Invalid block headers.');
+  }
+}
+
+/**
+ * @param {*} options
+ *      `litemsgs` - ids
+ */
+const locateLitemsgs = ({ litemsgs }) => ({
+  messageType: messageTypes.locateLitemsgs,
+  litemsgs
+});
+
+locateLitemsgs.validate = ({ litemsgs }) => {
+  if (!(litemsgs instanceof Array)) {
+    throw new Error('lite/: Invalid lite message ids.');
+  }
+};
+
+/**
+ * `litemsgs` is an array of litemsg ids. 
+ * `blocks` is an array of blocks. 
+ * `lookup` stores the relation between `litemsgs` and `blocks`.
+ * 
+ * The number of elements in `lookup` MUST be the same as `litemsgs`.
+ * Each element in `lookup` is a block id. For instance, id of the 
+ * block which first litemessage is located is the first element of
+ * `lookup.`
+ * 
+ * In case a litemessage is not in any block, the corresponding
+ * element in `lookup` MUST be undefined (or any falsy value).
+ */
+const litemsgLocators = ({ litemsgs, blocks, lookup }) => ({
+  messageType: messageTypes.litemsgLocators,
+  litemsgs,
+  blocks,
+  lookup
+});
+
+litemsgLocators.validate = ({ litemsgs, blocks, lookup }) => {
+  // TODO verify the lookup array is correct
+};
+
 // validators
 const messageValidators = Object.freeze({
   [messageTypes.info]: info.validate,
@@ -537,7 +640,11 @@ const messageValidators = Object.freeze({
   [messageTypes.getDataPartial]: getDataPartial.validate,
   [messageTypes.dataPartial]: dataPartial.validate,
   [messageTypes.partialNotFound]: partialNotFound.validate,
-  [messageTypes.getPendingMsgs]: getPendingMsgs.validate
+  [messageTypes.getPendingMsgs]: getPendingMsgs.validate,
+  [messageTypes.getHeaders]: getHeaders.validate,
+  [messageTypes.headers]: headers.validate,
+  [messageTypes.locateLitemsgs]: locateLitemsgs.validate,
+  [messageTypes.litemsgLocators]: litemsgLocators.validate,
 });
 
 exports.messageTypes = messageTypes;
@@ -552,6 +659,36 @@ exports.getDataPartial = getDataPartial;
 exports.dataPartial = dataPartial;
 exports.partialNotFound = partialNotFound;
 exports.getPendingMsgs = getPendingMsgs;
+exports.getHeaders = getHeaders;
+exports.headers = headers;
+exports.locateLitemsgs = locateLitemsgs;
+exports.litemsgLocators = litemsgLocators;
+
+
+/***/ }),
+/* 2 */
+/***/ (function(module, exports) {
+
+module.exports = require("events");
+
+/***/ }),
+/* 3 */
+/***/ (function(module, exports) {
+
+/**
+ * in ms
+ */
+const getCurTimestamp = (unit = 'ms') => {
+  if (unit === 'ms') {
+    return new Date().getTime();
+  } else if (unit === 's') {
+    return Math.round(new Date().getTime() / 1000);
+  } else {
+    throw new Error('Invalid unit: ' + unit + '.');
+  }
+}
+
+exports.getCurTimestamp = getCurTimestamp;
 
 
 /***/ }),
@@ -686,11 +823,11 @@ exports.parseChunk = parseChunk;
 /* 6 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const fs = __webpack_require__(15);
-const uuidv1 = __webpack_require__(16);
-const leveldown = __webpack_require__(17);
-const levelup = __webpack_require__(18);
-const LiteNode = __webpack_require__(19);
+const fs = __webpack_require__(18);
+const uuidv1 = __webpack_require__(19);
+const leveldown = __webpack_require__(20);
+const levelup = __webpack_require__(21);
+const LiteNode = __webpack_require__(22);
 
 /**
  * A UUID identifying this node will be automatically generated.
@@ -761,7 +898,21 @@ module.exports = require("url");
 /***/ (function(module, exports, __webpack_require__) {
 
 const P2PProtocol = __webpack_require__(9);
-const HandshakeManager = __webpack_require__(11);
+const LiteProtocolStore = __webpack_require__(11);
+const HandshakeManager = __webpack_require__(12);
+const Blockchain = __webpack_require__(13);
+const createRestServer = __webpack_require__(14);
+const {
+  verifyHeader, verifyHeaderChain
+} = __webpack_require__(0);
+const {
+  messageTypes, messageValidators, getHeaders, getBlocks
+} = __webpack_require__(1);
+
+// protcol version
+const VERSION = 1;
+// node types to re/connect automatically
+const AUTO_CONN_NODE_TYPES = ['full'];
 
 /**
  * An experimental "thin" litemessage protocol implementation.
@@ -774,11 +925,168 @@ const HandshakeManager = __webpack_require__(11);
  * probably will be refactored in the future.
  */
 class ThinLiteProtocol extends P2PProtocol {
+  static get ver() {
+    return VERSION;
+  }
+
   constructor(node) {
-    super(node);
+    super(node, { nodeTypes: AUTO_CONN_NODE_TYPES });
+    this.invHandler = this.invHandler.bind(this);
+    this.headersHandler = this.headersHandler.bind(this);
+    this.peerConnectHandler = this.peerConnectHandler.bind(this);
+
+    this.litestore = new LiteProtocolStore(node.db);
+    // a blockchain manager
+    this.blockchain = new Blockchain(this.litestore);
+
+    // wait for blockchain initializing itself
+    this.blockchain.on('ready', () => this.init());
+    // or upon error
+    this.blockchain.on('error', err => {
+      console.error(err);
+      process.exit(1);
+    });
+  }
+
+  init() {
+    // register message/connection handlers
+    this.litenode.on(`message/${messageTypes.inv}`, this.invHandler);
+    this.litenode.on(`message/${messageTypes.headers}`, this.headersHandler);
+    this.litenode.on('peerconnect', this.peerConnectHandler);
 
     this.handshake = new HandshakeManager(this);
-    setTimeout(() => this.emit('ready'), 0);
+
+    if (this.litenode.debug) {
+      // create and run rest server
+      let debugPort = this.litenode.daemonPort + 1;
+      createRestServer(this).listen(debugPort);
+      console.log(`Debugging RESTful API server listening on port ${debugPort}.`);
+    }
+
+    // protocol handling setup is ready now
+    this.emit('ready');
+  }
+
+  /**
+   * If the given litemessage id is in LevelDB's litemessage index.
+   */
+  async hasLitemsg(litemsgId) {
+    return await this.litestore.hasLitemsg(litemsgId);
+  }
+
+  async invHandler({ messageType, ...payload }, peer) {
+    try {
+      messageValidators[messageType](payload);
+      // Note the "blocks" here either is a single block just
+      // mined by peer, or is a sub blockchain, which, in
+      // other words, means those blocks are consecutive.
+      // This is just due to how the protocol is designed.
+      let { blocks } = payload;
+      let blocksToGet = [];
+
+      // Filter out blocks already have (blocks off main branch 
+      // still as being haven). Also note that those blocks haven
+      // by the current node, if any, must always certainly reside
+      // at the beginning of received `inv`'s blockchain. Again,
+      // this is just due to how the protocol is designed.
+      for (let blockId of blocks) {
+        if (!(await this.blockchain.hasBlock(blockId, false))) {
+          blocksToGet.push(blockId);
+        }
+      }
+
+      if (blocksToGet.length) {
+        peer.sendJson(
+          getHeaders({ blocks: blocksToGet })
+        );
+      }
+
+    } catch (err) {
+      console.warn(err);
+    }
+  }
+
+  async headersHandler({ messageType, ...payload }, peer) {
+    try {
+      messageValidators[messageType](payload);
+      // `blocks` is only header (don't have body)
+      let { blocks } = payload;
+
+      // filter out invalid blocks (headers)
+      blocks = blocks.filter(block => verifyHeader(block));
+      blocks.sort((a, b) => a.height - b.height);
+
+      let headBlockId = this.blockchain.getHeadBlockIdSync();
+
+      if (blocks.length && blocks[blocks.length - 1].height > this.blockchain.getCurHeightSync()) {
+        if (blocks.length === 1) {
+          let block = blocks[0];
+
+          if (block.prevBlock === headBlockId) {
+            this.blockchain.append(block);
+          } else {
+            let blockLocators = this.blockchain.getLocatorsSync();
+            peer.sendJson(getBlocks({ blockLocators }));
+          }
+        } else {
+          // Note that `prevBlockId` and `prevBlock` down below refer to same block.
+          // Later, they will be used for traversing backward along the blockchain.
+          let prevBlockId = blocks[0].prevBlock;
+          let prevBlock = prevBlockId ? 
+            (await this.blockchain.getBlock(prevBlockId)) : 
+            undefined;
+
+          if (verifyHeaderChain(blocks, prevBlock)) {
+            // For efficiency, node doesn't fetch blocks on forked branch which it already 
+            // has. The `litemsg_${litemsg_id}` of these mentioned blocks might be records
+            // on the main branch (before appending). So here, suppose the previous
+            // block of appended blocks is not on main branch, we need to extend from
+            // the appended blocks backwards to until a block which is on the main 
+            // branch, or until the genesis block (of the forked branch), whichever reaches
+            // first. And then rewrite all `litemsg_${litemsg_id}` records so that all 
+            // litemessages are correctly indexed after switching to another branch.
+
+            let extendedBlocks = [];
+
+            while (prevBlockId && !this.blockchain.onMainBranchSync(prevBlockId)
+              && headBlockId === this.blockchain.getHeadBlockIdSync()) {
+
+              extendedBlocks.unshift(prevBlock);
+
+              prevBlockId = prevBlock.prevBlock;
+              prevBlock = prevBlockId ?
+                (await this.blockchain.getBlock(prevBlockId)) :
+                undefined;
+            }
+
+            if (headBlockId === this.blockchain.getHeadBlockIdSync()) {
+              // switch the blockchain to another branch,
+              // for efficiency, don't await it finishing
+              // (no await here)
+              this.blockchain.appendAt([...extendedBlocks, ...blocks]);
+            }
+          }
+        }
+      }
+
+    } catch (err) {
+      console.warn(err);
+    }
+  }
+
+  peerConnectHandler(peer) {
+    if (peer.nodeType === 'full' && this.node.peers('full').length === 1) {
+      // wait for 30 seconds to retrieve blocks
+      // because of concorrent resolving (it takes
+      // time to construct connections with peers)
+      setTimeout(() => {
+        let blockLocators = this.blockchain.getLocatorsSync();
+        peer.sendJson(getBlocks({ blockLocators }));
+      }, 60000);
+    }
+
+    // TODO
+    // peer._resolver = new InventoryResolver(peer, this);
   }
 
   close() {
@@ -787,20 +1095,20 @@ class ThinLiteProtocol extends P2PProtocol {
   }
 }
 
-module.exports = ThinLiteProtocol
+module.exports = ThinLiteProtocol;
 
 
 /***/ }),
 /* 9 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const dns = __webpack_require__(23);
+const dns = __webpack_require__(26);
 const { URL } = __webpack_require__(7);
-const { promisify } = __webpack_require__(24);
-const P2PProtocolStore = __webpack_require__(25);
+const { promisify } = __webpack_require__(27);
+const P2PProtocolStore = __webpack_require__(28);
 const {
   messageTypes, messageValidators, fetchPeers, returnPeers
-} = __webpack_require__(26);
+} = __webpack_require__(29);
 const { pickItems } = __webpack_require__(5);
 
 // look up dns records
@@ -809,7 +1117,7 @@ const lookup = promisify(dns.lookup);
 if (true) {
   // running in node
 
-  var EventEmitter = __webpack_require__(1);
+  var EventEmitter = __webpack_require__(2);
 
 } else { var EventEmitter; }
 
@@ -967,20 +1275,175 @@ module.exports = require("path");
 
 /***/ }),
 /* 11 */
+/***/ (function(module, exports) {
+
+const prefix = 'lite/';
+
+const genKey = key => prefix + key;
+
+class LiteProtocolStore {
+  constructor(db) {
+    this.db = db;
+  }
+
+  static get genKey() {
+    return genKey;
+  }
+
+  // async writeHeadBlock(blockId) {
+  //   return this.db.put(genKey('head_block'), blockId);
+  // }
+
+  /**
+   * Note that we don't index litemessage's content, which is part of a block.
+   * So in order to get the content of a litemessage, you must get the the block
+   * where the given litemessage resides first.
+   * 
+   * This function return the block id (no matter the block in the main branch or
+   * not) where the given litemessage resides, or undefined if we don't have the
+   * litemessage in any block.
+   */
+  async readLitemsg(litemsgId) {
+    try {
+      let buf = await this.db.get(genKey(`litemsg_${litemsgId}`));
+      return buf.toString();
+
+    } catch (err) {
+      if (err.notFound) { return undefined; }
+      throw err;
+    }
+  }
+
+  async removeLitemsg(litemsgId) {
+    return this.db.del(genKey(`litemsg_${litemsgId}`));
+  }
+
+  /**
+   * TODO might change this: we don't need to have index for litemessages?
+   * might just litemessage's location index (in which block).
+   */
+  // async writeLitemsg(litemsg) {
+  //   if (typeof litemsg.hash !== 'string') {
+  //     throw new Error('Invalid litemessage hash.');
+  //   }
+  //   return this.db.put(genKey(`litemsg_${litemsg.hash}`), litemsg);
+  // }
+
+  async hasLitemsg(litemsgId) {
+    return (await this.readLitemsg(litemsgId)) !== undefined;
+  }
+
+  // following is block-related ...
+
+  /**
+   * Return the head block's **id** (or undefined when there's no
+   * block in the blockchain)
+   */
+  async readHeadBlock() {
+    try {
+      let buf = await this.db.get(genKey('head_block'));
+      return buf.toString();
+    } catch (err) {
+      if (err.notFound) { return undefined; }
+      throw err;
+    }
+  }
+
+  // async writeBlock(block) {
+  //   if (typeof block.hash !== 'string') {
+  //     throw new Error('Invalid block hash.');
+  //   }
+  //   return this.db.put(genKey(`block_${block.hash}`), block);
+  // }
+
+  /**
+   * Return the whole block specified by the given block id.
+   * If block doesn't exist, `undefined` will be returned.
+   */
+  async readBlock(blockId) {
+    try {
+      let buf = await this.db.get(genKey(`block_${blockId}`));
+      return JSON.parse(buf.toString());
+      
+    } catch (err) {
+      if (err.notFound) { return undefined; }
+      throw err;
+    }
+  }
+
+  /**
+   * Append one more block on top of the current head block.
+   */
+  async appendBlock(block, batchOps) {
+    if (typeof block.hash !== 'string') {
+      throw new Error('Invalid block hash.');
+    }
+
+    let ops = [
+      { type: 'put', key: genKey(`block_${block.hash}`), value: JSON.stringify(block) },
+      { type: 'put', key: genKey('head_block'), value: block.hash }
+    ];
+    if (block.litemsgs) {
+      for (let litemsg of block.litemsgs) {
+        ops.push({ type: 'put', key: genKey(`litemsg_${litemsg.hash}`), value: block.hash });
+      }
+    }
+    if (batchOps) {
+      ops = [...ops, ...batchOps];
+    }
+
+    return this.db.batch(ops);
+  }
+
+  /**
+   * Sometimes forks could happen. Call this to switch to
+   * another fork.
+   * 
+   * @param {*} blocks  blocks from another branch to switch
+   */
+  async appendBlocksAt(blocks, batchOps) {
+    if (!blocks.length) { return; }
+
+    let headBlock = blocks[blocks.length - 1];
+    let ops = [];
+
+    for (let block of blocks) {
+      if (typeof block.hash !== 'string') { throw new Error('Invalid block hash.'); }
+
+      ops.push({ type: 'put', key: genKey(`block_${block.hash}`), value: JSON.stringify(block) });
+      if (block.litemsgs) {
+        for (let litemsg of block.litemsgs) {
+          ops.push({ type: 'put', key: genKey(`litemsg_${litemsg.hash}`), value: block.hash });
+        }
+      }
+    }
+    ops.push({ type: 'put', key: genKey('head_block'), value: headBlock.hash });
+
+    if (batchOps) { ops = [...ops, ...batchOps]; }
+
+    return this.db.batch(ops);
+  }
+}
+
+module.exports = LiteProtocolStore;
+
+
+/***/ }),
+/* 12 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const Peer = __webpack_require__(27);
+const Peer = __webpack_require__(30);
 const {
   messageValidators, info, infoAck,
   messageTypes: { info: infoType, infoAck: infoAckType }
-} = __webpack_require__(3);
-const { getCurTimestamp } = __webpack_require__(2);
+} = __webpack_require__(1);
+const { getCurTimestamp } = __webpack_require__(3);
 const { getSocketAddress } = __webpack_require__(4);
 
 if (true) {
   // running in node
 
-  var EventEmitter = __webpack_require__(1);
+  var EventEmitter = __webpack_require__(2);
 
 } else { var EventEmitter; }
 
@@ -1185,27 +1648,518 @@ module.exports = HandshakeManager;
 
 
 /***/ }),
-/* 12 */
+/* 13 */
+/***/ (function(module, exports, __webpack_require__) {
+
+const EventEmitter = __webpack_require__(2);
+
+/**
+ * A chunk is a fixed number of consecutive blocks (only block id) grouped
+ * together stored in LevelDB in binary format (not in hex encode), mainly
+ * for retrieval / flushing efficiency from or to disk.
+ * 
+ * NOTE that once a block is stored in LevelDB, you should NEVER change this
+ * constant down below. Otherwise, data will be corrupted.
+ */
+const chunkSize = 1024;
+
+/**
+ * This is a very low level abstraction of a blockchain, which needs to be 
+ * injected with an store (using LevelDB / IndexedDB) interface implementation
+ * for interacting with persistant storage medium. Take `LiteProtocol`'s
+ * implementation as an example.
+ * 
+ * This blockchain abstraction here is (should) be protocol-agnostic.
+ * 
+ * One assumption using this blockchain abstraction here is that you MUST 
+ * always only persist valid blocks (it doesn't have to be in the main branch 
+ * in the long run, but it must be a valid block). And you append elder blocks 
+ * and then newer blocks to the blockchain, either one by one, or in a batch.
+ * In other words, you MUST always append a block after all its predecessor blocks
+ * have been persisted.
+ * 
+ * NOTE that both chunk and height (length of blockchain) start at index 0.
+ */
+class Blockchain extends EventEmitter {
+  constructor(store) {
+    super();
+    this.store = store;
+    this.db = store.db;
+    this.genKey = store.constructor.genKey;
+    
+    // an array of block ids (in hex encoding)
+    this.blockchain = null;
+    this._ready = false;
+
+    this.init();
+  }
+
+  get ready() {
+    return this._ready;
+  }
+
+  async init() {
+    try {
+      let height = await this.getCurHeight() + 1;
+      let numOfChunks = Math.floor(height / chunkSize);
+      let numOfBlocks = height % chunkSize;
+
+      let chunks = await Promise.all(
+        Array.from(Array(numOfChunks).keys()) // generate a number sequence
+          .map(num => this._getChunk(num))
+      );
+      // flatten chunks
+      chunks = [].concat.apply([], chunks);
+
+      let blocks = [];
+      let prevBlockId = null;
+      for (let i = 0; i < numOfBlocks; i++) {
+        let block = await (
+          i === 0 ? this.getHeadBlock() : this.getBlock(prevBlockId)
+        );
+
+        prevBlockId = block.prevBlock;
+        blocks.unshift(block.hash);
+      }
+
+      this.blockchain = [...chunks, ...blocks];
+      this._ready = true;
+      this.emit('ready');
+
+    } catch (err) {
+      this.emit('error', err);
+    }
+  }
+
+  /**
+   * Inside a chunk, the order is from elder blocks to newer blocks.
+   * Note that if you're trying to get a non-existent chunk, an error
+   * will be thrown.
+   */
+  async _getChunk(serialNum) {
+    let buf = await this.db.get(this.genKey(`chunk_${serialNum}`));
+    let chunk = [];
+
+    // just be cautious
+    if (buf.length !== chunkSize * 32) { process.exit(1); }
+
+    for (let i = 0; i < buf.length; i += 32) {
+      chunk.push(buf.slice(i, i + 32).toString('hex'));
+    }
+    return chunk;
+  }
+
+  /**
+   * Append next block on top of current head block on the blockchain.
+   */
+  async append(block) {
+    const ops = [];
+    this.blockchain.push(block.hash);
+    let height = this.getCurHeightSync();
+
+    if ((height + 1) % chunkSize === 0) {
+      const serialNum = Math.floor((height + 1) / chunkSize) - 1;
+      const buf = Buffer.from(this.blockchain.slice(height + 1 - chunkSize).join(''), 'hex');
+      ops.push({ type: 'put', key: this.genKey(`chunk_${serialNum}`), value: buf });
+    }
+
+    return this.store.appendBlock(block, ops);
+  }
+
+  /**
+   * Append a branch on a specific location on the blockchain, and the 
+   * new branch will be the main blockchain branch.
+   * 
+   * TODO update chunk index
+   */
+  async appendAt(blocks) {
+    // some cautious checks
+    if (!blocks.length) { return; }
+    if (blocks[blocks.length - 1].height <= this.getCurHeightSync()) {
+      throw new Error('Trying to append a invalid subchain, abort.');
+    }
+
+    let at = blocks[0].height;
+    let blockIds = blocks.map(block => block.hash);
+    let offBlockIds = this.blockchain.splice(at, Number.MAX_SAFE_INTEGER, ...blockIds);
+
+    let chunkAt = Math.floor(at / chunkSize);
+    let ops = [];
+
+    for (let i = chunkAt * chunkSize; i + chunkSize < this.blockchain.length; i += chunkSize) {
+      let buf = Buffer.from(this.blockchain.slice(i, i + chunkSize).join(''), 'hex');
+      ops.push({ type: 'put', key: this.genKey(`chunk_${i / chunkSize}`), value: buf });
+    }
+
+    // append the new branch
+    await this.store.appendBlocksAt(blocks, ops);
+
+    // following removes stale litemessage indices
+    let offBlocks = await Promise.all(
+      offBlockIds.map(id => this.getBlock(id))
+    );
+    let offLitemsgs = [];
+
+    for (let block of offBlocks) {
+      if (block.litemsgs) {
+        offLitemsgs.push(...block.litemsgs);
+      }
+    }
+    await Promise.all(
+      offLitemsgs.map(async ({ hash }) => {
+        let blockId = await this.store.readLitemsg(hash);
+
+        if (!this.onMainBranchSync(blockId)) {
+          return this.store.removeLitemsg(hash);
+        }
+      })
+    );
+    // resolve nothing when success
+    // reject with error when error
+  }
+
+  /**
+   * Return the head block, or `undefined` when there's no
+   * block on the blockchain.
+   */
+  async getHeadBlock() {
+    let blockId = await this.store.readHeadBlock();
+    return this.getBlock(blockId);
+  }
+
+  /**
+   * Synchronously get current head block's id. If there is no block
+   * yet, `undefined` will be returned.
+   */
+  getHeadBlockIdSync() {
+    let length = this.blockchain.length;
+    return length ? this.blockchain[length - 1] : undefined;
+  }
+
+  getBlockIdAtSync(height) {
+    let curHeight = this.getCurHeightSync();
+    if (height < 0 || height > curHeight) {
+      throw new Error('Invalid height given.');
+    }
+
+    return this.blockchain[height];
+  }
+
+  /**
+   * Note that height is 0-based (first block's height is 0).
+   * If there's no block yet, `-1` will returned.
+   */
+  async getCurHeight() {
+    let block = await this.getHeadBlock();
+    return block ? block.height : -1;
+  }
+
+  /**
+   * Note that height is 0-based (first block's height is 0).
+   * If there's no block yet, `-1` will returned.
+   */
+  getCurHeightSync() {
+    return this.blockchain.length - 1;
+  }
+
+  /**
+   * Get a list of block locator hashes, which is used in the
+   * `getBlocks` message that typically exists in blockchain
+   * protocol.
+   */
+  getLocatorsSync() {
+    let locators = [];
+    let height = this.getCurHeightSync();
+    let pow = 0;
+
+    if (height === -1) { return []; }
+
+    while (true) {
+      let i = Math.max(height + 1 - Math.pow(2, pow), 0);
+      locators.push(this.getBlockIdAtSync(i));
+      if (i === 0) { break; }
+      pow += 1;
+    }
+    return locators;
+  }
+
+  /**
+   * Get forked branch based on locators (an array of block hashes) peer provides.
+   * Return an array of block ids (from elder blocks to latest ones).
+   */
+  getForkedBranchSync(locators) {
+    if (this.blockchain.length < locators.length) {
+      return [];
+    }
+
+    let height = this.getCurHeightSync();
+    if (height === -1) { return []; }
+    let i = height;
+
+    for (; i >= 0; i--) {
+      let blockId = this.blockchain[i];
+      if (locators.includes(blockId)) {
+        break;
+      }
+    }
+
+    if (i === height) { return []; }
+    return this.blockchain.slice(i + 1);
+  }
+
+  /**
+   * @param {*} height note that height is 0-based index
+   */
+  async getBlockAt(height) {
+    // just to be cautious
+    if (height >= this.blockchain.length) {
+      throw new Error('Invalid block height.');
+    }
+
+    let blockId = this.blockchain[height];
+    return this.getBlock(blockId);
+  }
+
+  /**
+   * Get all blocks on the blockchain main branch.
+   * At this point there is no pagination yet, so this
+   * operation is very expensive.
+   */
+  async getBlocks(reverse = true) {
+    let blocks = await Promise.all(
+      this.blockchain.map(this.getBlock, this)
+    );
+    if (reverse) { blocks.reverse(); }
+    return blocks;
+  }
+
+  /**
+   * Return the whole block specified by the given block id.
+   * If block doesn't exist, `undefined` will be returned.
+   */
+  async getBlock(blockId) {
+    return this.store.readBlock(blockId);
+  }
+
+  /**
+   * If the given block is not on the main blockchain, the confirmation
+   * count will always be 0.
+   */
+  getConfirmationCntSync(blockId) {
+    if (!this.onMainBranchSync(blockId)) { return null; }
+
+    return this.getCurHeightSync() - this.blockchain.indexOf(blockId);
+  }
+
+  /**
+   * Determine whether the given block is on the main blockchain branch.
+   * The difference from the func `hasBlock` is that this is a synchronous
+   * operation.
+   */
+  onMainBranchSync(blockId) {
+    return this.blockchain.includes(blockId);
+  }
+
+  /**
+   * By default, return true only if the given block is on the main blockchain
+   * branch. If you want it to return true even if the block is off main branch,
+   * set the `onMainBranch` to false.
+   */
+  async hasBlock(blockId, onMainBranch = true) {
+    if (onMainBranch) {
+      return this.blockchain.includes(blockId);
+    }
+
+    return await this.getBlock(blockId) !== undefined;
+  }
+}
+
+module.exports = Blockchain;
+
+
+/***/ }),
+/* 14 */
+/***/ (function(module, exports, __webpack_require__) {
+
+const http = __webpack_require__(31);
+const express = __webpack_require__(32);
+const logger = __webpack_require__(33);
+const cookieParser = __webpack_require__(34);
+const bodyParser = __webpack_require__(35);
+const { isValidJson, parseChunk } = __webpack_require__(5);
+
+const notfoundPayload = { 'not-found': true };
+
+/**
+ * filter log entries
+ */
+function logFilter(logs, { peer, dir, type, since }) {
+  return logs.filter(log => (
+    (!peer || log.peer.startsWith(peer))
+    && (!dir || log.dir.startsWith(dir))
+    && (!type || log.msg.messageType.startsWith(type))
+    && (!since || log.time > since)
+  ));
+}
+
+/**
+ * create a very minimalist rest server for debugging
+ */
+function createRestServer(liteProtocol) {
+  const app = express();
+  const node = liteProtocol.node;
+  const litenode = liteProtocol.litenode;
+  const blockchain = liteProtocol.blockchain;
+  const litestore = liteProtocol.litestore;
+  const leveldb = liteProtocol.litestore.db;
+
+  app.use(logger('dev'));
+  app.use(cookieParser());
+  app.use(bodyParser.json());
+  app.use(bodyParser.urlencoded({ extended: false }));
+
+  app.get('/', (req, res) => {
+    res.status(200).json({
+      endpoints: [
+        { '/info': 'all sorts of info about this node' },
+        { '/peers': 'peer information' },
+        { '/msgpool': 'pending litemessage pool' },
+        { '/blocks': 'get all blocks on the main branch' },
+        { '/blocks/:blockId': 'get specified block' },
+        { '/litemsgs/:litemsgId': 'get a litemessage\'s info on blockchain' },
+        { '/logs': 'protocol message logs' },
+        { '/litedb/:key': 'fetch any leveldb value of a given key' },
+        { '/locators': 'get the block locator hashes' }
+      ]
+    });
+  });
+
+  app.get('/info', (req, res) => {
+    res.status(200).json(litenode.getInfo());
+  });
+
+  app.get('/peers', (req, res) => {
+    let { type } = req.query;
+    res.status(200).json(node.peers(type));
+  });
+
+  app.get('/msgpool', (req, res) => {
+    res.status(200).json(liteProtocol.litemsgPool);
+  });
+
+  app.get('/blocks', async (req, res) => {
+    let blocks = await blockchain.getBlocks();
+
+    let { simple } = req.query;
+    if (simple && simple.toLowerCase() === 'true') {
+      blocks = blocks.map(block => ({ [block.height]: block.hash }));
+    }
+
+    res.status(200).json(blocks);
+  });
+
+  app.get('/blocks/:blockId', async (req, res, next) => {
+    try {
+      let { blockId } = req.params;
+      let block = await liteProtocol.blockchain.getBlock(blockId);
+
+      if (block) {
+        res.status(200).json(block);
+      } else {
+        res.status(404).json(notfoundPayload);
+      }
+
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.get('/litemsgs/:litemsgId', async (req, res, next) => {
+    try {
+      let { litemsgId } = req.params;
+      let at = await litestore.readLitemsg(litemsgId);
+
+      if (typeof at === 'undefined') {
+        res.status(404).json(notfoundPayload);
+        return;
+      }
+
+      let mainBranch = blockchain.onMainBranchSync(at);
+      let confirmation = mainBranch ?
+        blockchain.getConfirmationCntSync(at) :
+        'N/A';
+      
+      res.status(200).json({ at, mainBranch, confirmation });
+
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.get('/logs', (req, res) => {
+    let logs = liteProtocol.litenode.messageLogs;
+    let { peer, dir, type, since } = req.query;
+    if (typeof since === 'string') {
+      since = parseInt(since);
+    }
+
+    res.status(200).json(logFilter(logs, { peer, dir, type, since }));
+  });
+
+  app.get('/litedb/:key', async (req, res, next) => {
+    try {
+      let { key } = req.params;
+      let buf = await leveldb.get('lite/' + key);
+      let str = key.startsWith('chunk_') ?
+        JSON.stringify(parseChunk(buf)) :
+        buf.toString();
+
+      let payload = isValidJson(str) ? JSON.parse(str) : { _$: str };
+      res.status(200).json(payload);
+
+    } catch (err) {
+      if (err.notFound) {
+        res.status(404).json(notfoundPayload);
+      } else {
+        next(err);
+      }
+    }
+  });
+
+  app.get('/locators', (req, res) => {
+    let locators = blockchain.getLocatorsSync();
+    res.status(200).json(locators);
+  });
+
+  return http.createServer(app);
+}
+
+module.exports = createRestServer;
+
+
+/***/ }),
+/* 15 */
 /***/ (function(module, exports, __webpack_require__) {
 
 const P2PProtocol = __webpack_require__(9);
-const LiteProtocolStore = __webpack_require__(29);
-const Miner = __webpack_require__(30);
-const Blockchain = __webpack_require__(35);
-const HandshakeManager = __webpack_require__(11);
-const InvResolveHandler = __webpack_require__(36);
-const InventoryResolver = __webpack_require__(37);
-const createRestServer = __webpack_require__(38);
-const createBlock = __webpack_require__(13);
+const LiteProtocolStore = __webpack_require__(11);
+const Miner = __webpack_require__(41);
+const Blockchain = __webpack_require__(13);
+const HandshakeManager = __webpack_require__(12);
+const InvResolveHandler = __webpack_require__(42);
+const InventoryResolver = __webpack_require__(43);
+const createRestServer = __webpack_require__(14);
+const createBlock = __webpack_require__(16);
 const {
   messageTypes, messageValidators, getBlocks, 
-  inv, data, getPendingMsgs
-} = __webpack_require__(3);
+  inv, data, getPendingMsgs, headers, 
+  litemsgLocators
+} = __webpack_require__(1);
 const {
   verifyBlock, verifyLitemsg, calcMerkleRoot, verifySubchain
 } = __webpack_require__(0);
 const { pickItems } = __webpack_require__(5);
-const { getCurTimestamp } = __webpack_require__(2);
+const { getCurTimestamp } = __webpack_require__(3);
 
 // protcol version
 const VERSION = 1;
@@ -1214,7 +2168,7 @@ const BITS = 22;
 // block size limit
 const BLOCK_LIMIT = 2048;
 // node types to re/connect automatically
-const AUTO_CONN_NODE_TYPES = ['full']
+const AUTO_CONN_NODE_TYPES = ['full'];
 
 /**
  * This is the actual litemessage protocol implementation
@@ -1230,13 +2184,15 @@ class LiteProtocol extends P2PProtocol {
     this.getBlocksHandler = this.getBlocksHandler.bind(this);
     this.invHandler = this.invHandler.bind(this);
     this.getDataHandler = this.getDataHandler.bind(this);
+    this.getHeadersHandler = this.getHeadersHandler.bind(this);
     this.dataHandler = this.dataHandler.bind(this);
+    this.locateLitemsgsHandler = this.locateLitemsgsHandler.bind(this);
     this.getPendingMsgsHandler = this.getPendingMsgsHandler.bind(this);
     this.peerConnectHandler = this.peerConnectHandler.bind(this);
 
-    this.liteStore = new LiteProtocolStore(node.db);
+    this.litestore = new LiteProtocolStore(node.db);
     // a blockchain manager
-    this.blockchain = new Blockchain(this.liteStore);
+    this.blockchain = new Blockchain(this.litestore);
     this.miner = new Miner();
     // map litemessage id to litemessage itself (pending litemessages)
     this.litemsgPool = {};
@@ -1255,7 +2211,9 @@ class LiteProtocol extends P2PProtocol {
     this.litenode.on(`message/${messageTypes.getBlocks}`, this.getBlocksHandler);
     this.litenode.on(`message/${messageTypes.inv}`, this.invHandler);
     this.litenode.on(`message/${messageTypes.getData}`, this.getDataHandler);
+    this.litenode.on(`message/${messageTypes.getHeaders}`, this.getHeadersHandler);
     this.litenode.on(`message/${messageTypes.data}`, this.dataHandler);
+    this.litenode.on(`message/${messageTypes.locateLitemsgs}`, this.locateLitemsgsHandler);
     this.litenode.on(`message/${messageTypes.getPendingMsgs}`, this.getPendingMsgsHandler);
     this.litenode.on('peerconnect', this.peerConnectHandler);
 
@@ -1365,7 +2323,7 @@ class LiteProtocol extends P2PProtocol {
    * or it's in the pending pool, the return value will be `true`.
    */
   async hasLitemsg(litemsgId) {
-    return (await this.liteStore.hasLitemsg(litemsgId))
+    return (await this.litestore.hasLitemsg(litemsgId))
       || this.inLitemsgPool(litemsgId);
   }
 
@@ -1457,6 +2415,35 @@ class LiteProtocol extends P2PProtocol {
     }
   }
 
+  async getHeadersHandler({ messageType, ...payload }, peer) {
+    try {
+      messageValidators[messageType](payload);
+      let { blocks } = payload;
+
+      // give blocks no matter which branch they are on
+      let respBlocks = (await Promise.all(
+          blocks.map(blockId => 
+            this.blockchain.getBlock(blockId))
+        ))
+        .filter(block => typeof block !== 'undefined');
+
+      // strip off block bodies
+      for (let block of respBlocks) {
+        delete block['litemsgs'];
+      }
+
+      if (respBlocks.length) {
+        // send response
+        peer.sendJson(
+          headers({ blocks: respBlocks })
+        );
+      }
+
+    } catch (err) {
+      console.warn(err);
+    }
+  }
+
   /**
    * TODO sync pool and restart mining?
    */
@@ -1519,7 +2506,9 @@ class LiteProtocol extends P2PProtocol {
 
             if (headBlockId === this.blockchain.getHeadBlockIdSync()) {
               this.cleanPoolAndRestartMining(blocks);
-              // switch the blockchain to another branch
+              // switch the blockchain to another branch,
+              // for efficiency, don't await it finishing
+              // (no await here)
               this.blockchain.appendAt([...extendedBlocks, ...blocks]);
             }
           }
@@ -1539,6 +2528,32 @@ class LiteProtocol extends P2PProtocol {
         this.litenode.broadcastJson(
           inv({ blocks: relayBlocks, litemsgs: relayLitemsgs }),
           [peer.uuid]
+        );
+      }
+
+    } catch (err) {
+      console.warn(err);
+    }
+  }
+
+  async locateLitemsgsHandler({ messageType, ...payload }, peer) {
+    try {
+      messageValidators[messageType](payload);
+      let { litemsgs } = payload;
+
+      let lookup = await Promise.all(
+        litemsgs.map(id => this.litestore.readLitemsg(id))
+      );
+      let blocks = await Promise.all(
+        [...new Set(lookup)]
+          .filter(id => id)
+          .map(id => this.blockchain.getBlock(id))
+      );
+
+      if (litemsgs.length) {
+        // send response
+        peer.sendJson(
+          litemsgLocators({ litemsgs, blocks, lookup })
         );
       }
 
@@ -1589,13 +2604,16 @@ module.exports = LiteProtocol;
 
 
 /***/ }),
-/* 13 */
+/* 16 */
 /***/ (function(module, exports, __webpack_require__) {
 
 const { sha256 } = __webpack_require__(0);
 
 /**
  * Note for genesis block, its `height` must be 0, and `prevBlock` be `undefined`.
+ * 
+ * All fields together except `litemsgs` are called block header, while `litemsgs`
+ * is called block body.
  * 
  * @param {*} ver         version number (now hardcoded to 1, I don't have time :|)
  * @param {*} time        timestamp (unix time)
@@ -1619,59 +2637,59 @@ module.exports = createBlock;
 
 
 /***/ }),
-/* 14 */
+/* 17 */
 /***/ (function(module, exports, __webpack_require__) {
 
 if (true) {
   // node (output as commonjs)
 
   exports.Node = __webpack_require__(6);
-  exports.ThinNode = __webpack_require__(22);
-  exports.FullNode = __webpack_require__(28);
+  exports.ThinNode = __webpack_require__(25);
+  exports.FullNode = __webpack_require__(40);
 
   exports.createLitemsg = __webpack_require__(44);
-  exports.LiteProtocol = __webpack_require__(12);
+  exports.LiteProtocol = __webpack_require__(15);
   exports.ThinLiteProtocol = __webpack_require__(8);
-  module.exports = exports =  { ...exports, ...__webpack_require__(3) };
+  module.exports = exports =  { ...exports, ...__webpack_require__(1) };
 
   module.exports = exports = { ...exports, ...__webpack_require__(0) };
-  module.exports = exports = { ...exports, ...__webpack_require__(2) };
+  module.exports = exports = { ...exports, ...__webpack_require__(3) };
   
 } else {}
 
 
 /***/ }),
-/* 15 */
+/* 18 */
 /***/ (function(module, exports) {
 
 module.exports = require("fs");
 
 /***/ }),
-/* 16 */
+/* 19 */
 /***/ (function(module, exports) {
 
 module.exports = require("uuid/v1");
 
 /***/ }),
-/* 17 */
+/* 20 */
 /***/ (function(module, exports) {
 
 module.exports = require("leveldown");
 
 /***/ }),
-/* 18 */
+/* 21 */
 /***/ (function(module, exports) {
 
 module.exports = require("levelup");
 
 /***/ }),
-/* 19 */
+/* 22 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const EventEmitter = __webpack_require__(1);
-const WSServer = __webpack_require__(20);
+const EventEmitter = __webpack_require__(2);
+const WSServer = __webpack_require__(23);
 const { getSocketAddress } = __webpack_require__(4);
-const { getCurTimestamp } = __webpack_require__(2);
+const { getCurTimestamp } = __webpack_require__(3);
 
 /**
  * This class is the abstraction of "node" (litenode) inside the litemessage
@@ -1916,11 +2934,11 @@ module.exports = LiteNode;
 
 
 /***/ }),
-/* 20 */
+/* 23 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const EventEmitter = __webpack_require__(1);
-const WebSocket = __webpack_require__(21);
+const EventEmitter = __webpack_require__(2);
+const WebSocket = __webpack_require__(24);
 const { URL } = __webpack_require__(7);
 const { getSocketAddress, getSocketInfo } = __webpack_require__(4);
 
@@ -2096,13 +3114,13 @@ module.exports = WSServer;
 
 
 /***/ }),
-/* 21 */
+/* 24 */
 /***/ (function(module, exports) {
 
 module.exports = require("ws");
 
 /***/ }),
-/* 22 */
+/* 25 */
 /***/ (function(module, exports, __webpack_require__) {
 
 const Node = __webpack_require__(6);
@@ -2128,19 +3146,19 @@ module.exports = ThinNode;
 
 
 /***/ }),
-/* 23 */
+/* 26 */
 /***/ (function(module, exports) {
 
 module.exports = require("dns");
 
 /***/ }),
-/* 24 */
+/* 27 */
 /***/ (function(module, exports) {
 
 module.exports = require("util");
 
 /***/ }),
-/* 25 */
+/* 28 */
 /***/ (function(module, exports) {
 
 const prefix = 'p2p/';
@@ -2177,7 +3195,7 @@ module.exports = P2PProtocolStore;
 
 
 /***/ }),
-/* 26 */
+/* 29 */
 /***/ (function(module, exports) {
 
 // message type constants
@@ -2239,7 +3257,7 @@ exports.returnPeers = returnPeers;
 
 
 /***/ }),
-/* 27 */
+/* 30 */
 /***/ (function(module, exports, __webpack_require__) {
 
 const { getRemoteAddress, getSocketAddress } = __webpack_require__(4);
@@ -2302,11 +3320,65 @@ module.exports = Peer;
 
 
 /***/ }),
-/* 28 */
+/* 31 */
+/***/ (function(module, exports) {
+
+module.exports = require("http");
+
+/***/ }),
+/* 32 */
+/***/ (function(module, exports) {
+
+module.exports = require("express");
+
+/***/ }),
+/* 33 */
+/***/ (function(module, exports) {
+
+module.exports = require("morgan");
+
+/***/ }),
+/* 34 */
+/***/ (function(module, exports) {
+
+module.exports = require("cookie-parser");
+
+/***/ }),
+/* 35 */
+/***/ (function(module, exports) {
+
+module.exports = require("body-parser");
+
+/***/ }),
+/* 36 */
+/***/ (function(module, exports) {
+
+module.exports = require("crypto");
+
+/***/ }),
+/* 37 */
+/***/ (function(module, exports) {
+
+module.exports = require("child_process");
+
+/***/ }),
+/* 38 */
+/***/ (function(module, exports) {
+
+module.exports = require("bluebird");
+
+/***/ }),
+/* 39 */
+/***/ (function(module, exports) {
+
+module.exports = require("buffer");
+
+/***/ }),
+/* 40 */
 /***/ (function(module, exports, __webpack_require__) {
 
 const Node = __webpack_require__(6);
-const LiteProtocol = __webpack_require__(12);
+const LiteProtocol = __webpack_require__(15);
 
 const NODE_TYPE = 'full';
 
@@ -2347,158 +3419,11 @@ module.exports = FullNode;
 
 
 /***/ }),
-/* 29 */
-/***/ (function(module, exports) {
-
-const prefix = 'lite/';
-
-const genKey = key => prefix + key;
-
-class LiteProtocolStore {
-  constructor(db) {
-    this.db = db;
-  }
-
-  static get genKey() {
-    return genKey;
-  }
-
-  // async writeHeadBlock(blockId) {
-  //   return this.db.put(genKey('head_block'), blockId);
-  // }
-
-  /**
-   * Note that we don't index litemessage's content, which is part of a block.
-   * So in order to get the content of a litemessage, you must get the the block
-   * where the given litemessage resides first.
-   * 
-   * This function return the block id (no matter the block in the main branch or
-   * not) where the given litemessage resides, or undefined if we don't have the
-   * litemessage in any block.
-   */
-  async readLitemsg(litemsgId) {
-    try {
-      let buf = await this.db.get(genKey(`litemsg_${litemsgId}`));
-      return buf.toString();
-
-    } catch (err) {
-      if (err.notFound) { return undefined; }
-      throw err;
-    }
-  }
-
-  /**
-   * TODO might change this: we don't need to have index for litemessages?
-   * might just litemessage's location index (in which block).
-   */
-  // async writeLitemsg(litemsg) {
-  //   if (typeof litemsg.hash !== 'string') {
-  //     throw new Error('Invalid litemessage hash.');
-  //   }
-  //   return this.db.put(genKey(`litemsg_${litemsg.hash}`), litemsg);
-  // }
-
-  async hasLitemsg(litemsgId) {
-    return (await this.readLitemsg(litemsgId)) !== undefined;
-  }
-
-  // following is block-related ...
-
-  /**
-   * Return the head block's **id** (or undefined when there's no
-   * block in the blockchain)
-   */
-  async readHeadBlock() {
-    try {
-      let buf = await this.db.get(genKey('head_block'));
-      return buf.toString();
-    } catch (err) {
-      if (err.notFound) { return undefined; }
-      throw err;
-    }
-  }
-
-  // async writeBlock(block) {
-  //   if (typeof block.hash !== 'string') {
-  //     throw new Error('Invalid block hash.');
-  //   }
-  //   return this.db.put(genKey(`block_${block.hash}`), block);
-  // }
-
-  /**
-   * Return the whole block specified by the given block id.
-   * If block doesn't exist, `undefined` will be returned.
-   */
-  async readBlock(blockId) {
-    try {
-      let buf = await this.db.get(genKey(`block_${blockId}`));
-      return JSON.parse(buf.toString());
-      
-    } catch (err) {
-      if (err.notFound) { return undefined; }
-      throw err;
-    }
-  }
-
-  /**
-   * Append one more block on top of the current head block.
-   */
-  async appendBlock(block, batchOps) {
-    if (typeof block.hash !== 'string') {
-      throw new Error('Invalid block hash.');
-    }
-
-    let ops = [
-      { type: 'put', key: genKey(`block_${block.hash}`), value: JSON.stringify(block) },
-      { type: 'put', key: genKey('head_block'), value: block.hash }
-    ];
-    for (let litemsg of block.litemsgs) {
-      ops.push({ type: 'put', key: genKey(`litemsg_${litemsg.hash}`), value: block.hash });
-    }
-    if (batchOps) {
-      ops = [...ops, ...batchOps];
-    }
-
-    return this.db.batch(ops);
-  }
-
-  /**
-   * Sometimes forks could happen. Call this to switch to
-   * another fork.
-   * 
-   * @param {*} blocks  blocks from another branch to switch
-   */
-  async appendBlocksAt(blocks, batchOps) {
-    if (!blocks.length) { return; }
-
-    let headBlock = blocks[blocks.length - 1];
-    let ops = [];
-
-    for (let block of blocks) {
-      if (typeof block.hash !== 'string') { throw new Error('Invalid block hash.'); }
-
-      ops.push({ type: 'put', key: genKey(`block_${block.hash}`), value: JSON.stringify(block) });
-      for (let litemsg of block.litemsgs) {
-        ops.push({ type: 'put', key: genKey(`litemsg_${litemsg.hash}`), value: block.hash });
-      }
-    }
-    ops.push({ type: 'put', key: genKey('head_block'), value: headBlock.hash });
-
-    if (batchOps) { ops = [...ops, ...batchOps]; }
-
-    return this.db.batch(ops);
-  }
-}
-
-module.exports = LiteProtocolStore;
-
-
-/***/ }),
-/* 30 */
+/* 41 */
 /***/ (function(module, exports, __webpack_require__) {
 
 const { mine } = __webpack_require__(0);
-const createBlock = __webpack_require__(13);
+const createBlock = __webpack_require__(16);
 
 /**
  * mining manager : )
@@ -2555,343 +3480,13 @@ module.exports = Miner;
 
 
 /***/ }),
-/* 31 */
-/***/ (function(module, exports) {
-
-module.exports = require("crypto");
-
-/***/ }),
-/* 32 */
-/***/ (function(module, exports) {
-
-module.exports = require("child_process");
-
-/***/ }),
-/* 33 */
-/***/ (function(module, exports) {
-
-module.exports = require("bluebird");
-
-/***/ }),
-/* 34 */
-/***/ (function(module, exports) {
-
-module.exports = require("buffer");
-
-/***/ }),
-/* 35 */
-/***/ (function(module, exports, __webpack_require__) {
-
-const EventEmitter = __webpack_require__(1);
-
-/**
- * A chunk is a fixed number of consecutive blocks (only block id) grouped
- * together stored in LevelDB in binary format (not in hex encode), mainly
- * for retrieval / flushing efficiency from or to disk.
- * 
- * NOTE that once a block is stored in LevelDB, you should NEVER change this
- * constant down below. Otherwise, data will be corrupted.
- */
-const chunkSize = 1024;
-
-/**
- * This is a very low level abstraction of a blockchain, which needs to be 
- * injected with an store (using LevelDB / IndexedDB) interface implementation
- * for interacting with persistant storage medium. Take `LiteProtocol`'s
- * implementation as an example.
- * 
- * This blockchain abstraction here is (should) be protocol-agnostic.
- * 
- * One assumption using this blockchain abstraction here is that you MUST 
- * always only persist valid blocks (it doesn't have to be in the main branch 
- * in the long run, but it must be a valid block). And you append elder blocks 
- * and then newer blocks to the blockchain, either one by one, or in a batch.
- * In other words, you MUST always append a block after all its predecessor blocks
- * have been persisted.
- * 
- * NOTE that both chunk and height (length of blockchain) start at index 0.
- */
-class Blockchain extends EventEmitter {
-  constructor(store) {
-    super();
-    this.store = store;
-    this.db = store.db;
-    this.genKey = store.constructor.genKey;
-    
-    // an array of block ids (in hex encoding)
-    this.blockchain = null;
-    this._ready = false;
-
-    this.init();
-  }
-
-  get ready() {
-    return this._ready;
-  }
-
-  async init() {
-    try {
-      let height = await this.getCurHeight() + 1;
-      let numOfChunks = Math.floor(height / chunkSize);
-      let numOfBlocks = height % chunkSize;
-
-      let chunks = await Promise.all(
-        Array.from(Array(numOfChunks).keys()) // generate a number sequence
-          .map(num => this._getChunk(num))
-      );
-      // flatten chunks
-      chunks = [].concat.apply([], chunks);
-
-      let blocks = [];
-      let prevBlockId = null;
-      for (let i = 0; i < numOfBlocks; i++) {
-        let block = await (
-          i === 0 ? this.getHeadBlock() : this.getBlock(prevBlockId)
-        );
-
-        prevBlockId = block.prevBlock;
-        blocks.unshift(block.hash);
-      }
-
-      this.blockchain = [...chunks, ...blocks];
-      this._ready = true;
-      this.emit('ready');
-
-    } catch (err) {
-      this.emit('error', err);
-    }
-  }
-
-  /**
-   * Inside a chunk, the order is from elder blocks to newer blocks.
-   * Note that if you're trying to get a non-existent chunk, an error
-   * will be thrown.
-   */
-  async _getChunk(serialNum) {
-    let buf = await this.db.get(this.genKey(`chunk_${serialNum}`));
-    let chunk = [];
-
-    // just be cautious
-    if (buf.length !== chunkSize * 32) { process.exit(1); }
-
-    for (let i = 0; i < buf.length; i += 32) {
-      chunk.push(buf.slice(i, i + 32).toString('hex'));
-    }
-    return chunk;
-  }
-
-  /**
-   * Append next block on top of current head block on the blockchain.
-   */
-  async append(block) {
-    const ops = [];
-    this.blockchain.push(block.hash);
-    let height = this.getCurHeightSync();
-
-    if ((height + 1) % chunkSize === 0) {
-      const serialNum = Math.floor((height + 1) / chunkSize) - 1;
-      const buf = Buffer.from(this.blockchain.slice(height + 1 - chunkSize).join(''), 'hex');
-      ops.push({ type: 'put', key: this.genKey(`chunk_${serialNum}`), value: buf });
-    }
-
-    return this.store.appendBlock(block, ops);
-  }
-
-  /**
-   * Append a branch on a specific location on the blockchain, and the 
-   * new branch will be the main blockchain branch.
-   * 
-   * TODO update chunk index
-   */
-  async appendAt(blocks) {
-    // some cautious checks
-    if (!blocks.length) { return; }
-    if (blocks[blocks.length - 1].height <= this.getCurHeightSync()) {
-      throw new Error('Trying to append a invalid subchain, abort.');
-    }
-
-    let at = blocks[0].height;
-    let blockIds = blocks.map(block => block.hash);
-    this.blockchain.splice(at, Number.MAX_SAFE_INTEGER, ...blockIds);
-
-    let chunkAt = Math.floor(at / chunkSize);
-    let ops = [];
-
-    for (let i = chunkAt * chunkSize; i + chunkSize < this.blockchain.length; i += chunkSize) {
-      let buf = Buffer.from(this.blockchain.slice(i, i + chunkSize).join(''), 'hex');
-      ops.push({ type: 'put', key: this.genKey(`chunk_${i / chunkSize}`), value: buf });
-    }
-
-    return this.store.appendBlocksAt(blocks, ops);
-  }
-
-  /**
-   * Return the head block, or `undefined` when there's no
-   * block on the blockchain.
-   */
-  async getHeadBlock() {
-    let blockId = await this.store.readHeadBlock();
-    return this.getBlock(blockId);
-  }
-
-  /**
-   * Synchronously get current head block's id. If there is no block
-   * yet, `undefined` will be returned.
-   */
-  getHeadBlockIdSync() {
-    let length = this.blockchain.length;
-    return length ? this.blockchain[length - 1] : undefined;
-  }
-
-  getBlockIdAtSync(height) {
-    let curHeight = this.getCurHeightSync();
-    if (height < 0 || height > curHeight) {
-      throw new Error('Invalid height given.');
-    }
-
-    return this.blockchain[height];
-  }
-
-  /**
-   * Note that height is 0-based (first block's height is 0).
-   * If there's no block yet, `-1` will returned.
-   */
-  async getCurHeight() {
-    let block = await this.getHeadBlock();
-    return block ? block.height : -1;
-  }
-
-  /**
-   * Note that height is 0-based (first block's height is 0).
-   * If there's no block yet, `-1` will returned.
-   */
-  getCurHeightSync() {
-    return this.blockchain.length - 1;
-  }
-
-  /**
-   * Get a list of block locator hashes, which is used in the
-   * `getBlocks` message that typically exists in blockchain
-   * protocol.
-   */
-  getLocatorsSync() {
-    let locators = [];
-    let height = this.getCurHeightSync();
-    let pow = 0;
-
-    if (height === -1) { return []; }
-
-    while (true) {
-      let i = Math.max(height + 1 - Math.pow(2, pow), 0);
-      locators.push(this.getBlockIdAtSync(i));
-      if (i === 0) { break; }
-      pow += 1;
-    }
-    return locators;
-  }
-
-  /**
-   * Get forked branch based on locators (an array of block hashes) peer provides.
-   * Return an array of block ids (from elder blocks to latest ones).
-   */
-  getForkedBranchSync(locators) {
-    if (this.blockchain.length < locators.length) {
-      return [];
-    }
-
-    let height = this.getCurHeightSync();
-    if (height === -1) { return []; }
-    let i = height;
-
-    for (; i >= 0; i--) {
-      let blockId = this.blockchain[i];
-      if (locators.includes(blockId)) {
-        break;
-      }
-    }
-
-    if (i === height) { return []; }
-    return this.blockchain.slice(i + 1);
-  }
-
-  /**
-   * @param {*} height note that height is 0-based index
-   */
-  async getBlockAt(height) {
-    // just to be cautious
-    if (height >= this.blockchain.length) {
-      throw new Error('Invalid block height.');
-    }
-
-    let blockId = this.blockchain[height];
-    return this.getBlock(blockId);
-  }
-
-  /**
-   * Get all blocks on the blockchain main branch.
-   * At this point there is no pagination yet, so this
-   * operation is very expensive.
-   */
-  async getBlocks(reverse = true) {
-    let blocks = await Promise.all(
-      this.blockchain.map(this.getBlock, this)
-    );
-    if (reverse) { blocks.reverse(); }
-    return blocks;
-  }
-
-  /**
-   * Return the whole block specified by the given block id.
-   * If block doesn't exist, `undefined` will be returned.
-   */
-  async getBlock(blockId) {
-    return this.store.readBlock(blockId);
-  }
-
-  /**
-   * If the given block is not on the main blockchain, the confirmation
-   * count will always be 0.
-   */
-  getConfirmationCntSync(blockId) {
-    if (!this.onMainBranchSync(blockId)) { return null; }
-
-    return this.getCurHeightSync() - this.blockchain.indexOf(blockId);
-  }
-
-  /**
-   * Determine whether the given block is on the main blockchain branch.
-   * The difference from the func `hasBlock` is that this is a synchronous
-   * operation.
-   */
-  onMainBranchSync(blockId) {
-    return this.blockchain.includes(blockId);
-  }
-
-  /**
-   * By default, return true only if the given block is on the main blockchain
-   * branch. If you want it to return true even if the block is off main branch,
-   * set the `onMainBranch` to false.
-   */
-  async hasBlock(blockId, onMainBranch = true) {
-    if (onMainBranch) {
-      return this.blockchain.includes(blockId);
-    }
-
-    return await this.getBlock(blockId) !== undefined;
-  }
-}
-
-module.exports = Blockchain;
-
-
-/***/ }),
-/* 36 */
+/* 42 */
 /***/ (function(module, exports, __webpack_require__) {
 
 const {
   messageTypes, messageValidators, dataPartial, 
   partialNotFound
-} = __webpack_require__(3);
+} = __webpack_require__(1);
 
 /**
  * This inventory resolve handler is used to serve requests
@@ -2946,16 +3541,16 @@ module.exports = InvResolveHandler;
 
 
 /***/ }),
-/* 37 */
+/* 43 */
 /***/ (function(module, exports, __webpack_require__) {
 
 const { sliceItems } = __webpack_require__(5);
-const { getCurTimestamp } = __webpack_require__(2);
+const { getCurTimestamp } = __webpack_require__(3);
 const { calcMerkleRoot, verifyBlock } = __webpack_require__(0);
 const {
   messageTypes, messageValidators, getData, data,
   getDataPartial
-} = __webpack_require__(3);
+} = __webpack_require__(1);
 
 /**
  * Abstraction of the inventory (only for blocks) to resolve.
@@ -3217,196 +3812,6 @@ class InventoryResolver {
 
 module.exports = InventoryResolver;
 
-
-/***/ }),
-/* 38 */
-/***/ (function(module, exports, __webpack_require__) {
-
-const http = __webpack_require__(39);
-const express = __webpack_require__(40);
-const logger = __webpack_require__(41);
-const cookieParser = __webpack_require__(42);
-const bodyParser = __webpack_require__(43);
-const { isValidJson, parseChunk } = __webpack_require__(5);
-
-const notfoundPayload = { 'not-found': true };
-
-/**
- * filter log entries
- */
-function logFilter(logs, { peer, dir, type, since }) {
-  return logs.filter(log => (
-    (!peer || log.peer.startsWith(peer))
-    && (!dir || log.dir.startsWith(dir))
-    && (!type || log.msg.messageType.startsWith(type))
-    && (!since || log.time > since)
-  ));
-}
-
-/**
- * create a very minimalist rest server for debugging
- */
-function createRestServer(liteProtocol) {
-  const app = express();
-  const node = liteProtocol.node;
-  const litenode = liteProtocol.litenode;
-  const blockchain = liteProtocol.blockchain;
-  const liteStore = liteProtocol.liteStore;
-  const leveldb = liteProtocol.liteStore.db;
-
-  app.use(logger('dev'));
-  app.use(cookieParser());
-  app.use(bodyParser.json());
-  app.use(bodyParser.urlencoded({ extended: false }));
-
-  app.get('/', (req, res) => {
-    res.status(200).json({
-      endpoints: [
-        { '/info': 'all sorts of info about this node' },
-        { '/peers': 'peer information' },
-        { '/msgpool': 'pending litemessage pool' },
-        { '/blocks': 'get all blocks on the main branch' },
-        { '/blocks/:blockId': 'get specified block' },
-        { '/litemsgs/:litemsgId': 'get a litemessage\'s info on blockchain' },
-        { '/logs': 'protocol message logs' },
-        { '/litedb/:key': 'fetch any leveldb value of a given key' },
-        { '/locators': 'get the block locator hashes' }
-      ]
-    });
-  });
-
-  app.get('/info', (req, res) => {
-    res.status(200).json(litenode.getInfo());
-  });
-
-  app.get('/peers', (req, res) => {
-    let { type } = req.query;
-    res.status(200).json(node.peers(type));
-  });
-
-  app.get('/msgpool', (req, res) => {
-    res.status(200).json(liteProtocol.litemsgPool);
-  });
-
-  app.get('/blocks', async (req, res) => {
-    let blocks = await blockchain.getBlocks();
-
-    let { simple } = req.query;
-    if (simple && simple.toLowerCase() === 'true') {
-      blocks = blocks.map(block => ({ [block.height]: block.hash }));
-    }
-
-    res.status(200).json(blocks);
-  });
-
-  app.get('/blocks/:blockId', async (req, res, next) => {
-    try {
-      let { blockId } = req.params;
-      let block = await liteProtocol.blockchain.getBlock(blockId);
-
-      if (block) {
-        res.status(200).json(block);
-      } else {
-        res.status(404).json(notfoundPayload);
-      }
-
-    } catch (err) {
-      next(err);
-    }
-  });
-
-  app.get('/litemsgs/:litemsgId', async (req, res, next) => {
-    try {
-      let { litemsgId } = req.params;
-      let at = await liteStore.readLitemsg(litemsgId);
-
-      if (typeof at === 'undefined') {
-        res.status(404).json(notfoundPayload);
-        return;
-      }
-
-      let mainBranch = blockchain.onMainBranchSync(at);
-      let confirmation = mainBranch ?
-        blockchain.getConfirmationCntSync(at) :
-        'N/A';
-      
-      res.status(200).json({ at, mainBranch, confirmation });
-
-    } catch (err) {
-      next(err);
-    }
-  });
-
-  app.get('/logs', (req, res) => {
-    let logs = liteProtocol.litenode.messageLogs;
-    let { peer, dir, type, since } = req.query;
-    if (typeof since === 'string') {
-      since = parseInt(since);
-    }
-
-    res.status(200).json(logFilter(logs, { peer, dir, type, since }));
-  });
-
-  app.get('/litedb/:key', async (req, res, next) => {
-    try {
-      let { key } = req.params;
-      let buf = await leveldb.get('lite/' + key);
-      let str = key.startsWith('chunk_') ?
-        JSON.stringify(parseChunk(buf)) :
-        buf.toString();
-
-      let payload = isValidJson(str) ? JSON.parse(str) : { _$: str };
-      res.status(200).json(payload);
-
-    } catch (err) {
-      if (err.notFound) {
-        res.status(404).json(notfoundPayload);
-      } else {
-        next(err);
-      }
-    }
-  });
-
-  app.get('/locators', (req, res) => {
-    let locators = blockchain.getLocatorsSync();
-    res.status(200).json(locators);
-  });
-
-  return http.createServer(app);
-}
-
-module.exports = createRestServer;
-
-
-/***/ }),
-/* 39 */
-/***/ (function(module, exports) {
-
-module.exports = require("http");
-
-/***/ }),
-/* 40 */
-/***/ (function(module, exports) {
-
-module.exports = require("express");
-
-/***/ }),
-/* 41 */
-/***/ (function(module, exports) {
-
-module.exports = require("morgan");
-
-/***/ }),
-/* 42 */
-/***/ (function(module, exports) {
-
-module.exports = require("cookie-parser");
-
-/***/ }),
-/* 43 */
-/***/ (function(module, exports) {
-
-module.exports = require("body-parser");
 
 /***/ }),
 /* 44 */

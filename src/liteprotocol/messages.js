@@ -13,7 +13,9 @@ const messageTypes = Object.freeze({
   getPendingMsgs: 'lite/get_pending_msgs',
 
   getHeaders: 'lite/get_headers',
-  headers: 'lite/headers'
+  headers: 'lite/headers',
+  locateLitemsgs: 'lite/locate_litemsgs',
+  litemsgLocators: 'lite/litemsg_locators',
 });
 
 const info = ({ uuid, nodeType, daemonPort }) => ({
@@ -162,6 +164,67 @@ getPendingMsgs.validate = () => {
   // nothing
 };
 
+const getHeaders = ({ blocks }) => ({
+  messageType: messageTypes.getHeaders,
+  blocks
+});
+
+getHeaders.validate = ({ blocks }) => {
+  if (!(blocks instanceof Array)) {
+    throw new Error('lite/: Invalid blocks.');
+  }
+};
+
+const headers = ({ blocks }) => ({
+  messageType: messageTypes.headers,
+  blocks
+});
+
+headers.validate = ({ blocks }) => {
+  if (!(blocks instanceof Array)) {
+    throw new Error('lite/: Invalid block headers.');
+  }
+}
+
+/**
+ * @param {*} options
+ *      `litemsgs` - ids
+ */
+const locateLitemsgs = ({ litemsgs }) => ({
+  messageType: messageTypes.locateLitemsgs,
+  litemsgs
+});
+
+locateLitemsgs.validate = ({ litemsgs }) => {
+  if (!(litemsgs instanceof Array)) {
+    throw new Error('lite/: Invalid lite message ids.');
+  }
+};
+
+/**
+ * `litemsgs` is an array of litemsg ids. 
+ * `blocks` is an array of blocks. 
+ * `lookup` stores the relation between `litemsgs` and `blocks`.
+ * 
+ * The number of elements in `lookup` MUST be the same as `litemsgs`.
+ * Each element in `lookup` is a block id. For instance, id of the 
+ * block which first litemessage is located is the first element of
+ * `lookup.`
+ * 
+ * In case a litemessage is not in any block, the corresponding
+ * element in `lookup` MUST be undefined (or any falsy value).
+ */
+const litemsgLocators = ({ litemsgs, blocks, lookup }) => ({
+  messageType: messageTypes.litemsgLocators,
+  litemsgs,
+  blocks,
+  lookup
+});
+
+litemsgLocators.validate = ({ litemsgs, blocks, lookup }) => {
+  // TODO verify the lookup array is correct
+};
+
 // validators
 const messageValidators = Object.freeze({
   [messageTypes.info]: info.validate,
@@ -173,7 +236,11 @@ const messageValidators = Object.freeze({
   [messageTypes.getDataPartial]: getDataPartial.validate,
   [messageTypes.dataPartial]: dataPartial.validate,
   [messageTypes.partialNotFound]: partialNotFound.validate,
-  [messageTypes.getPendingMsgs]: getPendingMsgs.validate
+  [messageTypes.getPendingMsgs]: getPendingMsgs.validate,
+  [messageTypes.getHeaders]: getHeaders.validate,
+  [messageTypes.headers]: headers.validate,
+  [messageTypes.locateLitemsgs]: locateLitemsgs.validate,
+  [messageTypes.litemsgLocators]: litemsgLocators.validate,
 });
 
 exports.messageTypes = messageTypes;
@@ -188,3 +255,7 @@ exports.getDataPartial = getDataPartial;
 exports.dataPartial = dataPartial;
 exports.partialNotFound = partialNotFound;
 exports.getPendingMsgs = getPendingMsgs;
+exports.getHeaders = getHeaders;
+exports.headers = headers;
+exports.locateLitemsgs = locateLitemsgs;
+exports.litemsgLocators = litemsgLocators;

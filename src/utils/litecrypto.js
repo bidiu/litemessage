@@ -216,6 +216,57 @@ const verifyBlock = (block, prevBlock) => {
 };
 
 /**
+ * Similar to `verifyBlock`. However, `litemsgs` MUST be `undefined`.
+ * 
+ * TODO validate timestamp, bits (its value)
+ */
+const verifyHeader = (block, prevBlock) => {
+  if (!block) { return false; }
+
+  let { ver, time, height, merkleRoot, bits, nonce, litemsgs } = block;
+
+  if (typeof ver !== 'number') {
+    return false;
+  }
+  if (typeof time !== 'number') {
+    return false;
+  }
+  if (typeof height !== 'number' || height < 0 || 
+    (height === 0 && typeof block.prevBlock !== 'undefined') ||
+    (height !== 0 && typeof block.prevBlock === 'undefined')) {
+
+    return false;
+  }
+  if (litemsgs !== undefined) {
+    return false;
+  }
+  if (typeof merkleRoot !== 'string') {
+    return false;
+  }
+  
+  /* bits, nonce, hash */
+  if (typeof bits !== 'number'|| typeof nonce !== 'number'
+    || nonce < 0 || typeof block.hash !== 'string') {
+    
+    return false;
+  }
+  let hash = sha256(`${ver}${time}${height}${block.prevBlock}${merkleRoot}${bits}${nonce}`);
+  if (hash !== block.hash || leadingZeroBits(hash) < bits) {
+    return false;
+  }
+
+  /* height, prevBlock */
+  if (typeof prevBlock !== 'undefined') {
+    if (typeof block.prevBlock !== 'string' || prevBlock.hash !== block.prevBlock) {
+      return false;
+    }
+
+    if (prevBlock.height + 1 !== height) { return false; }
+  }
+  return true;
+};
+
+/**
  * Note that `subchain` start from elder blocks to newer blocks, which is a
  * block array.
  * 
@@ -233,6 +284,19 @@ const verifySubchain = (subchain, prevBlock) => {
   return true;
 };
 
+/**
+ * Similar to `verifySubchain`.
+ */
+const verifyHeaderChain = (headerChain, prevHeader) => {
+  for (let block of headerChain) {
+    if (!verifyHeader(block, prevHeader)) {
+      return false;
+    }
+    prevHeader = block;
+  }
+  return true;
+};
+
 exports.sha256 = sha256;
 exports.calcMerkleRoot = calcMerkleRoot;
 exports.verifyMerkleRoot = verifyMerkleRoot;
@@ -240,6 +304,8 @@ exports.leadingZeroBits = leadingZeroBits;
 exports.verifyLitemsg = verifyLitemsg;
 exports.verifyBlock = verifyBlock;
 exports.verifySubchain = verifySubchain;
+exports.verifyHeader = verifyHeader;
+exports.verifyHeaderChain = verifyHeaderChain;
 
 if (BUILD_TARGET === 'node') {
   // node

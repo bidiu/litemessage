@@ -35,6 +35,10 @@ class LiteProtocolStore {
     }
   }
 
+  async removeLitemsg(litemsgId) {
+    return this.db.del(genKey(`litemsg_${litemsgId}`));
+  }
+
   /**
    * TODO might change this: we don't need to have index for litemessages?
    * might just litemessage's location index (in which block).
@@ -100,8 +104,10 @@ class LiteProtocolStore {
       { type: 'put', key: genKey(`block_${block.hash}`), value: JSON.stringify(block) },
       { type: 'put', key: genKey('head_block'), value: block.hash }
     ];
-    for (let litemsg of block.litemsgs) {
-      ops.push({ type: 'put', key: genKey(`litemsg_${litemsg.hash}`), value: block.hash });
+    if (block.litemsgs) {
+      for (let litemsg of block.litemsgs) {
+        ops.push({ type: 'put', key: genKey(`litemsg_${litemsg.hash}`), value: block.hash });
+      }
     }
     if (batchOps) {
       ops = [...ops, ...batchOps];
@@ -126,8 +132,10 @@ class LiteProtocolStore {
       if (typeof block.hash !== 'string') { throw new Error('Invalid block hash.'); }
 
       ops.push({ type: 'put', key: genKey(`block_${block.hash}`), value: JSON.stringify(block) });
-      for (let litemsg of block.litemsgs) {
-        ops.push({ type: 'put', key: genKey(`litemsg_${litemsg.hash}`), value: block.hash });
+      if (block.litemsgs) {
+        for (let litemsg of block.litemsgs) {
+          ops.push({ type: 'put', key: genKey(`litemsg_${litemsg.hash}`), value: block.hash });
+        }
       }
     }
     ops.push({ type: 'put', key: genKey('head_block'), value: headBlock.hash });
