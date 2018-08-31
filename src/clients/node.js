@@ -8,7 +8,7 @@ const LiteNode = require('../litenode');
  * A UUID identifying this node will be automatically generated.
  */
 class Node {
-  constructor(nodeType, dbPath, port, protocolClass, initPeerUrls, debug) {
+  constructor(nodeType, dbPath, port, protocolClass, initPeerUrls, debug, noserver) {
     if (new.target === Node) {
       throw new TypeError("Cannot construct Node instances directly.");
     }
@@ -27,7 +27,7 @@ class Node {
     this.db = levelup(leveldown(dbPath));
 
     // create underlying litenode
-    this.litenode = new LiteNode(this.uuid, { port, debug });
+    this.litenode = new LiteNode(this.uuid, { port, debug, noserver });
     // instantiate the protocol manager
     this.protocol = new protocolClass(this);
 

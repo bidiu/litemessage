@@ -1,5 +1,6 @@
 const EventEmitter = require('events');
 const WSServer = require('./wss');
+const WSClient = require('./wsc');
 const { getSocketAddress } = require('./utils/network');
 const { getCurTimestamp } = require('./utils/time');
 
@@ -33,14 +34,16 @@ const { getCurTimestamp } = require('./utils/time');
  * worry about : P
  */
 class LiteNode extends EventEmitter {
-  constructor(uuid, { port = 1113, debug = false } = {}) {
+  constructor(uuid, { port = 1113, debug = false, noserver = false } = {}) {
     super();
     this.socketConnectHandler = this.socketConnectHandler.bind(this);
     this.socketMessageHandler = this.socketMessageHandler.bind(this);
     this.socketCloseHandler = this.socketCloseHandler.bind(this);
 
     this.uuid = uuid;
-    this.daemonPort = port;
+    this.daemonPort = noserver ? undefined : port;
+    this.debugPort = port + 1;
+    this.noserver = noserver;
 
     // node's uuid => peer
     this.peers = {};
@@ -52,12 +55,14 @@ class LiteNode extends EventEmitter {
     this.messageLogs = [];
 
     // create the underlyng websocket server
-    this.wss = new WSServer(port);
-    // when bound to an network interface
-    this.wss.on('listening', (port) => {
-      console.log(`${uuid}: Start listening on port ${port}.`);
-      if (debug) { console.log('Debug mode is enabled.'); }
-    });
+    this.wss = noserver ? new WSClient() : new WSServer(port);
+    if (!noserver) {
+      // when bound to an network interface
+      this.wss.on('listening', (port) => {
+        console.log(`${uuid}: Start listening on port ${port}.`);
+        if (debug) { console.log('Debug mode is enabled.'); }
+      });
+    }
     // when new connection established
     this.wss.on('connection', this.socketConnectHandler);
   }

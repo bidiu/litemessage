@@ -33,10 +33,10 @@ info.validate = ({ uuid, nodeType, daemonPort }) => {
     throw new Error('lite/: Invalid node type.');
   }
   if (daemonPort !== undefined && (typeof daemonPort !== 'number' 
-      || daemonPort <= 1024)) {
+      || daemonPort <= 1024 || daemonPort > 65535)) {
     throw new Error('lite/: Invalid daemon port.');
   }
-  if (nodeType === 'uuid' && !daemonPort) {
+  if (nodeType === 'full' && !daemonPort) {
     throw new Error('lite/: Invalid daemon port.');
   }
 };

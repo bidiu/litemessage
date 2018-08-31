@@ -57,9 +57,9 @@ class ThinLiteProtocol extends P2PProtocol {
 
     this.handshake = new HandshakeManager(this);
 
-    if (this.litenode.debug) {
+    if (this.litenode.debug && BUILD_TARGET === 'node') {
       // create and run rest server
-      let debugPort = this.litenode.daemonPort + 1;
+      let debugPort = this.litenode.debugPort;
       createRestServer(this).listen(debugPort);
       console.log(`Debugging RESTful API server listening on port ${debugPort}.`);
     }

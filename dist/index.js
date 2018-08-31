@@ -1,4 +1,4 @@
-/*! v0.4.3-5-g032aae9 */
+/*! v0.4.3-6-g20d9ab7 */
 module.exports =
 /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
@@ -83,7 +83,7 @@ module.exports =
 /******/
 /******/
 /******/ 	// Load entry module and return exports
-/******/ 	return __webpack_require__(__webpack_require__.s = 17);
+/******/ 	return __webpack_require__(__webpack_require__.s = 18);
 /******/ })
 /************************************************************************/
 /******/ ([
@@ -93,11 +93,11 @@ module.exports =
 if (true) {
   // node
 
-  var path = __webpack_require__(10);
-  var crypto = __webpack_require__(36);
-  var { fork } = __webpack_require__(37);
-  var Promise = __webpack_require__(38);
-  var Buffer = __webpack_require__(39).Buffer;
+  var path = __webpack_require__(11);
+  var crypto = __webpack_require__(37);
+  var { fork } = __webpack_require__(38);
+  var Promise = __webpack_require__(39);
+  var Buffer = __webpack_require__(40).Buffer;
 
   Promise.config({
     // enable warnings
@@ -402,6 +402,12 @@ if (true) {
 /* 1 */
 /***/ (function(module, exports) {
 
+module.exports = require("events");
+
+/***/ }),
+/* 2 */
+/***/ (function(module, exports) {
+
 const messageTypes = Object.freeze({
   info: 'lite/info',
   infoAck: 'lite/info_ack',
@@ -437,10 +443,10 @@ info.validate = ({ uuid, nodeType, daemonPort }) => {
     throw new Error('lite/: Invalid node type.');
   }
   if (daemonPort !== undefined && (typeof daemonPort !== 'number' 
-      || daemonPort <= 1024)) {
+      || daemonPort <= 1024 || daemonPort > 65535)) {
     throw new Error('lite/: Invalid daemon port.');
   }
-  if (nodeType === 'uuid' && !daemonPort) {
+  if (nodeType === 'full' && !daemonPort) {
     throw new Error('lite/: Invalid daemon port.');
   }
 };
@@ -666,33 +672,7 @@ exports.litemsgLocators = litemsgLocators;
 
 
 /***/ }),
-/* 2 */
-/***/ (function(module, exports) {
-
-module.exports = require("events");
-
-/***/ }),
 /* 3 */
-/***/ (function(module, exports) {
-
-/**
- * in ms
- */
-const getCurTimestamp = (unit = 'ms') => {
-  if (unit === 'ms') {
-    return new Date().getTime();
-  } else if (unit === 's') {
-    return Math.round(new Date().getTime() / 1000);
-  } else {
-    throw new Error('Invalid unit: ' + unit + '.');
-  }
-}
-
-exports.getCurTimestamp = getCurTimestamp;
-
-
-/***/ }),
-/* 4 */
 /***/ (function(module, exports) {
 
 const getRemoteAddress = (socket) => {
@@ -739,10 +719,30 @@ exports.getSocketInfo = getSocketInfo;
 
 
 /***/ }),
+/* 4 */
+/***/ (function(module, exports) {
+
+/**
+ * in ms
+ */
+const getCurTimestamp = (unit = 'ms') => {
+  if (unit === 'ms') {
+    return new Date().getTime();
+  } else if (unit === 's') {
+    return Math.round(new Date().getTime() / 1000);
+  } else {
+    throw new Error('Invalid unit: ' + unit + '.');
+  }
+}
+
+exports.getCurTimestamp = getCurTimestamp;
+
+
+/***/ }),
 /* 5 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const path = __webpack_require__(10);
+const path = __webpack_require__(11);
 
 const isValidJson = (json) => {
   if (typeof json !== 'string' || !json) {
@@ -823,17 +823,17 @@ exports.parseChunk = parseChunk;
 /* 6 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const fs = __webpack_require__(18);
-const uuidv1 = __webpack_require__(19);
-const leveldown = __webpack_require__(20);
-const levelup = __webpack_require__(21);
-const LiteNode = __webpack_require__(22);
+const fs = __webpack_require__(19);
+const uuidv1 = __webpack_require__(20);
+const leveldown = __webpack_require__(21);
+const levelup = __webpack_require__(22);
+const LiteNode = __webpack_require__(23);
 
 /**
  * A UUID identifying this node will be automatically generated.
  */
 class Node {
-  constructor(nodeType, dbPath, port, protocolClass, initPeerUrls, debug) {
+  constructor(nodeType, dbPath, port, protocolClass, initPeerUrls, debug, noserver) {
     if (new.target === Node) {
       throw new TypeError("Cannot construct Node instances directly.");
     }
@@ -852,7 +852,7 @@ class Node {
     this.db = levelup(leveldown(dbPath));
 
     // create underlying litenode
-    this.litenode = new LiteNode(this.uuid, { port, debug });
+    this.litenode = new LiteNode(this.uuid, { port, debug, noserver });
     // instantiate the protocol manager
     this.protocol = new protocolClass(this);
 
@@ -895,19 +895,25 @@ module.exports = require("url");
 
 /***/ }),
 /* 8 */
+/***/ (function(module, exports) {
+
+module.exports = require("ws");
+
+/***/ }),
+/* 9 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const P2PProtocol = __webpack_require__(9);
-const LiteProtocolStore = __webpack_require__(11);
-const HandshakeManager = __webpack_require__(12);
-const Blockchain = __webpack_require__(13);
-const createRestServer = __webpack_require__(14);
+const P2PProtocol = __webpack_require__(10);
+const LiteProtocolStore = __webpack_require__(12);
+const HandshakeManager = __webpack_require__(13);
+const Blockchain = __webpack_require__(14);
+const createRestServer = __webpack_require__(15);
 const {
   verifyHeader, verifyHeaderChain
 } = __webpack_require__(0);
 const {
   messageTypes, messageValidators, getHeaders, getBlocks
-} = __webpack_require__(1);
+} = __webpack_require__(2);
 
 // protcol version
 const VERSION = 1;
@@ -956,9 +962,9 @@ class ThinLiteProtocol extends P2PProtocol {
 
     this.handshake = new HandshakeManager(this);
 
-    if (this.litenode.debug) {
+    if (this.litenode.debug && "node" === 'node') {
       // create and run rest server
-      let debugPort = this.litenode.daemonPort + 1;
+      let debugPort = this.litenode.debugPort;
       createRestServer(this).listen(debugPort);
       console.log(`Debugging RESTful API server listening on port ${debugPort}.`);
     }
@@ -1099,16 +1105,16 @@ module.exports = ThinLiteProtocol;
 
 
 /***/ }),
-/* 9 */
+/* 10 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const dns = __webpack_require__(26);
+const dns = __webpack_require__(27);
 const { URL } = __webpack_require__(7);
-const { promisify } = __webpack_require__(27);
-const P2PProtocolStore = __webpack_require__(28);
+const { promisify } = __webpack_require__(28);
+const P2PProtocolStore = __webpack_require__(29);
 const {
   messageTypes, messageValidators, fetchPeers, returnPeers
-} = __webpack_require__(29);
+} = __webpack_require__(30);
 const { pickItems } = __webpack_require__(5);
 
 // look up dns records
@@ -1117,7 +1123,7 @@ const lookup = promisify(dns.lookup);
 if (true) {
   // running in node
 
-  var EventEmitter = __webpack_require__(2);
+  var EventEmitter = __webpack_require__(1);
 
 } else { var EventEmitter; }
 
@@ -1268,13 +1274,13 @@ module.exports = P2PProtocol;
 
 
 /***/ }),
-/* 10 */
+/* 11 */
 /***/ (function(module, exports) {
 
 module.exports = require("path");
 
 /***/ }),
-/* 11 */
+/* 12 */
 /***/ (function(module, exports) {
 
 const prefix = 'lite/';
@@ -1429,21 +1435,21 @@ module.exports = LiteProtocolStore;
 
 
 /***/ }),
-/* 12 */
+/* 13 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const Peer = __webpack_require__(30);
+const Peer = __webpack_require__(31);
 const {
   messageValidators, info, infoAck,
   messageTypes: { info: infoType, infoAck: infoAckType }
-} = __webpack_require__(1);
-const { getCurTimestamp } = __webpack_require__(3);
-const { getSocketAddress } = __webpack_require__(4);
+} = __webpack_require__(2);
+const { getCurTimestamp } = __webpack_require__(4);
+const { getSocketAddress } = __webpack_require__(3);
 
 if (true) {
   // running in node
 
-  var EventEmitter = __webpack_require__(2);
+  var EventEmitter = __webpack_require__(1);
 
 } else { var EventEmitter; }
 
@@ -1648,10 +1654,10 @@ module.exports = HandshakeManager;
 
 
 /***/ }),
-/* 13 */
+/* 14 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const EventEmitter = __webpack_require__(2);
+const EventEmitter = __webpack_require__(1);
 
 /**
  * A chunk is a fixed number of consecutive blocks (only block id) grouped
@@ -1978,14 +1984,14 @@ module.exports = Blockchain;
 
 
 /***/ }),
-/* 14 */
+/* 15 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const http = __webpack_require__(31);
-const express = __webpack_require__(32);
-const logger = __webpack_require__(33);
-const cookieParser = __webpack_require__(34);
-const bodyParser = __webpack_require__(35);
+const http = __webpack_require__(32);
+const express = __webpack_require__(33);
+const logger = __webpack_require__(34);
+const cookieParser = __webpack_require__(35);
+const bodyParser = __webpack_require__(36);
 const { isValidJson, parseChunk } = __webpack_require__(5);
 
 const notfoundPayload = { 'not-found': true };
@@ -2138,28 +2144,28 @@ module.exports = createRestServer;
 
 
 /***/ }),
-/* 15 */
+/* 16 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const P2PProtocol = __webpack_require__(9);
-const LiteProtocolStore = __webpack_require__(11);
-const Miner = __webpack_require__(41);
-const Blockchain = __webpack_require__(13);
-const HandshakeManager = __webpack_require__(12);
-const InvResolveHandler = __webpack_require__(42);
-const InventoryResolver = __webpack_require__(43);
-const createRestServer = __webpack_require__(14);
-const createBlock = __webpack_require__(16);
+const P2PProtocol = __webpack_require__(10);
+const LiteProtocolStore = __webpack_require__(12);
+const Miner = __webpack_require__(42);
+const Blockchain = __webpack_require__(14);
+const HandshakeManager = __webpack_require__(13);
+const InvResolveHandler = __webpack_require__(43);
+const InventoryResolver = __webpack_require__(44);
+const createRestServer = __webpack_require__(15);
+const createBlock = __webpack_require__(17);
 const {
   messageTypes, messageValidators, getBlocks, 
   inv, data, getPendingMsgs, headers, 
   litemsgLocators
-} = __webpack_require__(1);
+} = __webpack_require__(2);
 const {
   verifyBlock, verifyLitemsg, calcMerkleRoot, verifySubchain
 } = __webpack_require__(0);
 const { pickItems } = __webpack_require__(5);
-const { getCurTimestamp } = __webpack_require__(3);
+const { getCurTimestamp } = __webpack_require__(4);
 
 // protcol version
 const VERSION = 1;
@@ -2604,7 +2610,7 @@ module.exports = LiteProtocol;
 
 
 /***/ }),
-/* 16 */
+/* 17 */
 /***/ (function(module, exports, __webpack_require__) {
 
 const { sha256 } = __webpack_require__(0);
@@ -2637,59 +2643,60 @@ module.exports = createBlock;
 
 
 /***/ }),
-/* 17 */
+/* 18 */
 /***/ (function(module, exports, __webpack_require__) {
 
 if (true) {
   // node (output as commonjs)
 
   exports.Node = __webpack_require__(6);
-  exports.ThinNode = __webpack_require__(25);
-  exports.FullNode = __webpack_require__(40);
+  exports.ThinNode = __webpack_require__(26);
+  exports.FullNode = __webpack_require__(41);
 
-  exports.createLitemsg = __webpack_require__(44);
-  exports.LiteProtocol = __webpack_require__(15);
-  exports.ThinLiteProtocol = __webpack_require__(8);
-  module.exports = exports =  { ...exports, ...__webpack_require__(1) };
+  exports.createLitemsg = __webpack_require__(45);
+  exports.LiteProtocol = __webpack_require__(16);
+  exports.ThinLiteProtocol = __webpack_require__(9);
+  module.exports = exports =  { ...exports, ...__webpack_require__(2) };
 
   module.exports = exports = { ...exports, ...__webpack_require__(0) };
-  module.exports = exports = { ...exports, ...__webpack_require__(3) };
+  module.exports = exports = { ...exports, ...__webpack_require__(4) };
   
 } else {}
 
 
 /***/ }),
-/* 18 */
+/* 19 */
 /***/ (function(module, exports) {
 
 module.exports = require("fs");
 
 /***/ }),
-/* 19 */
+/* 20 */
 /***/ (function(module, exports) {
 
 module.exports = require("uuid/v1");
 
 /***/ }),
-/* 20 */
+/* 21 */
 /***/ (function(module, exports) {
 
 module.exports = require("leveldown");
 
 /***/ }),
-/* 21 */
+/* 22 */
 /***/ (function(module, exports) {
 
 module.exports = require("levelup");
 
 /***/ }),
-/* 22 */
+/* 23 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const EventEmitter = __webpack_require__(2);
-const WSServer = __webpack_require__(23);
-const { getSocketAddress } = __webpack_require__(4);
-const { getCurTimestamp } = __webpack_require__(3);
+const EventEmitter = __webpack_require__(1);
+const WSServer = __webpack_require__(24);
+const WSClient = __webpack_require__(25);
+const { getSocketAddress } = __webpack_require__(3);
+const { getCurTimestamp } = __webpack_require__(4);
 
 /**
  * This class is the abstraction of "node" (litenode) inside the litemessage
@@ -2721,14 +2728,16 @@ const { getCurTimestamp } = __webpack_require__(3);
  * worry about : P
  */
 class LiteNode extends EventEmitter {
-  constructor(uuid, { port = 1113, debug = false } = {}) {
+  constructor(uuid, { port = 1113, debug = false, noserver = false } = {}) {
     super();
     this.socketConnectHandler = this.socketConnectHandler.bind(this);
     this.socketMessageHandler = this.socketMessageHandler.bind(this);
     this.socketCloseHandler = this.socketCloseHandler.bind(this);
 
     this.uuid = uuid;
-    this.daemonPort = port;
+    this.daemonPort = noserver ? undefined : port;
+    this.debugPort = port + 1;
+    this.noserver = noserver;
 
     // node's uuid => peer
     this.peers = {};
@@ -2740,12 +2749,14 @@ class LiteNode extends EventEmitter {
     this.messageLogs = [];
 
     // create the underlyng websocket server
-    this.wss = new WSServer(port);
-    // when bound to an network interface
-    this.wss.on('listening', (port) => {
-      console.log(`${uuid}: Start listening on port ${port}.`);
-      if (debug) { console.log('Debug mode is enabled.'); }
-    });
+    this.wss = noserver ? new WSClient() : new WSServer(port);
+    if (!noserver) {
+      // when bound to an network interface
+      this.wss.on('listening', (port) => {
+        console.log(`${uuid}: Start listening on port ${port}.`);
+        if (debug) { console.log('Debug mode is enabled.'); }
+      });
+    }
     // when new connection established
     this.wss.on('connection', this.socketConnectHandler);
   }
@@ -2934,13 +2945,13 @@ module.exports = LiteNode;
 
 
 /***/ }),
-/* 23 */
+/* 24 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const EventEmitter = __webpack_require__(2);
-const WebSocket = __webpack_require__(24);
+const EventEmitter = __webpack_require__(1);
+const WebSocket = __webpack_require__(8);
 const { URL } = __webpack_require__(7);
-const { getSocketAddress, getSocketInfo } = __webpack_require__(4);
+const { getSocketAddress, getSocketInfo } = __webpack_require__(3);
 
 /**
  * Provide abstraction for underlaying transportation protocol. It behaves 
@@ -3114,23 +3125,172 @@ module.exports = WSServer;
 
 
 /***/ }),
-/* 24 */
-/***/ (function(module, exports) {
-
-module.exports = require("ws");
-
-/***/ }),
 /* 25 */
 /***/ (function(module, exports, __webpack_require__) {
 
+const EventEmitter = __webpack_require__(1);
+const WebSocket = __webpack_require__(8);
+const { URL } = __webpack_require__(7);
+const { getSocketAddress, getSocketInfo } = __webpack_require__(3);
+
+/**
+ * Provide abstraction for underlaying transportation protocol. It behaves 
+ * both like a server and a client - it will connect to several clients, 
+ * and also several servers (P2P network).
+ * 
+ * The P2P network is a directed graph with bidirectional communication channels.
+ * 
+ * ##### Events
+ * - `connection` (socket, incoming) - low level socket connection
+ * 
+ * For all other events, use the underlying web socket object.
+ */
+class WSClient extends EventEmitter {
+  constructor() {
+    super();
+    this.connectionHandler = this.connectionHandler.bind(this);
+    
+    // map remote socket addresses (ip:port) to sockets
+    this.servers = {};
+    
+    // set up heartbeats
+    this.timer = setInterval(this.genHeartbeat(), 60000);
+  }
+
+  /**
+   * Note that you cannot have more than one socket to a single URL.
+   * And also note that error could be thrown if url is invalid.
+   * Failure of connection will only cause some logs (won't crash
+   * the application).
+   * 
+   * Right now, there's no way to get notified when it fails to connect
+   * (such as because of timeout) except for a log mentioned before.
+   */
+  createConnection(url) {
+    let socketAddress = null;
+    let remoteDaemonPort = null;
+    try {
+      ({ host: socketAddress, port: remoteDaemonPort } = new URL(url));
+      if (!socketAddress || !remoteDaemonPort.match(/^\d+$/)) { throw new Error(); }
+    } catch (err) {
+      throw new Error(`Wrong url (${url}) to connect.`);
+    }
+
+    let prevSocket = this.servers[socketAddress];
+    if (prevSocket && this.socketAlive(prevSocket)) {
+      console.warn(`Tried to connect to same url (${url}) twice. Operation aborted.`);
+      return;
+    }
+
+    let socket = new WebSocket(url, { handshakeTimeout: 10000 });
+
+    socket.on('error', (err) =>
+      console.log(`Unable to establish connection to ${url}. Details:\n${err}.`));
+
+    socket.on('open', () => {
+      let prevSocket = this.servers[socketAddress];
+      if (prevSocket && this.socketAlive(prevSocket)) {
+        // TODO investigate memory leak
+        socket.on('close', () => socket.removeAllListeners());
+        socket.close(undefined, 'DOUBLE_CONNECT');
+        return;
+      }
+      socket.removeAllListeners('error');
+      this.connectionHandler(socket, false);
+      this.servers[socketAddress] = socket;
+    });
+  }
+
+  genHeartbeat() {
+    let noop = () => {};
+    return () => {
+      for (let socket of Object.values(this.servers)) {
+        if (this.socketAbnormal(socket)) {
+          socket.terminate();
+        }
+        // set socket `alive` to false, later pong response
+        // from client will recover `alive` from false to true
+        socket.alive = false;
+        socket.ping(noop);
+      }
+    }
+  }
+
+  /**
+   * @param {*} socket                  the underlaying socket
+   * @param {boolean} incoming          whether the connection is incoming
+   */
+  connectionHandler(socket, incoming) {
+    let socketAddress = getSocketAddress(socket);
+    socket.alive = true;
+    socket.on('message', () => socket.alive = true);
+    socket.on('pong', () => socket.alive = true);
+    socket.on('close', () => {
+      socket.alive = false;
+      socket.removeAllListeners();
+      if (socket === this.servers[socketAddress]) {
+        delete this.servers[socketAddress];
+      }
+    });
+    socket.on('error', err => {
+      console.log(err);
+      socket.terminate();
+    });
+    // notify subscribers
+    this.emit('connection', socket, incoming);
+  }
+
+  socketAbnormal(socket) {
+    return !socket.alive && socket.readyState === WebSocket.OPEN;
+  }
+
+  socketAlive(socket) {
+    return socket.readyState === WebSocket.OPEN;
+  }
+
+  /**
+   * Get some useful information about the network.
+   */
+  getInfo() {
+    let sockets = [];
+
+    for (let socket of Object.values(this.servers)) {
+      sockets.push({
+        dir: 'outbound',
+        ...getSocketInfo(socket)
+      });
+    }
+
+    return {
+      sockets
+    };
+  }
+
+  /**
+   * Close this node (both server and outgoing socket connections will
+   * be closed)
+   */
+  close() {
+    this.removeAllListeners();
+    clearInterval(this.timer);
+  }
+}
+
+module.exports = WSClient;
+
+
+/***/ }),
+/* 26 */
+/***/ (function(module, exports, __webpack_require__) {
+
 const Node = __webpack_require__(6);
-const ThinLiteProtocol = __webpack_require__(8);
+const ThinLiteProtocol = __webpack_require__(9);
 
 const NODE_TYPE = 'thin';
 
 class ThinNode extends Node {
   constructor(dbPath, { protocolClass = ThinLiteProtocol, initPeerUrls = [], port, debug } = {}) {
-    super(NODE_TYPE, dbPath, port, protocolClass, initPeerUrls, debug);
+    super(NODE_TYPE, dbPath, port, protocolClass, initPeerUrls, debug, true);
   }
 
   static get nodeType() {
@@ -3146,19 +3306,19 @@ module.exports = ThinNode;
 
 
 /***/ }),
-/* 26 */
+/* 27 */
 /***/ (function(module, exports) {
 
 module.exports = require("dns");
 
 /***/ }),
-/* 27 */
+/* 28 */
 /***/ (function(module, exports) {
 
 module.exports = require("util");
 
 /***/ }),
-/* 28 */
+/* 29 */
 /***/ (function(module, exports) {
 
 const prefix = 'p2p/';
@@ -3195,7 +3355,7 @@ module.exports = P2PProtocolStore;
 
 
 /***/ }),
-/* 29 */
+/* 30 */
 /***/ (function(module, exports) {
 
 // message type constants
@@ -3257,10 +3417,10 @@ exports.returnPeers = returnPeers;
 
 
 /***/ }),
-/* 30 */
+/* 31 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const { getRemoteAddress, getSocketAddress } = __webpack_require__(4);
+const { getRemoteAddress, getSocketAddress } = __webpack_require__(3);
 
 class Peer {
   /**
@@ -3320,65 +3480,65 @@ module.exports = Peer;
 
 
 /***/ }),
-/* 31 */
+/* 32 */
 /***/ (function(module, exports) {
 
 module.exports = require("http");
 
 /***/ }),
-/* 32 */
+/* 33 */
 /***/ (function(module, exports) {
 
 module.exports = require("express");
 
 /***/ }),
-/* 33 */
+/* 34 */
 /***/ (function(module, exports) {
 
 module.exports = require("morgan");
 
 /***/ }),
-/* 34 */
+/* 35 */
 /***/ (function(module, exports) {
 
 module.exports = require("cookie-parser");
 
 /***/ }),
-/* 35 */
+/* 36 */
 /***/ (function(module, exports) {
 
 module.exports = require("body-parser");
 
 /***/ }),
-/* 36 */
+/* 37 */
 /***/ (function(module, exports) {
 
 module.exports = require("crypto");
 
 /***/ }),
-/* 37 */
+/* 38 */
 /***/ (function(module, exports) {
 
 module.exports = require("child_process");
 
 /***/ }),
-/* 38 */
+/* 39 */
 /***/ (function(module, exports) {
 
 module.exports = require("bluebird");
 
 /***/ }),
-/* 39 */
+/* 40 */
 /***/ (function(module, exports) {
 
 module.exports = require("buffer");
 
 /***/ }),
-/* 40 */
+/* 41 */
 /***/ (function(module, exports, __webpack_require__) {
 
 const Node = __webpack_require__(6);
-const LiteProtocol = __webpack_require__(15);
+const LiteProtocol = __webpack_require__(16);
 
 const NODE_TYPE = 'full';
 
@@ -3419,11 +3579,11 @@ module.exports = FullNode;
 
 
 /***/ }),
-/* 41 */
+/* 42 */
 /***/ (function(module, exports, __webpack_require__) {
 
 const { mine } = __webpack_require__(0);
-const createBlock = __webpack_require__(16);
+const createBlock = __webpack_require__(17);
 
 /**
  * mining manager : )
@@ -3480,13 +3640,13 @@ module.exports = Miner;
 
 
 /***/ }),
-/* 42 */
+/* 43 */
 /***/ (function(module, exports, __webpack_require__) {
 
 const {
   messageTypes, messageValidators, dataPartial, 
   partialNotFound
-} = __webpack_require__(1);
+} = __webpack_require__(2);
 
 /**
  * This inventory resolve handler is used to serve requests
@@ -3541,16 +3701,16 @@ module.exports = InvResolveHandler;
 
 
 /***/ }),
-/* 43 */
+/* 44 */
 /***/ (function(module, exports, __webpack_require__) {
 
 const { sliceItems } = __webpack_require__(5);
-const { getCurTimestamp } = __webpack_require__(3);
+const { getCurTimestamp } = __webpack_require__(4);
 const { calcMerkleRoot, verifyBlock } = __webpack_require__(0);
 const {
   messageTypes, messageValidators, getData, data,
   getDataPartial
-} = __webpack_require__(1);
+} = __webpack_require__(2);
 
 /**
  * Abstraction of the inventory (only for blocks) to resolve.
@@ -3814,7 +3974,7 @@ module.exports = InventoryResolver;
 
 
 /***/ }),
-/* 44 */
+/* 45 */
 /***/ (function(module, exports, __webpack_require__) {
 
 const { sha256 } = __webpack_require__(0);
