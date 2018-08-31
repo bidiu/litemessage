@@ -154,7 +154,7 @@ if (BUILD_TARGET === 'node') {
 
         }).bind(this); // end of _messageHandler
 
-        socket.on('message', socket._messageHandler);
+        socket.on(BUILD_TARGET === 'node' ? 'message' : 'data', socket._messageHandler);
         socket.on('close', (code, reason) => {
           this.pendingSockets.delete(socket);
         });

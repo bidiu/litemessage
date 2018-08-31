@@ -1,7 +1,27 @@
 const EventEmitter = require('events');
-const WebSocket = require('ws');
 const { URL } = require('url');
-const { getSocketAddress, getSocketInfo } = require('./utils/network');
+const { getSocketAddress, getSocketInfo, getReadyState } = require('./utils/network');
+
+if (BUILD_TARGET === 'node') {
+  // run in node
+
+  var WebSocket = require('ws');
+
+} else {
+  // run in browser
+
+  // simple-websocket is an event-emitter based websocket
+  // implementation, which supports running in browser
+  var WebSocket = require('simple-websocket');
+
+  // shim some methods
+  Object.getPrototypeOf(WebSocket).close = function () {
+    this.destroy();
+  };
+  Object.getPrototypeOf(WebSocket).terminate = function () {
+    this.destroy();
+  };
+}
 
 /**
  * Provide abstraction for underlaying transportation protocol. It behaves 
@@ -14,6 +34,8 @@ const { getSocketAddress, getSocketInfo } = require('./utils/network');
  * - `connection` (socket, incoming) - low level socket connection
  * 
  * For all other events, use the underlying web socket object.
+ * 
+ * TODO shim ping/pong for browser env
  */
 class WSClient extends EventEmitter {
   constructor() {
@@ -24,7 +46,7 @@ class WSClient extends EventEmitter {
     this.servers = {};
     
     // set up heartbeats
-    this.timer = setInterval(this.genHeartbeat(), 60000);
+    // this.timer = setInterval(this.genHeartbeat(), 60000);
   }
 
   /**
@@ -57,7 +79,7 @@ class WSClient extends EventEmitter {
     socket.on('error', (err) =>
       console.log(`Unable to establish connection to ${url}. Details:\n${err}.`));
 
-    socket.on('open', () => {
+    socket.on(BUILD_TARGET === 'node' ? 'open' : 'connect', () => {
       let prevSocket = this.servers[socketAddress];
       if (prevSocket && this.socketAlive(prevSocket)) {
         // TODO investigate memory leak
@@ -111,11 +133,11 @@ class WSClient extends EventEmitter {
   }
 
   socketAbnormal(socket) {
-    return !socket.alive && socket.readyState === WebSocket.OPEN;
+    return !socket.alive && getReadyState(socket) === WebSocket.OPEN;
   }
 
   socketAlive(socket) {
-    return socket.readyState === WebSocket.OPEN;
+    return getReadyState(socket) === WebSocket.OPEN;
   }
 
   /**

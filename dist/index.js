@@ -1,4 +1,4 @@
-/*! v0.4.3-6-g20d9ab7 */
+/*! v0.4.3-7-ga9f9025 */
 module.exports =
 /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
@@ -675,7 +675,21 @@ exports.litemsgLocators = litemsgLocators;
 /* 3 */
 /***/ (function(module, exports) {
 
+const extractSocketAddr = (url) => {
+  let result = /^ws:\/\/(.+):(\d+)$/.exec(url);
+  if (result) {
+    return {
+      host: result[1],
+      port: parseInt(result[2])
+    };
+  }
+  throw new Error('Unable to extract socket address from url.');
+};
+
 const getRemoteAddress = (socket) => {
+  if (Object.getPrototypeOf(socket).constructor.name === 'Socket') {
+    return extractSocketAddr(socket.url).host;
+  }
   return socket._socket.remoteAddress.replace(/^.*:/, '');
 };
 
@@ -683,6 +697,9 @@ const getRemoteAddress = (socket) => {
  * Note that a string will be returned.
  */
 const getRemotePort = (socket) => {
+  if (Object.getPrototypeOf(socket).constructor.name === 'Socket') {
+    return extractSocketAddr(socket.url).port + '';
+  }
   return socket._socket.remotePort + '';
 };
 
@@ -696,10 +713,14 @@ const getSocketAddress = (socket) => {
 };
 
 const getLocalAddress = (socket) => 
-  socket._socket.localAddress.replace(/^.*:/, '');
+  Object.getPrototypeOf(socket).constructor.name === 'Socket' ?
+    undefined :
+    socket._socket.localAddress.replace(/^.*:/, '');
 
 const getLocalPort = (socket) => 
-  socket._socket.localPort;
+  Object.getPrototypeOf(socket).constructor.name === 'Socket' ?
+    undefined :
+    socket._socket.localPort;
 
 const getLocalSocketAddr = (socket) =>
   `${getLocalAddress(socket)}:${getLocalPort(socket)}`;
@@ -709,6 +730,11 @@ const getSocketInfo = (socket) => ({
   remoteSocketAddr: getSocketAddress(socket)
 });
 
+const getReadyState = (socket) => 
+  Object.getPrototypeOf(socket).constructor.name === 'Socket' ?
+    socket._ws.readyState :
+    socket.readyState;
+
 exports.getRemoteAddress = getRemoteAddress;
 exports.getRemotePort = getRemotePort;
 exports.getSocketAddress = getSocketAddress;
@@ -716,6 +742,7 @@ exports.getLocalAddress = getLocalAddress;
 exports.getLocalPort = getLocalPort;
 exports.getLocalSocketAddr = getLocalSocketAddr;
 exports.getSocketInfo = getSocketInfo;
+exports.getReadyState = getReadyState;
 
 
 /***/ }),
@@ -1590,7 +1617,7 @@ if (true) {
 
         }).bind(this); // end of _messageHandler
 
-        socket.on('message', socket._messageHandler);
+        socket.on( true ? 'message' : undefined, socket._messageHandler);
         socket.on('close', (code, reason) => {
           this.pendingSockets.delete(socket);
         });
@@ -2896,7 +2923,7 @@ class LiteNode extends EventEmitter {
     peer.socket = socket = this.createSocketProxy(socket, uuid);
     this.peers[uuid] = peer;
     this.socketsToPeers[socketAddress] = peer;
-    socket.on('message', (message) => 
+    socket.on( true ? 'message' : undefined, (message) => 
       this.socketMessageHandler(message, peer));
 
     if (incoming) {
@@ -3129,9 +3156,15 @@ module.exports = WSServer;
 /***/ (function(module, exports, __webpack_require__) {
 
 const EventEmitter = __webpack_require__(1);
-const WebSocket = __webpack_require__(8);
 const { URL } = __webpack_require__(7);
-const { getSocketAddress, getSocketInfo } = __webpack_require__(3);
+const { getSocketAddress, getSocketInfo, getReadyState } = __webpack_require__(3);
+
+if (true) {
+  // run in node
+
+  var WebSocket = __webpack_require__(8);
+
+} else { var WebSocket; }
 
 /**
  * Provide abstraction for underlaying transportation protocol. It behaves 
@@ -3144,6 +3177,8 @@ const { getSocketAddress, getSocketInfo } = __webpack_require__(3);
  * - `connection` (socket, incoming) - low level socket connection
  * 
  * For all other events, use the underlying web socket object.
+ * 
+ * TODO shim ping/pong for browser env
  */
 class WSClient extends EventEmitter {
   constructor() {
@@ -3154,7 +3189,7 @@ class WSClient extends EventEmitter {
     this.servers = {};
     
     // set up heartbeats
-    this.timer = setInterval(this.genHeartbeat(), 60000);
+    // this.timer = setInterval(this.genHeartbeat(), 60000);
   }
 
   /**
@@ -3187,7 +3222,7 @@ class WSClient extends EventEmitter {
     socket.on('error', (err) =>
       console.log(`Unable to establish connection to ${url}. Details:\n${err}.`));
 
-    socket.on('open', () => {
+    socket.on( true ? 'open' : undefined, () => {
       let prevSocket = this.servers[socketAddress];
       if (prevSocket && this.socketAlive(prevSocket)) {
         // TODO investigate memory leak
@@ -3241,11 +3276,11 @@ class WSClient extends EventEmitter {
   }
 
   socketAbnormal(socket) {
-    return !socket.alive && socket.readyState === WebSocket.OPEN;
+    return !socket.alive && getReadyState(socket) === WebSocket.OPEN;
   }
 
   socketAlive(socket) {
-    return socket.readyState === WebSocket.OPEN;
+    return getReadyState(socket) === WebSocket.OPEN;
   }
 
   /**
