@@ -2,7 +2,6 @@ const P2PProtocol = require('../p2pprotocol/p2protocol');
 const LiteProtocolStore = require('./store');
 const HandshakeManager = require('./handshake');
 const Blockchain = require('../utils/blockchain');
-const createRestServer = require('./rest');
 const {
   verifyHeader, verifyHeaderChain
 } = require('../utils/litecrypto');
@@ -10,7 +9,14 @@ const {
   messageTypes, messageValidators, getHeaders, getBlocks
 } = require('./messages');
 
-// protcol version
+if (BUILD_TARGET === 'node') {
+  // run in node
+  var createRestServer = require('./rest');
+} else {
+  // run in browser
+}
+
+// protocol version
 const VERSION = 1;
 // node types to re/connect automatically
 const AUTO_CONN_NODE_TYPES = ['full'];

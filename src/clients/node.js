@@ -1,11 +1,23 @@
-const fs = require('fs');
 const uuidv1 = require('uuid/v1');
-const leveldown = require('leveldown');
 const levelup = require('levelup');
 const LiteNode = require('../litenode');
 
+if (BUILD_TARGET === 'node') {
+  // run in node
+
+  var fs = require('fs');
+  var leveldb = require('leveldown');
+
+} else {
+  // run in browser
+
+  var leveldb = require('level-js');
+}
+
 /**
  * A UUID identifying this node will be automatically generated.
+ * 
+ * TODO provide implementation in browser env examining existing db
  */
 class Node {
   constructor(nodeType, dbPath, port, protocolClass, initPeerUrls, debug, noserver) {
@@ -18,13 +30,16 @@ class Node {
     this.nodeType = nodeType;
     this.initPeerUrls = initPeerUrls;
 
-    // initialize the database (Level DB)
-    if (fs.existsSync(dbPath) && fs.statSync(dbPath).isDirectory()) {
-      console.log('Using existing LevelDB directory.');
-    } else {
-      console.log('A new LevelDB directory will be created.');
+    if (BUILD_TARGET === 'node') {
+      if (fs.existsSync(dbPath) && fs.statSync(dbPath).isDirectory()) {
+        console.log('Using existing LevelDB directory.');
+      } else {
+        console.log('A new LevelDB directory will be created.');
+      }
     }
-    this.db = levelup(leveldown(dbPath));
+
+    // initialize the database (Level DB)
+    this.db = levelup(leveldb(dbPath));
 
     // create underlying litenode
     this.litenode = new LiteNode(this.uuid, { port, debug, noserver });

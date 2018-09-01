@@ -1,8 +1,15 @@
-const EventEmitter = require('events');
-const WSServer = require('./wss');
 const WSClient = require('./wsc');
 const { getSocketAddress } = require('./utils/network');
 const { getCurTimestamp } = require('./utils/time');
+
+if (BUILD_TARGET === 'node') {
+  // running in node
+  var EventEmitter = require('events');
+  var WSServer = require('./wss');
+} else {
+  // running in browser
+  var EventEmitter = require('wolfy87-eventemitter');
+}
 
 /**
  * This class is the abstraction of "node" (litenode) inside the litemessage

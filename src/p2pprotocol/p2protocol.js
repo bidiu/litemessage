@@ -1,19 +1,19 @@
-const dns = require('dns');
-const { URL } = require('url');
-const { promisify } = require('util');
 const P2PProtocolStore = require('./store');
 const {
   messageTypes, messageValidators, fetchPeers, returnPeers
 } = require('./messages');
 const { pickItems } = require('../utils/common');
 
-// look up dns records
-const lookup = promisify(dns.lookup);
-
 if (BUILD_TARGET === 'node') {
   // running in node
 
   var EventEmitter = require('events');
+  var { URL } = require('url');
+  var dns = require('dns');
+  var { promisify } = require('util');
+
+  // look up dns records
+  var lookup = promisify(dns.lookup);
 
 } else {
   // running in browser

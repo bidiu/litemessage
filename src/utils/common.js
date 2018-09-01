@@ -1,4 +1,9 @@
-const path = require('path');
+if (BUILD_TARGET === 'node') {
+  // run in node
+  var path = require('path');
+} else {
+  // run in browser
+}
 
 const isValidJson = (json) => {
   if (typeof json !== 'string' || !json) {
@@ -10,13 +15,6 @@ const isValidJson = (json) => {
     return true;
   } catch (e) { }
   return false;
-};
-
-/**
- * project's root path, of course this file cannot be moved around
- */
-const getAbsRootPath = () => {
-  return path.join(__dirname, '../..');
 };
 
 /**
@@ -67,8 +65,23 @@ const parseChunk = (buffer) => {
   return hashes;
 };
 
+if (BUILD_TARGET === 'node') {
+  // run in node
+
+  /**
+   * project's root path, of course this file cannot be moved around
+   */
+  var getAbsRootPath = () => {
+    return path.join(__dirname, '../..');
+  };
+
+  exports.getAbsRootPath = getAbsRootPath;
+
+} else {
+  // run in browser
+}
+
 exports.isValidJson = isValidJson;
-exports.getAbsRootPath = getAbsRootPath;
 exports.randomInt = randomInt;
 exports.pickItems = pickItems;
 exports.sliceItems = sliceItems;

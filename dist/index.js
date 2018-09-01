@@ -1,4 +1,4 @@
-/*! v0.4.3-7-ga9f9025 */
+/*! v0.4.3-9-g150deb6 */
 module.exports =
 /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
@@ -94,10 +94,10 @@ if (true) {
   // node
 
   var path = __webpack_require__(11);
-  var crypto = __webpack_require__(37);
-  var { fork } = __webpack_require__(38);
-  var Promise = __webpack_require__(39);
-  var Buffer = __webpack_require__(40).Buffer;
+  var crypto = __webpack_require__(32);
+  var { fork } = __webpack_require__(33);
+  var Promise = __webpack_require__(34);
+  var Buffer = __webpack_require__(35).Buffer;
 
   Promise.config({
     // enable warnings
@@ -769,7 +769,10 @@ exports.getCurTimestamp = getCurTimestamp;
 /* 5 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const path = __webpack_require__(11);
+if (true) {
+  // run in node
+  var path = __webpack_require__(11);
+} else {}
 
 const isValidJson = (json) => {
   if (typeof json !== 'string' || !json) {
@@ -781,13 +784,6 @@ const isValidJson = (json) => {
     return true;
   } catch (e) { }
   return false;
-};
-
-/**
- * project's root path, of course this file cannot be moved around
- */
-const getAbsRootPath = () => {
-  return path.join(__dirname, '../..');
 };
 
 /**
@@ -838,8 +834,21 @@ const parseChunk = (buffer) => {
   return hashes;
 };
 
+if (true) {
+  // run in node
+
+  /**
+   * project's root path, of course this file cannot be moved around
+   */
+  var getAbsRootPath = () => {
+    return path.join(__dirname, '../..');
+  };
+
+  exports.getAbsRootPath = getAbsRootPath;
+
+} else {}
+
 exports.isValidJson = isValidJson;
-exports.getAbsRootPath = getAbsRootPath;
 exports.randomInt = randomInt;
 exports.pickItems = pickItems;
 exports.sliceItems = sliceItems;
@@ -850,14 +859,22 @@ exports.parseChunk = parseChunk;
 /* 6 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const fs = __webpack_require__(19);
-const uuidv1 = __webpack_require__(20);
-const leveldown = __webpack_require__(21);
-const levelup = __webpack_require__(22);
-const LiteNode = __webpack_require__(23);
+const uuidv1 = __webpack_require__(19);
+const levelup = __webpack_require__(20);
+const LiteNode = __webpack_require__(21);
+
+if (true) {
+  // run in node
+
+  var fs = __webpack_require__(24);
+  var leveldb = __webpack_require__(25);
+
+} else { var leveldb; }
 
 /**
  * A UUID identifying this node will be automatically generated.
+ * 
+ * TODO provide implementation in browser env examining existing db
  */
 class Node {
   constructor(nodeType, dbPath, port, protocolClass, initPeerUrls, debug, noserver) {
@@ -870,13 +887,16 @@ class Node {
     this.nodeType = nodeType;
     this.initPeerUrls = initPeerUrls;
 
-    // initialize the database (Level DB)
-    if (fs.existsSync(dbPath) && fs.statSync(dbPath).isDirectory()) {
-      console.log('Using existing LevelDB directory.');
-    } else {
-      console.log('A new LevelDB directory will be created.');
+    if (true) {
+      if (fs.existsSync(dbPath) && fs.statSync(dbPath).isDirectory()) {
+        console.log('Using existing LevelDB directory.');
+      } else {
+        console.log('A new LevelDB directory will be created.');
+      }
     }
-    this.db = levelup(leveldown(dbPath));
+
+    // initialize the database (Level DB)
+    this.db = levelup(leveldb(dbPath));
 
     // create underlying litenode
     this.litenode = new LiteNode(this.uuid, { port, debug, noserver });
@@ -934,7 +954,6 @@ const P2PProtocol = __webpack_require__(10);
 const LiteProtocolStore = __webpack_require__(12);
 const HandshakeManager = __webpack_require__(13);
 const Blockchain = __webpack_require__(14);
-const createRestServer = __webpack_require__(15);
 const {
   verifyHeader, verifyHeaderChain
 } = __webpack_require__(0);
@@ -942,7 +961,12 @@ const {
   messageTypes, messageValidators, getHeaders, getBlocks
 } = __webpack_require__(2);
 
-// protcol version
+if (true) {
+  // run in node
+  var createRestServer = __webpack_require__(15);
+} else {}
+
+// protocol version
 const VERSION = 1;
 // node types to re/connect automatically
 const AUTO_CONN_NODE_TYPES = ['full'];
@@ -1135,22 +1159,22 @@ module.exports = ThinLiteProtocol;
 /* 10 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const dns = __webpack_require__(27);
-const { URL } = __webpack_require__(7);
-const { promisify } = __webpack_require__(28);
-const P2PProtocolStore = __webpack_require__(29);
+const P2PProtocolStore = __webpack_require__(27);
 const {
   messageTypes, messageValidators, fetchPeers, returnPeers
-} = __webpack_require__(30);
+} = __webpack_require__(28);
 const { pickItems } = __webpack_require__(5);
-
-// look up dns records
-const lookup = promisify(dns.lookup);
 
 if (true) {
   // running in node
 
   var EventEmitter = __webpack_require__(1);
+  var { URL } = __webpack_require__(7);
+  var dns = __webpack_require__(29);
+  var { promisify } = __webpack_require__(30);
+
+  // look up dns records
+  var lookup = promisify(dns.lookup);
 
 } else { var EventEmitter; }
 
@@ -1508,174 +1532,165 @@ class PendingSocket {
   }
 }
 
-// ******************** common code ends ********************
+class HandshakeManager extends EventEmitter {
+  constructor(p2pProtocol) {
+    super();
+    this.socketConnectHandler = this.socketConnectHandler.bind(this);
 
-// **************** env-specific code starts ****************
+    this.litenode = p2pProtocol.litenode;
+    this.uuid = p2pProtocol.litenode.uuid;
+    this.nodeType = p2pProtocol.node.nodeType;
+    this.daemonPort = p2pProtocol.litenode.daemonPort;
 
-if (true) {
-  // run in node
+    // sockets => pending sockets (which is a wrapper)
+    this.pendingSockets = new Map();
 
-  var HandshakeManager = class extends EventEmitter {
-    constructor(p2pProtocol) {
-      super();
-      this.socketConnectHandler = this.socketConnectHandler.bind(this);
+    // listen on new socket connection
+    this.litenode.on('socketconnect', this.socketConnectHandler);
 
-      this.litenode = p2pProtocol.litenode;
-      this.uuid = p2pProtocol.litenode.uuid;
-      this.nodeType = p2pProtocol.node.nodeType;
-      this.daemonPort = p2pProtocol.litenode.daemonPort;
-
-      // sockets => pending sockets (which is a wrapper)
-      this.pendingSockets = new Map();
-
-      // listen on new socket connection
-      this.litenode.on('socketconnect', this.socketConnectHandler);
-
-      // in case too many pending connections (such as DDoS),
-      // drop pending connections after roughly 20s' idle
-      this.timer = setInterval(() => {
-        let now = getCurTimestamp();
-        for (let [socket, pendingSocket] of this.pendingSockets) {
-          if (now - pendingSocket.timestamp > 20000) {
-            console.warn(`Handshake timeouts with ${getSocketAddress(socket)}.`);
-            socket.close(undefined, 'HANDSHAKE_TIMEOUTS');
-            this.pendingSockets.delete(socket);
-          }
+    // in case too many pending connections (such as DDoS),
+    // drop pending connections after roughly 20s' idle
+    this.timer = setInterval(() => {
+      let now = getCurTimestamp();
+      for (let [socket, pendingSocket] of this.pendingSockets) {
+        if (now - pendingSocket.timestamp > 20000) {
+          console.warn(`Handshake timeouts with ${getSocketAddress(socket)}.`);
+          socket.close(undefined, 'HANDSHAKE_TIMEOUTS');
+          this.pendingSockets.delete(socket);
         }
+      }
 
-      }, 10000);
-    }
+    }, 10000);
+  }
 
-    addPendingSocket(socket, incoming) {
-      try {
-        let pendingSocket = new PendingSocket(socket, incoming);
-        let proxiedSocket = this.litenode.createSocketProxy(socket, 'N/A');
+  addPendingSocket(socket, incoming) {
+    try {
+      let pendingSocket = new PendingSocket(socket, incoming);
+      let proxiedSocket = this.litenode.createSocketProxy(socket, 'N/A');
 
-        socket._messageHandler = ((message) => {
-          try {
-            let { state } = pendingSocket
-            let { messageType, ...payload } = JSON.parse(message);
-            if (typeof messageType !== 'string' || !MSG_TYPES.includes(messageType)) {
+      socket._messageHandler = ((message) => {
+        try {
+          let { state } = pendingSocket
+          let { messageType, ...payload } = JSON.parse(message);
+          if (typeof messageType !== 'string' || !MSG_TYPES.includes(messageType)) {
+            throw new Error();
+          }
+
+          if (this.litenode.debug) {
+            // note that only logs valid procotol messages
+            this.litenode.messageLogs.push({
+              peer: 'N/A',
+              dir: 'inbound',
+              msg: { messageType, ...payload },
+              time: getCurTimestamp('s')
+            });
+          }
+          
+          // when receiving info message
+          if (messageType === infoType) {
+            messageValidators[infoType](payload);
+  
+            if (incoming && state === 'INIT') {
+              pendingSocket.state = 'INFO_SENT'
+              pendingSocket.uuid = payload.uuid;
+              pendingSocket.nodeType = payload.nodeType;
+              pendingSocket.daemonPort = payload.daemonPort;
+  
+              this.sendInfo(proxiedSocket);
+  
+            } else if (!incoming && state === 'INFO_SENT') {
+              pendingSocket.state = 'ESTABLISHED';
+              pendingSocket.uuid = payload.uuid;
+              pendingSocket.nodeType = payload.nodeType;
+              pendingSocket.daemonPort = payload.daemonPort;
+  
+              this.sendInfoAck(proxiedSocket);
+              this.onEstablished(pendingSocket);
+  
+            } else {
               throw new Error();
             }
-
-            if (this.litenode.debug) {
-              // note that only logs valid procotol messages
-              this.litenode.messageLogs.push({
-                peer: 'N/A',
-                dir: 'inbound',
-                msg: { messageType, ...payload },
-                time: getCurTimestamp('s')
-              });
-            }
-            
-            // when receiving info message
-            if (messageType === infoType) {
-              messageValidators[infoType](payload);
-    
-              if (incoming && state === 'INIT') {
-                pendingSocket.state = 'INFO_SENT'
-                pendingSocket.uuid = payload.uuid;
-                pendingSocket.nodeType = payload.nodeType;
-                pendingSocket.daemonPort = payload.daemonPort;
-    
-                this.sendInfo(proxiedSocket);
-    
-              } else if (!incoming && state === 'INFO_SENT') {
-                pendingSocket.state = 'ESTABLISHED';
-                pendingSocket.uuid = payload.uuid;
-                pendingSocket.nodeType = payload.nodeType;
-                pendingSocket.daemonPort = payload.daemonPort;
-    
-                this.sendInfoAck(proxiedSocket);
-                this.onEstablished(pendingSocket);
-    
-              } else {
-                throw new Error();
-              }
-            }
-    
-            // when receiving info ack message
-            if (messageType === infoAckType) {
-              messageValidators[infoAckType](payload);
-    
-              if (incoming && state === 'INFO_SENT') {
-                pendingSocket.state = 'ESTABLISHED';
-    
-                this.onEstablished(pendingSocket);
-    
-              } else {
-                throw new Error();
-              }
-            }
-    
-          } catch (err) {
-            console.warn(`Handshake failed with ${getSocketAddress(socket)}, reason:\n${err.stack}`);
-            // close the underlying socket
-            socket.close(undefined, 'HANDSHAKE_FAILED');
           }
-
-        }).bind(this); // end of _messageHandler
-
-        socket.on( true ? 'message' : undefined, socket._messageHandler);
-        socket.on('close', (code, reason) => {
-          this.pendingSockets.delete(socket);
-        });
-        this.pendingSockets.set(socket, pendingSocket);
-
-        if (!incoming) {
-          // sending the first info message
-          // to initiate the handshake process
-          this.sendInfo(proxiedSocket);
-          pendingSocket.state = 'INFO_SENT'
+  
+          // when receiving info ack message
+          if (messageType === infoAckType) {
+            messageValidators[infoAckType](payload);
+  
+            if (incoming && state === 'INFO_SENT') {
+              pendingSocket.state = 'ESTABLISHED';
+  
+              this.onEstablished(pendingSocket);
+  
+            } else {
+              throw new Error();
+            }
+          }
+  
+        } catch (err) {
+          console.warn(`Handshake failed with ${getSocketAddress(socket)}, reason:\n${err.stack}`);
+          // close the underlying socket
+          socket.close(undefined, 'HANDSHAKE_FAILED');
         }
 
-      } catch (err) {
-        console.warn(`Handshake failed with ${getSocketAddress(socket)}, reason:\n${err}`);
-        // close the underlying socket
-        socket.close(undefined, 'HANDSHAKE_FAILED');
+      }).bind(this); // end of _messageHandler
+
+      socket.on( true ? 'message' : undefined, socket._messageHandler);
+      socket.on('close', (code, reason) => {
+        this.pendingSockets.delete(socket);
+      });
+      this.pendingSockets.set(socket, pendingSocket);
+
+      if (!incoming) {
+        // sending the first info message
+        // to initiate the handshake process
+        this.sendInfo(proxiedSocket);
+        pendingSocket.state = 'INFO_SENT'
       }
+
+    } catch (err) {
+      console.warn(`Handshake failed with ${getSocketAddress(socket)}, reason:\n${err}`);
+      // close the underlying socket
+      socket.close(undefined, 'HANDSHAKE_FAILED');
     }
+  }
 
-    socketConnectHandler(socket, incoming) {
-      this.addPendingSocket(socket, incoming);
+  socketConnectHandler(socket, incoming) {
+    this.addPendingSocket(socket, incoming);
+  }
+
+  // on handshake completing
+  onEstablished(pendingSocket) {
+    let { socket, incoming, uuid, nodeType, daemonPort } = pendingSocket;
+    let peer = new Peer(uuid, socket, incoming, daemonPort, nodeType);
+
+    socket.removeListener('message', socket._messageHandler);
+    delete socket._messageHandler
+    
+    this.pendingSockets.delete(socket);
+    this.litenode.addNewPeer(peer);
+  }
+
+  sendInfo(socket) {
+    socket.send(JSON.stringify(info({
+      uuid: this.uuid, 
+      nodeType: this.nodeType,
+      daemonPort: this.daemonPort
+    })));
+  }
+
+  sendInfoAck(socket) {
+    socket.send( JSON.stringify(infoAck()) );
+  }
+
+  /**
+   * Do the cleanup.
+   */
+  close() {
+    if (this.timer) {
+      clearInterval(this.timer);
     }
-
-    // on handshake completing
-    onEstablished(pendingSocket) {
-      let { socket, incoming, uuid, nodeType, daemonPort } = pendingSocket;
-      let peer = new Peer(uuid, socket, incoming, daemonPort, nodeType);
-
-      socket.removeListener('message', socket._messageHandler);
-      delete socket._messageHandler
-      
-      this.pendingSockets.delete(socket);
-      this.litenode.addNewPeer(peer);
-    }
-
-    sendInfo(socket) {
-      socket.send(JSON.stringify(info({
-        uuid: this.uuid, 
-        nodeType: this.nodeType,
-        daemonPort: this.daemonPort
-      })));
-    }
-
-    sendInfoAck(socket) {
-      socket.send( JSON.stringify(infoAck()) );
-    }
-
-    /**
-     * Do the cleanup.
-     */
-    close() {
-      if (this.timer) {
-        clearInterval(this.timer);
-      }
-    }
-  }; // end of HandshakeManager
-
-} else { var HandshakeManager; }
+  }
+}; // end of HandshakeManager
 
 module.exports = HandshakeManager;
 
@@ -2014,11 +2029,11 @@ module.exports = Blockchain;
 /* 15 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const http = __webpack_require__(32);
-const express = __webpack_require__(33);
-const logger = __webpack_require__(34);
-const cookieParser = __webpack_require__(35);
-const bodyParser = __webpack_require__(36);
+const http = __webpack_require__(36);
+const express = __webpack_require__(37);
+const logger = __webpack_require__(38);
+const cookieParser = __webpack_require__(39);
+const bodyParser = __webpack_require__(40);
 const { isValidJson, parseChunk } = __webpack_require__(5);
 
 const notfoundPayload = { 'not-found': true };
@@ -2695,35 +2710,27 @@ if (true) {
 /* 19 */
 /***/ (function(module, exports) {
 
-module.exports = require("fs");
+module.exports = require("uuid/v1");
 
 /***/ }),
 /* 20 */
 /***/ (function(module, exports) {
 
-module.exports = require("uuid/v1");
-
-/***/ }),
-/* 21 */
-/***/ (function(module, exports) {
-
-module.exports = require("leveldown");
-
-/***/ }),
-/* 22 */
-/***/ (function(module, exports) {
-
 module.exports = require("levelup");
 
 /***/ }),
-/* 23 */
+/* 21 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const EventEmitter = __webpack_require__(1);
-const WSServer = __webpack_require__(24);
-const WSClient = __webpack_require__(25);
+const WSClient = __webpack_require__(22);
 const { getSocketAddress } = __webpack_require__(3);
 const { getCurTimestamp } = __webpack_require__(4);
+
+if (true) {
+  // running in node
+  var EventEmitter = __webpack_require__(1);
+  var WSServer = __webpack_require__(23);
+} else { var EventEmitter; }
 
 /**
  * This class is the abstraction of "node" (litenode) inside the litemessage
@@ -2972,7 +2979,172 @@ module.exports = LiteNode;
 
 
 /***/ }),
-/* 24 */
+/* 22 */
+/***/ (function(module, exports, __webpack_require__) {
+
+const { getSocketAddress, getSocketInfo, getReadyState } = __webpack_require__(3);
+
+if (true) {
+  // run in node
+
+  var EventEmitter = __webpack_require__(1);
+  var { URL } = __webpack_require__(7);
+  var WebSocket = __webpack_require__(8);
+
+} else { var WebSocket, EventEmitter; }
+
+/**
+ * Provide abstraction for underlaying transportation protocol. It behaves 
+ * both like a server and a client - it will connect to several clients, 
+ * and also several servers (P2P network).
+ * 
+ * The P2P network is a directed graph with bidirectional communication channels.
+ * 
+ * ##### Events
+ * - `connection` (socket, incoming) - low level socket connection
+ * 
+ * For all other events, use the underlying web socket object.
+ * 
+ * TODO shim ping/pong for browser env
+ */
+class WSClient extends EventEmitter {
+  constructor() {
+    super();
+    this.connectionHandler = this.connectionHandler.bind(this);
+    
+    // map remote socket addresses (ip:port) to sockets
+    this.servers = {};
+    
+    // set up heartbeats
+    if (true) {
+      this.timer = setInterval(this.genHeartbeat(), 60000);
+    }
+  }
+
+  /**
+   * Note that you cannot have more than one socket to a single URL.
+   * And also note that error could be thrown if url is invalid.
+   * Failure of connection will only cause some logs (won't crash
+   * the application).
+   * 
+   * Right now, there's no way to get notified when it fails to connect
+   * (such as because of timeout) except for a log mentioned before.
+   */
+  createConnection(url) {
+    let socketAddress = null;
+    let remoteDaemonPort = null;
+    try {
+      ({ host: socketAddress, port: remoteDaemonPort } = new URL(url));
+      if (!socketAddress || !remoteDaemonPort.match(/^\d+$/)) { throw new Error(); }
+    } catch (err) {
+      throw new Error(`Wrong url (${url}) to connect.`);
+    }
+
+    let prevSocket = this.servers[socketAddress];
+    if (prevSocket && this.socketAlive(prevSocket)) {
+      console.warn(`Tried to connect to same url (${url}) twice. Operation aborted.`);
+      return;
+    }
+
+    let socket = new WebSocket(url, { handshakeTimeout: 10000 });
+
+    socket.on('error', (err) =>
+      console.log(`Unable to establish connection to ${url}. Details:\n${err}.`));
+
+    socket.on( true ? 'open' : undefined, () => {
+      let prevSocket = this.servers[socketAddress];
+      if (prevSocket && this.socketAlive(prevSocket)) {
+        // TODO investigate memory leak
+        socket.on('close', () => socket.removeAllListeners());
+        socket.close(undefined, 'DOUBLE_CONNECT');
+        return;
+      }
+      socket.removeAllListeners('error');
+      this.connectionHandler(socket, false);
+      this.servers[socketAddress] = socket;
+    });
+  }
+
+  genHeartbeat() {
+    let noop = () => {};
+    return () => {
+      for (let socket of Object.values(this.servers)) {
+        if (this.socketAbnormal(socket)) {
+          socket.terminate();
+        }
+        // set socket `alive` to false, later pong response
+        // from client will recover `alive` from false to true
+        socket.alive = false;
+        socket.ping(noop);
+      }
+    }
+  }
+
+  /**
+   * @param {*} socket                  the underlaying socket
+   * @param {boolean} incoming          whether the connection is incoming
+   */
+  connectionHandler(socket, incoming) {
+    let socketAddress = getSocketAddress(socket);
+    socket.alive = true;
+    socket.on('message', () => socket.alive = true);
+    socket.on('pong', () => socket.alive = true);
+    socket.on('close', () => {
+      socket.alive = false;
+      socket.removeAllListeners();
+      if (socket === this.servers[socketAddress]) {
+        delete this.servers[socketAddress];
+      }
+    });
+    socket.on('error', err => {
+      console.log(err);
+      socket.terminate();
+    });
+    // notify subscribers
+    this.emit('connection', socket, incoming);
+  }
+
+  socketAbnormal(socket) {
+    return !socket.alive && getReadyState(socket) === WebSocket.OPEN;
+  }
+
+  socketAlive(socket) {
+    return getReadyState(socket) === WebSocket.OPEN;
+  }
+
+  /**
+   * Get some useful information about the network.
+   */
+  getInfo() {
+    let sockets = [];
+
+    for (let socket of Object.values(this.servers)) {
+      sockets.push({
+        dir: 'outbound',
+        ...getSocketInfo(socket)
+      });
+    }
+
+    return {
+      sockets
+    };
+  }
+
+  /**
+   * Close this node (both server and outgoing socket connections will
+   * be closed)
+   */
+  close() {
+    this.removeAllListeners();
+    clearInterval(this.timer);
+  }
+}
+
+module.exports = WSClient;
+
+
+/***/ }),
+/* 23 */
 /***/ (function(module, exports, __webpack_require__) {
 
 const EventEmitter = __webpack_require__(1);
@@ -3152,167 +3324,16 @@ module.exports = WSServer;
 
 
 /***/ }),
+/* 24 */
+/***/ (function(module, exports) {
+
+module.exports = require("fs");
+
+/***/ }),
 /* 25 */
-/***/ (function(module, exports, __webpack_require__) {
+/***/ (function(module, exports) {
 
-const EventEmitter = __webpack_require__(1);
-const { URL } = __webpack_require__(7);
-const { getSocketAddress, getSocketInfo, getReadyState } = __webpack_require__(3);
-
-if (true) {
-  // run in node
-
-  var WebSocket = __webpack_require__(8);
-
-} else { var WebSocket; }
-
-/**
- * Provide abstraction for underlaying transportation protocol. It behaves 
- * both like a server and a client - it will connect to several clients, 
- * and also several servers (P2P network).
- * 
- * The P2P network is a directed graph with bidirectional communication channels.
- * 
- * ##### Events
- * - `connection` (socket, incoming) - low level socket connection
- * 
- * For all other events, use the underlying web socket object.
- * 
- * TODO shim ping/pong for browser env
- */
-class WSClient extends EventEmitter {
-  constructor() {
-    super();
-    this.connectionHandler = this.connectionHandler.bind(this);
-    
-    // map remote socket addresses (ip:port) to sockets
-    this.servers = {};
-    
-    // set up heartbeats
-    // this.timer = setInterval(this.genHeartbeat(), 60000);
-  }
-
-  /**
-   * Note that you cannot have more than one socket to a single URL.
-   * And also note that error could be thrown if url is invalid.
-   * Failure of connection will only cause some logs (won't crash
-   * the application).
-   * 
-   * Right now, there's no way to get notified when it fails to connect
-   * (such as because of timeout) except for a log mentioned before.
-   */
-  createConnection(url) {
-    let socketAddress = null;
-    let remoteDaemonPort = null;
-    try {
-      ({ host: socketAddress, port: remoteDaemonPort } = new URL(url));
-      if (!socketAddress || !remoteDaemonPort.match(/^\d+$/)) { throw new Error(); }
-    } catch (err) {
-      throw new Error(`Wrong url (${url}) to connect.`);
-    }
-
-    let prevSocket = this.servers[socketAddress];
-    if (prevSocket && this.socketAlive(prevSocket)) {
-      console.warn(`Tried to connect to same url (${url}) twice. Operation aborted.`);
-      return;
-    }
-
-    let socket = new WebSocket(url, { handshakeTimeout: 10000 });
-
-    socket.on('error', (err) =>
-      console.log(`Unable to establish connection to ${url}. Details:\n${err}.`));
-
-    socket.on( true ? 'open' : undefined, () => {
-      let prevSocket = this.servers[socketAddress];
-      if (prevSocket && this.socketAlive(prevSocket)) {
-        // TODO investigate memory leak
-        socket.on('close', () => socket.removeAllListeners());
-        socket.close(undefined, 'DOUBLE_CONNECT');
-        return;
-      }
-      socket.removeAllListeners('error');
-      this.connectionHandler(socket, false);
-      this.servers[socketAddress] = socket;
-    });
-  }
-
-  genHeartbeat() {
-    let noop = () => {};
-    return () => {
-      for (let socket of Object.values(this.servers)) {
-        if (this.socketAbnormal(socket)) {
-          socket.terminate();
-        }
-        // set socket `alive` to false, later pong response
-        // from client will recover `alive` from false to true
-        socket.alive = false;
-        socket.ping(noop);
-      }
-    }
-  }
-
-  /**
-   * @param {*} socket                  the underlaying socket
-   * @param {boolean} incoming          whether the connection is incoming
-   */
-  connectionHandler(socket, incoming) {
-    let socketAddress = getSocketAddress(socket);
-    socket.alive = true;
-    socket.on('message', () => socket.alive = true);
-    socket.on('pong', () => socket.alive = true);
-    socket.on('close', () => {
-      socket.alive = false;
-      socket.removeAllListeners();
-      if (socket === this.servers[socketAddress]) {
-        delete this.servers[socketAddress];
-      }
-    });
-    socket.on('error', err => {
-      console.log(err);
-      socket.terminate();
-    });
-    // notify subscribers
-    this.emit('connection', socket, incoming);
-  }
-
-  socketAbnormal(socket) {
-    return !socket.alive && getReadyState(socket) === WebSocket.OPEN;
-  }
-
-  socketAlive(socket) {
-    return getReadyState(socket) === WebSocket.OPEN;
-  }
-
-  /**
-   * Get some useful information about the network.
-   */
-  getInfo() {
-    let sockets = [];
-
-    for (let socket of Object.values(this.servers)) {
-      sockets.push({
-        dir: 'outbound',
-        ...getSocketInfo(socket)
-      });
-    }
-
-    return {
-      sockets
-    };
-  }
-
-  /**
-   * Close this node (both server and outgoing socket connections will
-   * be closed)
-   */
-  close() {
-    this.removeAllListeners();
-    clearInterval(this.timer);
-  }
-}
-
-module.exports = WSClient;
-
+module.exports = require("leveldown");
 
 /***/ }),
 /* 26 */
@@ -3342,18 +3363,6 @@ module.exports = ThinNode;
 
 /***/ }),
 /* 27 */
-/***/ (function(module, exports) {
-
-module.exports = require("dns");
-
-/***/ }),
-/* 28 */
-/***/ (function(module, exports) {
-
-module.exports = require("util");
-
-/***/ }),
-/* 29 */
 /***/ (function(module, exports) {
 
 const prefix = 'p2p/';
@@ -3390,7 +3399,7 @@ module.exports = P2PProtocolStore;
 
 
 /***/ }),
-/* 30 */
+/* 28 */
 /***/ (function(module, exports) {
 
 // message type constants
@@ -3450,6 +3459,18 @@ exports.messageValidators = messageValidators;
 exports.fetchPeers = fetchPeers;
 exports.returnPeers = returnPeers;
 
+
+/***/ }),
+/* 29 */
+/***/ (function(module, exports) {
+
+module.exports = require("dns");
+
+/***/ }),
+/* 30 */
+/***/ (function(module, exports) {
+
+module.exports = require("util");
 
 /***/ }),
 /* 31 */
@@ -3518,55 +3539,55 @@ module.exports = Peer;
 /* 32 */
 /***/ (function(module, exports) {
 
-module.exports = require("http");
+module.exports = require("crypto");
 
 /***/ }),
 /* 33 */
 /***/ (function(module, exports) {
 
-module.exports = require("express");
+module.exports = require("child_process");
 
 /***/ }),
 /* 34 */
 /***/ (function(module, exports) {
 
-module.exports = require("morgan");
+module.exports = require("bluebird");
 
 /***/ }),
 /* 35 */
 /***/ (function(module, exports) {
 
-module.exports = require("cookie-parser");
+module.exports = require("buffer");
 
 /***/ }),
 /* 36 */
 /***/ (function(module, exports) {
 
-module.exports = require("body-parser");
+module.exports = require("http");
 
 /***/ }),
 /* 37 */
 /***/ (function(module, exports) {
 
-module.exports = require("crypto");
+module.exports = require("express");
 
 /***/ }),
 /* 38 */
 /***/ (function(module, exports) {
 
-module.exports = require("child_process");
+module.exports = require("morgan");
 
 /***/ }),
 /* 39 */
 /***/ (function(module, exports) {
 
-module.exports = require("bluebird");
+module.exports = require("cookie-parser");
 
 /***/ }),
 /* 40 */
 /***/ (function(module, exports) {
 
-module.exports = require("buffer");
+module.exports = require("body-parser");
 
 /***/ }),
 /* 41 */

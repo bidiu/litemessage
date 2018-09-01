@@ -1,19 +1,20 @@
-const EventEmitter = require('events');
-const { URL } = require('url');
 const { getSocketAddress, getSocketInfo, getReadyState } = require('./utils/network');
 
 if (BUILD_TARGET === 'node') {
   // run in node
 
+  var EventEmitter = require('events');
+  var { URL } = require('url');
   var WebSocket = require('ws');
 
 } else {
   // run in browser
 
+  var EventEmitter = require('wolfy87-eventemitter');
+
   // simple-websocket is an event-emitter based websocket
   // implementation, which supports running in browser
   var WebSocket = require('simple-websocket');
-
   // shim some methods
   Object.getPrototypeOf(WebSocket).close = function () {
     this.destroy();
