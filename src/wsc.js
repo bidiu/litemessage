@@ -46,7 +46,9 @@ class WSClient extends EventEmitter {
     this.servers = {};
     
     // set up heartbeats
-    // this.timer = setInterval(this.genHeartbeat(), 60000);
+    if (BUILD_TARGET === 'node') {
+      this.timer = setInterval(this.genHeartbeat(), 60000);
+    }
   }
 
   /**
