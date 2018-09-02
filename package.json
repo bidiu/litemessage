@@ -1,6 +1,6 @@
 {
   "name": "litemessage",
-  "version": "0.5.3",
+  "version": "0.6.0",
   "description": "a message blockchain based on WebSocket",
   "repository": {
     "type": "git",
