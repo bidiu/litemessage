@@ -10,7 +10,7 @@ const extractSocketAddr = (url) => {
 };
 
 const getRemoteAddress = (socket) => {
-  if (Object.getPrototypeOf(socket).constructor.name === 'Socket') {
+  if (typeof window === 'object') {
     return extractSocketAddr(socket.url).host;
   }
   return socket._socket.remoteAddress.replace(/^.*:/, '');
@@ -20,7 +20,7 @@ const getRemoteAddress = (socket) => {
  * Note that a string will be returned.
  */
 const getRemotePort = (socket) => {
-  if (Object.getPrototypeOf(socket).constructor.name === 'Socket') {
+  if (typeof window === 'object') {
     return extractSocketAddr(socket.url).port + '';
   }
   return socket._socket.remotePort + '';
@@ -36,12 +36,12 @@ const getSocketAddress = (socket) => {
 };
 
 const getLocalAddress = (socket) => 
-  Object.getPrototypeOf(socket).constructor.name === 'Socket' ?
+  typeof window === 'object' ?
     undefined :
     socket._socket.localAddress.replace(/^.*:/, '');
 
 const getLocalPort = (socket) => 
-  Object.getPrototypeOf(socket).constructor.name === 'Socket' ?
+  typeof window === 'object' ?
     undefined :
     socket._socket.localPort;
 
@@ -54,7 +54,7 @@ const getSocketInfo = (socket) => ({
 });
 
 const getReadyState = (socket) => 
-  Object.getPrototypeOf(socket).constructor.name === 'Socket' ?
+  typeof window === 'object' ?
     socket._ws.readyState :
     socket.readyState;
 

@@ -19,6 +19,7 @@ if (BUILD_TARGET === 'node') {
   // running in browser
 
   var EventEmitter = require('wolfy87-eventemitter');
+  var URL = window.URL;
 }
 
 /**

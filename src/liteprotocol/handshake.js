@@ -176,7 +176,10 @@ class HandshakeManager extends EventEmitter {
     let { socket, incoming, uuid, nodeType, daemonPort } = pendingSocket;
     let peer = new Peer(uuid, socket, incoming, daemonPort, nodeType);
 
-    socket.removeListener('message', socket._messageHandler);
+    socket.removeListener(
+      BUILD_TARGET === 'node' ? 'message' : 'data', 
+      socket._messageHandler
+    );
     delete socket._messageHandler
     
     this.pendingSockets.delete(socket);
