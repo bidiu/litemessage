@@ -1,4 +1,4 @@
-/*! v0.5.0 */
+/*! v0.5.1-1-g99c4f43 */
 module.exports =
 /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
@@ -687,7 +687,7 @@ const extractSocketAddr = (url) => {
 };
 
 const getRemoteAddress = (socket) => {
-  if (Object.getPrototypeOf(socket).constructor.name === 'Socket') {
+  if (typeof window === 'object') {
     return extractSocketAddr(socket.url).host;
   }
   return socket._socket.remoteAddress.replace(/^.*:/, '');
@@ -697,7 +697,7 @@ const getRemoteAddress = (socket) => {
  * Note that a string will be returned.
  */
 const getRemotePort = (socket) => {
-  if (Object.getPrototypeOf(socket).constructor.name === 'Socket') {
+  if (typeof window === 'object') {
     return extractSocketAddr(socket.url).port + '';
   }
   return socket._socket.remotePort + '';
@@ -713,12 +713,12 @@ const getSocketAddress = (socket) => {
 };
 
 const getLocalAddress = (socket) => 
-  Object.getPrototypeOf(socket).constructor.name === 'Socket' ?
+  typeof window === 'object' ?
     undefined :
     socket._socket.localAddress.replace(/^.*:/, '');
 
 const getLocalPort = (socket) => 
-  Object.getPrototypeOf(socket).constructor.name === 'Socket' ?
+  typeof window === 'object' ?
     undefined :
     socket._socket.localPort;
 
@@ -731,7 +731,7 @@ const getSocketInfo = (socket) => ({
 });
 
 const getReadyState = (socket) => 
-  Object.getPrototypeOf(socket).constructor.name === 'Socket' ?
+  typeof window === 'object' ?
     socket._ws.readyState :
     socket.readyState;
 
@@ -1176,7 +1176,7 @@ if (true) {
   // look up dns records
   var lookup = promisify(dns.lookup);
 
-} else { var EventEmitter; }
+} else { var URL, EventEmitter; }
 
 /**
  * A abstract peer-to-peer protocol. You should NOT bind this protocol directly to 
@@ -1668,7 +1668,10 @@ class HandshakeManager extends EventEmitter {
     let { socket, incoming, uuid, nodeType, daemonPort } = pendingSocket;
     let peer = new Peer(uuid, socket, incoming, daemonPort, nodeType);
 
-    socket.removeListener('message', socket._messageHandler);
+    socket.removeListener(
+       true ? 'message' : undefined, 
+      socket._messageHandler
+    );
     delete socket._messageHandler
     
     this.pendingSockets.delete(socket);
@@ -2996,7 +2999,7 @@ if (true) {
   var { URL } = __webpack_require__(7);
   var WebSocket = __webpack_require__(8);
 
-} else { var WebSocket, EventEmitter; }
+} else { var WebSocket, URL, EventEmitter; }
 
 /**
  * Provide abstraction for underlaying transportation protocol. It behaves 

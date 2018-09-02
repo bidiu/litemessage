@@ -1,6 +1,5 @@
 const path = require('path');
 const merge = require("webpack-merge");
-const nodeExternals = require('webpack-node-externals');
 const {
   generateSourceMaps, defineBuildPhaseVariables,
   minifyJavaScript, loadJavaScript
@@ -20,6 +19,5 @@ module.exports = merge(
       library: 'litemessage',
       libraryTarget: 'umd',
     },
-    externals: [nodeExternals()],
   }
 );
