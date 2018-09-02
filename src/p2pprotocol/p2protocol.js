@@ -93,14 +93,19 @@ class P2PProtocol extends EventEmitter {
   async connectToLastConnectedPeers() {
     try {
       let initUrls = this.node.initPeerUrls;
-      // initial peer urls can be hostnames, so perform dns queries first
-      let addresses = await Promise.all(
-        initUrls.map(url => lookup(new URL(url).hostname, { family: 4 }))
-      );
+
+      if (BUILD_TARGET === 'node') {
+        // initial peer urls can be hostnames, so perform dns queries first
+        var addresses = await Promise.all(
+          initUrls.map(url => lookup(new URL(url).hostname, { family: 4 }))
+        );
+      }
 
       initUrls = initUrls.map((url, i) => {
         url = new URL(url);
-        url.hostname = addresses[i].address
+        if (addresses) {
+          url.hostname = addresses[i].address
+        }
         return url.toString().replace(/\/$/, '');
       });
 
