@@ -16,5 +16,8 @@ if (BUILD_TARGET === 'node') {
 } else {
   // browser (output as umd)
 
+  exports.Node = require('./src/clients/node');
+  exports.ThinNode = require('./src/clients/thinnode');
+
   module.exports = exports = { ...exports, ...require('./src/utils/litecrypto') };
 }
