@@ -16,7 +16,7 @@ if (BUILD_TARGET === 'node') {
 } else {
   // browser (output as umd)
 
-  // require('babel-polyfill');
+  require("regenerator-runtime/runtime");
 
   exports.Node = require('./src/clients/node');
   exports.ThinNode = require('./src/clients/thinnode');
