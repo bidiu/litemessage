@@ -1,0 +1,53 @@
+# This docker compose file sets up everything for local development environment.
+
+# Please refer to for details:
+# https://docs.docker.com/compose/overview/
+# https://docs.docker.com/compose/reference/overview/
+# https://docs.docker.com/compose/compose-file
+
+version: '3.1'
+
+# configure different services
+services:
+  # full node
+  litemsg_fullnode_dev:
+    build: 
+      context: '.'
+    image: litemsg-fullnode:dev
+    ports:
+      - '1113:1113'
+      - '1114:1114'
+      - '9229:9229'
+    volumes:
+      - 'litemsg_fullnode_data_dev:/root/.litemsg/data/1113'
+      # bind mount project dir into container,
+      # so new build will take effect immediately
+      - './bin:/usr/src/app/bin'
+      - './dist:/usr/src/app/dist'
+      - './package.json:/usr/src/app/package.json'
+      - './wait-for-it.sh:/usr/src/app/wait-for-it.sh'
+    command: bash -c "npm install && npm run start-fullnode"
+  
+  # spv node
+  litemsg_spvnode_dev:
+    build:
+      context: '.'
+    image: litemsg-spvnode:dev
+    ports:
+      - '2108:2108'
+      - '8229:9229'
+    volumes:
+      - 'litemsg_spvnode_data_dev:/root/.litemsg/data/1113'
+      # bind mount project dir into container,
+      # so new build will take effect immediately
+      - './bin:/usr/src/app/bin'
+      - './dist:/usr/src/app/dist'
+      - './package.json:/usr/src/app/package.json'
+      - './wait-for-it.sh:/usr/src/app/wait-for-it.sh'
+    command: bash -c "npm install && ./wait-for-it.sh litemsg_fullnode_dev:1113 -t 60 -- npm run start-spvnode -- ws://litemsg_fullnode_dev:1113"
+    depends_on:
+      - litemsg_fullnode_dev
+
+volumes:
+  litemsg_fullnode_data_dev:
+  litemsg_spvnode_data_dev:
