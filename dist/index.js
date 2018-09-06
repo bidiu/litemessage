@@ -1,4 +1,4 @@
-/*! v0.5.3 */
+/*! v0.7.0 */
 module.exports =
 /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
