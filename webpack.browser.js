@@ -19,5 +19,6 @@ module.exports = merge(
       library: 'litemessage',
       libraryTarget: 'umd',
     },
+    target: 'webworker',
   }
 );
