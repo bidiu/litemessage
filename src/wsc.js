@@ -11,7 +11,7 @@ if (BUILD_TARGET === 'node') {
   // run in browser
 
   var EventEmitter = require('wolfy87-eventemitter');
-  var URL = window.URL;
+  var URL = self.URL;
 
   // simple-websocket is an event-emitter based websocket
   // implementation, which supports running in browser
