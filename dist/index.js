@@ -1,4 +1,4 @@
-/*! v0.10.0 */
+/*! v0.10.1 */
 module.exports =
 /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
@@ -687,7 +687,7 @@ const extractSocketAddr = (url) => {
 };
 
 const getRemoteAddress = (socket) => {
-  if (typeof window === 'object') {
+  if (typeof self === 'object') {
     return extractSocketAddr(socket.url).host;
   }
   return socket._socket.remoteAddress.replace(/^.*:/, '');
@@ -697,7 +697,7 @@ const getRemoteAddress = (socket) => {
  * Note that a string will be returned.
  */
 const getRemotePort = (socket) => {
-  if (typeof window === 'object') {
+  if (typeof self === 'object') {
     return extractSocketAddr(socket.url).port + '';
   }
   return socket._socket.remotePort + '';
@@ -713,12 +713,12 @@ const getSocketAddress = (socket) => {
 };
 
 const getLocalAddress = (socket) => 
-  typeof window === 'object' ?
+  typeof self === 'object' ?
     undefined :
     socket._socket.localAddress.replace(/^.*:/, '');
 
 const getLocalPort = (socket) => 
-  typeof window === 'object' ?
+  typeof self === 'object' ?
     undefined :
     socket._socket.localPort;
 
@@ -731,7 +731,7 @@ const getSocketInfo = (socket) => ({
 });
 
 const getReadyState = (socket) => 
-  typeof window === 'object' ?
+  typeof self === 'object' ?
     socket._ws.readyState :
     socket.readyState;
 

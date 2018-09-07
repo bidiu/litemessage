@@ -1,4 +1,4 @@
-/*! v0.10.0 */
+/*! v0.10.1 */
 (function webpackUniversalModuleDefinition(root, factory) {
 	if(typeof exports === 'object' && typeof module === 'object')
 		module.exports = factory();
@@ -3436,7 +3436,7 @@ var extractSocketAddr = function extractSocketAddr(url) {
 };
 
 var getRemoteAddress = function getRemoteAddress(socket) {
-  if ((typeof window === 'undefined' ? 'undefined' : _typeof(window)) === 'object') {
+  if ((typeof self === 'undefined' ? 'undefined' : _typeof(self)) === 'object') {
     return extractSocketAddr(socket.url).host;
   }
   return socket._socket.remoteAddress.replace(/^.*:/, '');
@@ -3446,7 +3446,7 @@ var getRemoteAddress = function getRemoteAddress(socket) {
  * Note that a string will be returned.
  */
 var getRemotePort = function getRemotePort(socket) {
-  if ((typeof window === 'undefined' ? 'undefined' : _typeof(window)) === 'object') {
+  if ((typeof self === 'undefined' ? 'undefined' : _typeof(self)) === 'object') {
     return extractSocketAddr(socket.url).port + '';
   }
   return socket._socket.remotePort + '';
@@ -3462,11 +3462,11 @@ var getSocketAddress = function getSocketAddress(socket) {
 };
 
 var getLocalAddress = function getLocalAddress(socket) {
-  return (typeof window === 'undefined' ? 'undefined' : _typeof(window)) === 'object' ? undefined : socket._socket.localAddress.replace(/^.*:/, '');
+  return (typeof self === 'undefined' ? 'undefined' : _typeof(self)) === 'object' ? undefined : socket._socket.localAddress.replace(/^.*:/, '');
 };
 
 var getLocalPort = function getLocalPort(socket) {
-  return (typeof window === 'undefined' ? 'undefined' : _typeof(window)) === 'object' ? undefined : socket._socket.localPort;
+  return (typeof self === 'undefined' ? 'undefined' : _typeof(self)) === 'object' ? undefined : socket._socket.localPort;
 };
 
 var getLocalSocketAddr = function getLocalSocketAddr(socket) {
@@ -3481,7 +3481,7 @@ var getSocketInfo = function getSocketInfo(socket) {
 };
 
 var getReadyState = function getReadyState(socket) {
-  return (typeof window === 'undefined' ? 'undefined' : _typeof(window)) === 'object' ? socket._ws.readyState : socket.readyState;
+  return (typeof self === 'undefined' ? 'undefined' : _typeof(self)) === 'object' ? socket._ws.readyState : socket.readyState;
 };
 
 exports.getRemoteAddress = getRemoteAddress;
