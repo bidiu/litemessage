@@ -21,7 +21,8 @@
     "start": "concurrently --raw \"npm run build-node-and-watch\" \"npm run start-dev-server\" \"npm run start-fullnode\" \"npm run start-spvnode -- ws://localhost:1113\"",
     "build-node": "webpack --config webpack.production.js --env.BUILD_TARGET=node",
     "build-browser": "webpack --config webpack.production.js --env.BUILD_TARGET=browser",
-    "build": "npm run clean && npm run build-node && npm run build-browser",
+    "build-browser-min": "webpack --config webpack.production.js --env.BUILD_TARGET=browser --env.MINIFY=true",
+    "build": "npm run clean && npm run build-node && npm run build-browser && npm run build-browser-min",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "bedew",

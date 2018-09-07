@@ -1,3 +1,4 @@
+const path = require('path');
 const merge = require("webpack-merge");
 const { attachRevision, generateSourceMaps } = require('./webpack.parts');
 const nodeConfig = require('./webpack.node');
@@ -13,6 +14,18 @@ module.exports = env =>
       entry: {
         litemessage: './index.js'
       },
-      ...(env.BUILD_TARGET === 'node' ? nodeConfig : browserConfig)
-    }
+      ...(env.BUILD_TARGET === 'node' ? nodeConfig : browserConfig),
+      ...(env.BUILD_TARGET === 'browser' && env.MINIFY === 'true' ?
+      {
+        output: {
+          path: path.join(__dirname, 'dist'),
+          filename: '[name].umd.min.js',
+          library: 'litemessage',
+          libraryTarget: 'umd',
+        },
+        optimization: {
+          minimize: true
+        },
+      } : {})
+    },
   );

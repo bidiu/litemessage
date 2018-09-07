@@ -11,7 +11,7 @@ module.exports = merge(
   }),
   loadJavaScript({ exclude: /node_modules/ }),
   generateSourceMaps({ type: 'source-map' }),
-  // minifyJavaScript(),
+  minifyJavaScript(),
   {
     output: {
       path: path.join(__dirname, 'dist'),
