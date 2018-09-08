@@ -1,4 +1,4 @@
-/*! v0.10.4 */
+/*! v0.10.5 */
 module.exports =
 /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
@@ -1819,6 +1819,7 @@ class Blockchain extends EventEmitter {
    * Append next block on top of current head block on the blockchain.
    */
   async append(block) {
+    const prevHead = this.getHeadBlockIdSync();
     const ops = [];
     this.blockchain.push(block.hash);
     let height = this.getCurHeightSync();
@@ -1829,7 +1830,6 @@ class Blockchain extends EventEmitter {
       ops.push({ type: 'put', key: this.genKey(`chunk_${serialNum}`), value: buf });
     }
 
-    let prevHead = this.getHeadBlockIdSync();
     return this.store.appendBlock(block, ops)
       .then(() => this.emit('push', block, prevHead));
   }
@@ -1847,6 +1847,7 @@ class Blockchain extends EventEmitter {
       throw new Error('Trying to append a invalid subchain, abort.');
     }
 
+    let prevHead = this.getHeadBlockIdSync();
     let at = blocks[0].height;
     let blockIds = blocks.map(block => block.hash);
     let offBlockIds = this.blockchain.splice(at, Number.MAX_SAFE_INTEGER, ...blockIds);
@@ -1859,7 +1860,6 @@ class Blockchain extends EventEmitter {
       ops.push({ type: 'put', key: this.genKey(`chunk_${i / chunkSize}`), value: buf });
     }
 
-    let prevHead = this.getHeadBlockIdSync();
     // append the new branch
     await this.store.appendBlocksAt(blocks, ops);
 

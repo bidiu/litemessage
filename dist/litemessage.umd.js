@@ -1,4 +1,4 @@
-/*! v0.10.4 */
+/*! v0.10.5 */
 (function webpackUniversalModuleDefinition(root, factory) {
 	if(typeof exports === 'object' && typeof module === 'object')
 		module.exports = factory();
@@ -15530,11 +15530,12 @@ var Blockchain = function (_EventEmitter) {
       var _ref3 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee3(block) {
         var _this3 = this;
 
-        var ops, height, serialNum, buf, prevHead;
+        var prevHead, ops, height, serialNum, buf;
         return regeneratorRuntime.wrap(function _callee3$(_context3) {
           while (1) {
             switch (_context3.prev = _context3.next) {
               case 0:
+                prevHead = this.getHeadBlockIdSync();
                 ops = [];
 
                 this.blockchain.push(block.hash);
@@ -15548,7 +15549,6 @@ var Blockchain = function (_EventEmitter) {
                   ops.push({ type: 'put', key: this.genKey('chunk_' + serialNum), value: buf });
                 }
 
-                prevHead = this.getHeadBlockIdSync();
                 return _context3.abrupt('return', this.store.appendBlock(block, ops).then(function () {
                   return _this3.emit('push', block, prevHead);
                 }));
@@ -15582,7 +15582,7 @@ var Blockchain = function (_EventEmitter) {
         var _blockchain,
             _this4 = this;
 
-        var at, blockIds, offBlockIds, chunkAt, ops, i, buf, prevHead, offBlocks, offLitemsgs, _iteratorNormalCompletion, _didIteratorError, _iteratorError, _iterator, _step, block;
+        var prevHead, at, blockIds, offBlockIds, chunkAt, ops, i, buf, offBlocks, offLitemsgs, _iteratorNormalCompletion, _didIteratorError, _iteratorError, _iterator, _step, block;
 
         return regeneratorRuntime.wrap(function _callee5$(_context5) {
           while (1) {
@@ -15604,6 +15604,7 @@ var Blockchain = function (_EventEmitter) {
                 throw new Error('Trying to append a invalid subchain, abort.');
 
               case 4:
+                prevHead = this.getHeadBlockIdSync();
                 at = blocks[0].height;
                 blockIds = blocks.map(function (block) {
                   return block.hash;
@@ -15619,9 +15620,7 @@ var Blockchain = function (_EventEmitter) {
                   ops.push({ type: 'put', key: this.genKey('chunk_' + i / chunkSize), value: buf });
                 }
 
-                prevHead = this.getHeadBlockIdSync();
                 // append the new branch
-
                 _context5.next = 13;
                 return this.store.appendBlocksAt(blocks, ops);
 
