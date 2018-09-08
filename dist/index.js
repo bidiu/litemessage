@@ -1,4 +1,4 @@
-/*! v0.10.2-1-g262bc5a */
+/*! v0.10.3 */
 module.exports =
 /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
@@ -1739,6 +1739,12 @@ const chunkSize = 1024;
  * have been persisted.
  * 
  * NOTE that both chunk and height (length of blockchain) start at index 0.
+ * 
+ * Emitted events:
+ * - `ready`    when underlying blockchain is initialized
+ * - `error`    opposite of `ready`
+ * - `push`     when a newly mined block is pushed into blockchain
+ * - `switch`   when a subchain (either off or on main brnach) is appended
  */
 class Blockchain extends EventEmitter {
   constructor(store) {
@@ -1823,7 +1829,8 @@ class Blockchain extends EventEmitter {
       ops.push({ type: 'put', key: this.genKey(`chunk_${serialNum}`), value: buf });
     }
 
-    return this.store.appendBlock(block, ops);
+    return this.store.appendBlock(block, ops)
+      .then(() => this.emit('push', block));
   }
 
   /**
@@ -1874,6 +1881,8 @@ class Blockchain extends EventEmitter {
         }
       })
     );
+
+    this.emit('switch', blocks);
     // resolve nothing when success
     // reject with error when error
   }

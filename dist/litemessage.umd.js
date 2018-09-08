@@ -1,4 +1,4 @@
-/*! v0.10.2-1-g262bc5a */
+/*! v0.10.3 */
 (function webpackUniversalModuleDefinition(root, factory) {
 	if(typeof exports === 'object' && typeof module === 'object')
 		module.exports = factory();
@@ -15357,6 +15357,12 @@ var chunkSize = 1024;
  * have been persisted.
  * 
  * NOTE that both chunk and height (length of blockchain) start at index 0.
+ * 
+ * Emitted events:
+ * - `ready`    when underlying blockchain is initialized
+ * - `error`    opposite of `ready`
+ * - `push`     when a newly mined block is pushed into blockchain
+ * - `switch`   when a subchain (either off or on main brnach) is appended
  */
 
 var Blockchain = function (_EventEmitter) {
@@ -15522,6 +15528,8 @@ var Blockchain = function (_EventEmitter) {
     key: 'append',
     value: function () {
       var _ref3 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee3(block) {
+        var _this3 = this;
+
         var ops, height, serialNum, buf;
         return regeneratorRuntime.wrap(function _callee3$(_context3) {
           while (1) {
@@ -15540,7 +15548,9 @@ var Blockchain = function (_EventEmitter) {
                   ops.push({ type: 'put', key: this.genKey('chunk_' + serialNum), value: buf });
                 }
 
-                return _context3.abrupt('return', this.store.appendBlock(block, ops));
+                return _context3.abrupt('return', this.store.appendBlock(block, ops).then(function () {
+                  return _this3.emit('push', block);
+                }));
 
               case 5:
               case 'end':
@@ -15569,7 +15579,7 @@ var Blockchain = function (_EventEmitter) {
     value: function () {
       var _ref4 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee5(blocks) {
         var _blockchain,
-            _this3 = this;
+            _this4 = this;
 
         var at, blockIds, offBlockIds, chunkAt, ops, i, buf, offBlocks, offLitemsgs, _iteratorNormalCompletion, _didIteratorError, _iteratorError, _iterator, _step, block;
 
@@ -15615,7 +15625,7 @@ var Blockchain = function (_EventEmitter) {
               case 12:
                 _context5.next = 14;
                 return Promise.all(offBlockIds.map(function (id) {
-                  return _this3.getBlock(id);
+                  return _this4.getBlock(id);
                 }));
 
               case 14:
@@ -15678,24 +15688,24 @@ var Blockchain = function (_EventEmitter) {
                         switch (_context4.prev = _context4.next) {
                           case 0:
                             _context4.next = 2;
-                            return _this3.store.readLitemsg(hash);
+                            return _this4.store.readLitemsg(hash);
 
                           case 2:
                             blockId = _context4.sent;
 
-                            if (_this3.onMainBranchSync(blockId)) {
+                            if (_this4.onMainBranchSync(blockId)) {
                               _context4.next = 5;
                               break;
                             }
 
-                            return _context4.abrupt('return', _this3.store.removeLitemsg(hash));
+                            return _context4.abrupt('return', _this4.store.removeLitemsg(hash));
 
                           case 5:
                           case 'end':
                             return _context4.stop();
                         }
                       }
-                    }, _callee4, _this3);
+                    }, _callee4, _this4);
                   }));
 
                   return function (_x4) {
@@ -15704,6 +15714,12 @@ var Blockchain = function (_EventEmitter) {
                 }()));
 
               case 37:
+
+                this.emit('switch', blocks);
+                // resolve nothing when success
+                // reject with error when error
+
+              case 38:
               case 'end':
                 return _context5.stop();
             }
