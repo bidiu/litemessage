@@ -7,11 +7,13 @@ if (BUILD_TARGET === 'node') {
 
   var fs = require('fs');
   var leveldb = require('leveldown');
+  var EventEmitter = require('events');
 
 } else {
   // run in browser
 
   var leveldb = require('level-js');
+  var EventEmitter = require('wolfy87-eventemitter');
 }
 
 /**
@@ -19,11 +21,13 @@ if (BUILD_TARGET === 'node') {
  * 
  * TODO provide implementation in browser env examining existing db
  */
-class Node {
+class Node extends EventEmitter {
   constructor(nodeType, dbPath, port, protocolClass, initPeerUrls, debug, noserver) {
     if (new.target === Node) {
       throw new TypeError("Cannot construct Node instances directly.");
     }
+
+    super();
 
     // some necessary info
     this.uuid = uuidv1();
@@ -49,6 +53,7 @@ class Node {
     this.protocol.on('ready', () => {
       // connect to initial peers
       this.initPeerUrls.forEach(url => this.litenode.createConnection(url));
+      this.emit('ready');
     });
   }
 

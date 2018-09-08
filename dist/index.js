@@ -1,4 +1,4 @@
-/*! v0.10.2 */
+/*! v0.10.2-1-g262bc5a */
 module.exports =
 /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
@@ -88,6 +88,12 @@ module.exports =
 /************************************************************************/
 /******/ ([
 /* 0 */
+/***/ (function(module, exports) {
+
+module.exports = require("events");
+
+/***/ }),
+/* 1 */
 /***/ (function(module, exports, __webpack_require__) {
 
 if (true) {
@@ -397,12 +403,6 @@ if (true) {
 
 } else {}
 
-
-/***/ }),
-/* 1 */
-/***/ (function(module, exports) {
-
-module.exports = require("events");
 
 /***/ }),
 /* 2 */
@@ -868,19 +868,22 @@ if (true) {
 
   var fs = __webpack_require__(24);
   var leveldb = __webpack_require__(25);
+  var EventEmitter = __webpack_require__(0);
 
-} else { var leveldb; }
+} else { var EventEmitter, leveldb; }
 
 /**
  * A UUID identifying this node will be automatically generated.
  * 
  * TODO provide implementation in browser env examining existing db
  */
-class Node {
+class Node extends EventEmitter {
   constructor(nodeType, dbPath, port, protocolClass, initPeerUrls, debug, noserver) {
     if (new.target === Node) {
       throw new TypeError("Cannot construct Node instances directly.");
     }
+
+    super();
 
     // some necessary info
     this.uuid = uuidv1();
@@ -906,6 +909,7 @@ class Node {
     this.protocol.on('ready', () => {
       // connect to initial peers
       this.initPeerUrls.forEach(url => this.litenode.createConnection(url));
+      this.emit('ready');
     });
   }
 
@@ -956,7 +960,7 @@ const HandshakeManager = __webpack_require__(13);
 const Blockchain = __webpack_require__(14);
 const {
   verifyHeader, verifyHeaderChain
-} = __webpack_require__(0);
+} = __webpack_require__(1);
 const {
   messageTypes, messageValidators, getHeaders, getBlocks
 } = __webpack_require__(2);
@@ -1168,7 +1172,7 @@ const { pickItems } = __webpack_require__(5);
 if (true) {
   // running in node
 
-  var EventEmitter = __webpack_require__(1);
+  var EventEmitter = __webpack_require__(0);
   var { URL } = __webpack_require__(7);
   var dns = __webpack_require__(29);
   var { promisify } = __webpack_require__(30);
@@ -1505,7 +1509,7 @@ const { getSocketAddress } = __webpack_require__(3);
 if (true) {
   // running in node
 
-  var EventEmitter = __webpack_require__(1);
+  var EventEmitter = __webpack_require__(0);
 
 } else { var EventEmitter; }
 
@@ -1707,7 +1711,7 @@ module.exports = HandshakeManager;
 /* 14 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const EventEmitter = __webpack_require__(1);
+const EventEmitter = __webpack_require__(0);
 
 /**
  * A chunk is a fixed number of consecutive blocks (only block id) grouped
@@ -2213,7 +2217,7 @@ const {
 } = __webpack_require__(2);
 const {
   verifyBlock, verifyLitemsg, calcMerkleRoot, verifySubchain
-} = __webpack_require__(0);
+} = __webpack_require__(1);
 const { pickItems } = __webpack_require__(5);
 const { getCurTimestamp } = __webpack_require__(4);
 
@@ -2663,7 +2667,7 @@ module.exports = LiteProtocol;
 /* 17 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const { sha256 } = __webpack_require__(0);
+const { sha256 } = __webpack_require__(1);
 
 /**
  * Note for genesis block, its `height` must be 0, and `prevBlock` be `undefined`.
@@ -2708,7 +2712,7 @@ if (true) {
   exports.ThinLiteProtocol = __webpack_require__(9);
   module.exports = exports =  { ...exports, ...__webpack_require__(2) };
 
-  module.exports = exports = { ...exports, ...__webpack_require__(0) };
+  module.exports = exports = { ...exports, ...__webpack_require__(1) };
   module.exports = exports = { ...exports, ...__webpack_require__(4) };
   
 } else {}
@@ -2736,7 +2740,7 @@ const { getCurTimestamp } = __webpack_require__(4);
 
 if (true) {
   // running in node
-  var EventEmitter = __webpack_require__(1);
+  var EventEmitter = __webpack_require__(0);
   var WSServer = __webpack_require__(23);
 } else { var EventEmitter; }
 
@@ -2995,7 +2999,7 @@ const { getSocketAddress, getSocketInfo, getReadyState } = __webpack_require__(3
 if (true) {
   // run in node
 
-  var EventEmitter = __webpack_require__(1);
+  var EventEmitter = __webpack_require__(0);
   var { URL } = __webpack_require__(7);
   var WebSocket = __webpack_require__(8);
 
@@ -3155,7 +3159,7 @@ module.exports = WSClient;
 /* 23 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const EventEmitter = __webpack_require__(1);
+const EventEmitter = __webpack_require__(0);
 const WebSocket = __webpack_require__(8);
 const { URL } = __webpack_require__(7);
 const { getSocketAddress, getSocketInfo } = __webpack_require__(3);
@@ -3646,7 +3650,7 @@ module.exports = FullNode;
 /* 42 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const { mine } = __webpack_require__(0);
+const { mine } = __webpack_require__(1);
 const createBlock = __webpack_require__(17);
 
 /**
@@ -3770,7 +3774,7 @@ module.exports = InvResolveHandler;
 
 const { sliceItems } = __webpack_require__(5);
 const { getCurTimestamp } = __webpack_require__(4);
-const { calcMerkleRoot, verifyBlock } = __webpack_require__(0);
+const { calcMerkleRoot, verifyBlock } = __webpack_require__(1);
 const {
   messageTypes, messageValidators, getData, data,
   getDataPartial
@@ -4041,7 +4045,7 @@ module.exports = InventoryResolver;
 /* 45 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const { sha256 } = __webpack_require__(0);
+const { sha256 } = __webpack_require__(1);
 
 /**
  * @param {string} ver      version number (now hardcoded to 1, I don't have time :|)
