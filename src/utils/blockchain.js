@@ -116,8 +116,9 @@ class Blockchain extends EventEmitter {
       ops.push({ type: 'put', key: this.genKey(`chunk_${serialNum}`), value: buf });
     }
 
+    let prevHead = this.getHeadBlockIdSync();
     return this.store.appendBlock(block, ops)
-      .then(() => this.emit('push', block));
+      .then(() => this.emit('push', block, prevHead));
   }
 
   /**
@@ -145,6 +146,7 @@ class Blockchain extends EventEmitter {
       ops.push({ type: 'put', key: this.genKey(`chunk_${i / chunkSize}`), value: buf });
     }
 
+    let prevHead = this.getHeadBlockIdSync();
     // append the new branch
     await this.store.appendBlocksAt(blocks, ops);
 
@@ -169,7 +171,7 @@ class Blockchain extends EventEmitter {
       })
     );
 
-    this.emit('switch', blocks);
+    this.emit('switch', blocks, prevHead);
     // resolve nothing when success
     // reject with error when error
   }

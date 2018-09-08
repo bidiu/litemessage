@@ -1,4 +1,4 @@
-/*! v0.10.3 */
+/*! v0.10.4 */
 (function webpackUniversalModuleDefinition(root, factory) {
 	if(typeof exports === 'object' && typeof module === 'object')
 		module.exports = factory();
@@ -15530,7 +15530,7 @@ var Blockchain = function (_EventEmitter) {
       var _ref3 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee3(block) {
         var _this3 = this;
 
-        var ops, height, serialNum, buf;
+        var ops, height, serialNum, buf, prevHead;
         return regeneratorRuntime.wrap(function _callee3$(_context3) {
           while (1) {
             switch (_context3.prev = _context3.next) {
@@ -15548,11 +15548,12 @@ var Blockchain = function (_EventEmitter) {
                   ops.push({ type: 'put', key: this.genKey('chunk_' + serialNum), value: buf });
                 }
 
+                prevHead = this.getHeadBlockIdSync();
                 return _context3.abrupt('return', this.store.appendBlock(block, ops).then(function () {
-                  return _this3.emit('push', block);
+                  return _this3.emit('push', block, prevHead);
                 }));
 
-              case 5:
+              case 6:
               case 'end':
                 return _context3.stop();
             }
@@ -15581,7 +15582,7 @@ var Blockchain = function (_EventEmitter) {
         var _blockchain,
             _this4 = this;
 
-        var at, blockIds, offBlockIds, chunkAt, ops, i, buf, offBlocks, offLitemsgs, _iteratorNormalCompletion, _didIteratorError, _iteratorError, _iterator, _step, block;
+        var at, blockIds, offBlockIds, chunkAt, ops, i, buf, prevHead, offBlocks, offLitemsgs, _iteratorNormalCompletion, _didIteratorError, _iteratorError, _iterator, _step, block;
 
         return regeneratorRuntime.wrap(function _callee5$(_context5) {
           while (1) {
@@ -15618,23 +15619,25 @@ var Blockchain = function (_EventEmitter) {
                   ops.push({ type: 'put', key: this.genKey('chunk_' + i / chunkSize), value: buf });
                 }
 
+                prevHead = this.getHeadBlockIdSync();
                 // append the new branch
-                _context5.next = 12;
+
+                _context5.next = 13;
                 return this.store.appendBlocksAt(blocks, ops);
 
-              case 12:
-                _context5.next = 14;
+              case 13:
+                _context5.next = 15;
                 return Promise.all(offBlockIds.map(function (id) {
                   return _this4.getBlock(id);
                 }));
 
-              case 14:
+              case 15:
                 offBlocks = _context5.sent;
                 offLitemsgs = [];
                 _iteratorNormalCompletion = true;
                 _didIteratorError = false;
                 _iteratorError = undefined;
-                _context5.prev = 19;
+                _context5.prev = 20;
 
 
                 for (_iterator = offBlocks[Symbol.iterator](); !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
@@ -15644,41 +15647,41 @@ var Blockchain = function (_EventEmitter) {
                     offLitemsgs.push.apply(offLitemsgs, _toConsumableArray(block.litemsgs));
                   }
                 }
-                _context5.next = 27;
+                _context5.next = 28;
                 break;
 
-              case 23:
-                _context5.prev = 23;
-                _context5.t0 = _context5['catch'](19);
+              case 24:
+                _context5.prev = 24;
+                _context5.t0 = _context5['catch'](20);
                 _didIteratorError = true;
                 _iteratorError = _context5.t0;
 
-              case 27:
-                _context5.prev = 27;
+              case 28:
                 _context5.prev = 28;
+                _context5.prev = 29;
 
                 if (!_iteratorNormalCompletion && _iterator.return) {
                   _iterator.return();
                 }
 
-              case 30:
-                _context5.prev = 30;
+              case 31:
+                _context5.prev = 31;
 
                 if (!_didIteratorError) {
-                  _context5.next = 33;
+                  _context5.next = 34;
                   break;
                 }
 
                 throw _iteratorError;
 
-              case 33:
-                return _context5.finish(30);
-
               case 34:
-                return _context5.finish(27);
+                return _context5.finish(31);
 
               case 35:
-                _context5.next = 37;
+                return _context5.finish(28);
+
+              case 36:
+                _context5.next = 38;
                 return Promise.all(offLitemsgs.map(function () {
                   var _ref6 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee4(_ref5) {
                     var hash = _ref5.hash;
@@ -15713,18 +15716,18 @@ var Blockchain = function (_EventEmitter) {
                   };
                 }()));
 
-              case 37:
+              case 38:
 
-                this.emit('switch', blocks);
+                this.emit('switch', blocks, prevHead);
                 // resolve nothing when success
                 // reject with error when error
 
-              case 38:
+              case 39:
               case 'end':
                 return _context5.stop();
             }
           }
-        }, _callee5, this, [[19, 23, 27, 35], [28,, 30, 34]]);
+        }, _callee5, this, [[20, 24, 28, 36], [29,, 31, 35]]);
       }));
 
       function appendAt(_x3) {
