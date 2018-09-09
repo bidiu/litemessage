@@ -1,4 +1,4 @@
-/*! v0.10.5 */
+/*! v0.10.6 */
 module.exports =
 /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
@@ -2002,6 +2002,30 @@ class Blockchain extends EventEmitter {
     );
     if (reverse) { blocks.reverse(); }
     return blocks;
+  }
+
+  /**
+   * This method is a helper to help scroll along the 
+   * blockchain (pagination) from newer blocks to older 
+   * ones.
+   * 
+   * It gets a sub blockchain with specified length ending
+   * at the given block id (exclusive).
+   * 
+   * Both parameters are optional. If you don't pass
+   * `until` (or you pass a nonexistent block id), it 
+   * will return until the head block (inclusive in this
+   * case).
+   * 
+   * @param {*} until the last block id (exclusive)
+   * @param {*} len   length of the blockchain
+   */
+  async getSubBlockchain(until, len = 100) {
+    let i = this.blockchain.indexOf(until);
+    let hashes = i < 0 ? this.blockchain.slice(-len) :
+      this.blockchain.slice(Math.max(0, i - len), i);
+
+    return Promise.all( hashes.map(this.getBlock, this) );
   }
 
   /**

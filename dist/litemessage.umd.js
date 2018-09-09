@@ -1,4 +1,4 @@
-/*! v0.10.5 */
+/*! v0.10.6 */
 (function webpackUniversalModuleDefinition(root, factory) {
 	if(typeof exports === 'object' && typeof module === 'object')
 		module.exports = factory();
@@ -15982,21 +15982,37 @@ var Blockchain = function (_EventEmitter) {
     }()
 
     /**
-     * Return the whole block specified by the given block id.
-     * If block doesn't exist, `undefined` will be returned.
+     * This method is a helper to help scroll along the 
+     * blockchain (pagination) from newer blocks to older 
+     * ones.
+     * 
+     * It gets a sub blockchain with specified length ending
+     * at the given block id (exclusive).
+     * 
+     * Both parameters are optional. If you don't pass
+     * `until` (or you pass a nonexistent block id), it 
+     * will return until the head block (inclusive in this
+     * case).
+     * 
+     * @param {*} until the last block id (exclusive)
+     * @param {*} len   length of the blockchain
      */
 
   }, {
-    key: 'getBlock',
+    key: 'getSubBlockchain',
     value: function () {
-      var _ref11 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee10(blockId) {
+      var _ref11 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee10(until) {
+        var len = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 100;
+        var i, hashes;
         return regeneratorRuntime.wrap(function _callee10$(_context10) {
           while (1) {
             switch (_context10.prev = _context10.next) {
               case 0:
-                return _context10.abrupt('return', this.store.readBlock(blockId));
+                i = this.blockchain.indexOf(until);
+                hashes = i < 0 ? this.blockchain.slice(-len) : this.blockchain.slice(Math.max(0, i - len), i);
+                return _context10.abrupt('return', Promise.all(hashes.map(this.getBlock, this)));
 
-              case 1:
+              case 3:
               case 'end':
                 return _context10.stop();
             }
@@ -16004,8 +16020,38 @@ var Blockchain = function (_EventEmitter) {
         }, _callee10, this);
       }));
 
-      function getBlock(_x7) {
+      function getSubBlockchain(_x8) {
         return _ref11.apply(this, arguments);
+      }
+
+      return getSubBlockchain;
+    }()
+
+    /**
+     * Return the whole block specified by the given block id.
+     * If block doesn't exist, `undefined` will be returned.
+     */
+
+  }, {
+    key: 'getBlock',
+    value: function () {
+      var _ref12 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee11(blockId) {
+        return regeneratorRuntime.wrap(function _callee11$(_context11) {
+          while (1) {
+            switch (_context11.prev = _context11.next) {
+              case 0:
+                return _context11.abrupt('return', this.store.readBlock(blockId));
+
+              case 1:
+              case 'end':
+                return _context11.stop();
+            }
+          }
+        }, _callee11, this);
+      }));
+
+      function getBlock(_x9) {
+        return _ref12.apply(this, arguments);
       }
 
       return getBlock;
@@ -16047,38 +16093,38 @@ var Blockchain = function (_EventEmitter) {
   }, {
     key: 'hasBlock',
     value: function () {
-      var _ref12 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee11(blockId) {
+      var _ref13 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee12(blockId) {
         var onMainBranch = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : true;
-        return regeneratorRuntime.wrap(function _callee11$(_context11) {
+        return regeneratorRuntime.wrap(function _callee12$(_context12) {
           while (1) {
-            switch (_context11.prev = _context11.next) {
+            switch (_context12.prev = _context12.next) {
               case 0:
                 if (!onMainBranch) {
-                  _context11.next = 2;
+                  _context12.next = 2;
                   break;
                 }
 
-                return _context11.abrupt('return', this.blockchain.includes(blockId));
+                return _context12.abrupt('return', this.blockchain.includes(blockId));
 
               case 2:
-                _context11.next = 4;
+                _context12.next = 4;
                 return this.getBlock(blockId);
 
               case 4:
-                _context11.t0 = _context11.sent;
-                _context11.t1 = undefined;
-                return _context11.abrupt('return', _context11.t0 !== _context11.t1);
+                _context12.t0 = _context12.sent;
+                _context12.t1 = undefined;
+                return _context12.abrupt('return', _context12.t0 !== _context12.t1);
 
               case 7:
               case 'end':
-                return _context11.stop();
+                return _context12.stop();
             }
           }
-        }, _callee11, this);
+        }, _callee12, this);
       }));
 
-      function hasBlock(_x9) {
-        return _ref12.apply(this, arguments);
+      function hasBlock(_x11) {
+        return _ref13.apply(this, arguments);
       }
 
       return hasBlock;
