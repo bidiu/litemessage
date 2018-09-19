@@ -3,21 +3,23 @@
 This project is both a node client supporting "full" & "thin" modes, similar to Bitcoin, and also a library for developing in both browser and Node.js.
 
 ## As a library
-When used as a library, it exports many necessary classes such as `FullNode`, `ThinNode`, and also many utilities including `Blockchain` and crypto utils.
+When used as a library, it exports many necessary classes such as `FullNode`, `ThinNode`, and also many utilities including `Blockchain` and crypto.
 
 ### Used in browser
-The easiest way to use this library in browser is by including the CDN link
+The easiest way to use this library in browser is by including this CDN link:
 ```
 <script src="https://unpkg.com/litemessage@0.10.7/dist/litemessage.umd.min.js"></script>
 ```
 
+Then a `litemessage` object is attached to `window`, or `self` if you are using it in WebWorker.
+
 ### Used with package manager
-When using npm, you can install it by
+When using npm, you can install it by:
 ```
 npm install --save litemessage
 ```
 
-If developing for Node.js, require it by
+If developing for Node.js, require it by:
 ```
 const { FullNode } = require('litemessage');
 
@@ -25,19 +27,44 @@ const { FullNode } = require('litemessage');
 import { FullNode } from 'litemessage';
 ```
 
-When building for browser environment, you must require it this way (you should use a bundler such as webpack)
+When building for browser environment, you must require it this way (you should use a bundler such as webpack):
 ```
 import { FullNode } from 'litemessage/dist/litemessage.umd.min';
 ```
 
+> API docs are on its way ~
+
 ## As a client
-### Install
+### Install with npm
 ```
 npm install -g litemessage
 ```
 
+### Run with docker
+You can also install and run it with docker. To run it with docker:
+```
+docker container run --name name_of_you_choice --rm -p 1113:1113 bidiubiu/litemessage
+```
+
+To stop and delete the container (note the `--rm` from above):
+```
+docker container stop name_of_you_choice
+```
+
+If you run and stop this way, blockchain data will be wiped out along with the container. To avoid that, you can use volume:
+```
+docker container run ... -v volume_name_you_choose:/root/.litemsg ...
+```
+
+The default command of the image is `litenode` with all default options (no initial peers specified). To run `spvnode` (see next) or with custom options, you can override everything when you run the container:
+```
+docker container run --name name_of_you_choice --rm -p 1113:1113 litemessage [litenode|spvnode] [your custom options here]
+```
+
+Check this for available tags: [bidiubiu/litemessage tags](https://hub.docker.com/r/bidiubiu/litemessage/tags/).
+
 ### Usages
-By running `litenode`, you will join the peer-to-peer network.
+By running `litenode`, you will join the peer-to-peer network. One of the official node's IP is `45.79.182.46` (`litemessage.com`), its port is `1113`.
 
 ```
 $ litenode --help
@@ -61,4 +88,10 @@ Examples:
 Also see https://github.com/bidiu/litemessage
 ```
 
-> `litenode` is the full node client, which will fetch the entire blockchain and do verification locally. There's another type of client `spvnode`, which only fetches the block headers. For usage: `spvnode --help`.
+`litenode` is the full node client, which will fetch the entire blockchain and do verification locally. There's another type of client `spvnode`, which only fetches the block headers. For usage:
+```
+spvnode --help
+```
+
+## License
+MIT
