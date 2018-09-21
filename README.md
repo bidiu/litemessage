@@ -43,7 +43,7 @@ npm install -g litemessage
 ### Run with docker
 You can also install and run it with docker. To run it with docker:
 ```
-docker container run --name name_of_you_choice --rm -p 1113:1113 bidiubiu/litemessage
+docker container run --name name_of_you_choice -d --rm -p 1113:1113 bidiubiu/litemessage
 ```
 
 To stop and delete the container (note the `--rm` from above):
@@ -58,7 +58,7 @@ docker container run ... -v volume_name_you_choose:/root/.litemsg ...
 
 The default command of the image is `litenode` with all default options (no initial peers specified). To run `spvnode` (see next) or with custom options, you can override everything when you run the container:
 ```
-docker container run --name name_of_you_choice --rm -p 1113:1113 litemessage [litenode|spvnode] [your custom options here]
+docker container run --name name_of_you_choice -d --rm -p 1113:1113 bidiubiu/litemessage [litenode|spvnode] [your custom options here]
 ```
 
 Check this for available tags: [bidiubiu/litemessage tags](https://hub.docker.com/r/bidiubiu/litemessage/tags/).
