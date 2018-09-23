@@ -13,8 +13,8 @@ module.exports = env =>
     {
       plugins: [
         new HtmlWebpackPlugin({
-					title: 'litemessage'
-				}),
+          title: 'litemessage'
+        }),
       ],
     },
     {
