@@ -189,7 +189,7 @@ class ThinLiteProtocol extends P2PProtocol {
       setTimeout(() => {
         let blockLocators = this.blockchain.getLocatorsSync();
         peer.sendJson(getBlocks({ blockLocators }));
-      }, 60000);
+      }, 20000);
     }
 
     // TODO
