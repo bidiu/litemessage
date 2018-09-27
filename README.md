@@ -13,6 +13,7 @@ The easiest way to use this library in browser is by including this CDN link:
 
 Then a `litemessage` object will be attached to `window`, or `self` if you are using it in WebWorker. For instance:
 ```
+// start a node in browser
 let node = new litemessage.ThinNode('IndexedDB_scope', { initPeerUrls: ['ws://litemessage.com:1113'] });
 ```
 
