@@ -3,15 +3,15 @@
 This project is both a node client supporting "full" & "thin" modes, similar to Bitcoin, and also a library for developing in both browser and Node.js.
 
 ## As a library
-When used as a library, it exports many necessary classes such as `FullNode`, `ThinNode`, and also many utilities including `Blockchain` and crypto.
+When used as a library, it exports many necessary classes such as `LiteNode`, `FullNode`, `ThinNode`, and also many utilities including `Blockchain` and crypto primitive implementations used by litemessage.
 
 ### Used in browser
 The easiest way to use this library in browser is by including this CDN link:
 ```
-<script src="https://unpkg.com/litemessage@0.10.7/dist/litemessage.umd.min.js"></script>
+<script src="https://unpkg.com/litemessage@latest/dist/litemessage.umd.min.js"></script>
 ```
 
-Then a `litemessage` object is attached to `window`, or `self` if you are using it in WebWorker.
+Then a `litemessage` object will be attached to `window`, or `self` if you are using it in WebWorker.
 
 ### Used with package manager
 When using npm, you can install it by:
@@ -32,7 +32,7 @@ When building for browser environment, you must require it this way (you should 
 import { FullNode } from 'litemessage/dist/litemessage.umd.min';
 ```
 
-> API docs are on its way ~
+> API documentation is on its way.
 
 ## As a client
 ### Install with npm
@@ -61,7 +61,7 @@ The default command of the image is `litenode` with all default options (no init
 docker container run --name name_of_you_choice -d --rm -p 1113:1113 bidiubiu/litemessage [litenode|spvnode] [your custom options here]
 ```
 
-Check this for available tags: [bidiubiu/litemessage tags](https://hub.docker.com/r/bidiubiu/litemessage/tags/).
+Check [bidiubiu/litemessage tags](https://hub.docker.com/r/bidiubiu/litemessage/tags/) for available tags.
 
 ### Usages
 By running `litenode`, you will join the peer-to-peer network. One of the official node's IP is `45.79.182.46` (`litemessage.com`), its port is `1113`.
