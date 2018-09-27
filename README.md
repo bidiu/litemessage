@@ -11,7 +11,10 @@ The easiest way to use this library in browser is by including this CDN link:
 <script src="https://unpkg.com/litemessage@latest/dist/litemessage.umd.min.js"></script>
 ```
 
-Then a `litemessage` object will be attached to `window`, or `self` if you are using it in WebWorker.
+Then a `litemessage` object will be attached to `window`, or `self` if you are using it in WebWorker. For instance:
+```
+let node = new litemessage.ThinNode('IndexedDB_scope', { initPeerUrls: ['ws://litemessage.com:1113'] });
+```
 
 ### Used with package manager
 When using npm, you can install it by:
