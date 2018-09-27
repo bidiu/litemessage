@@ -1,4 +1,4 @@
-/*! v0.10.6 */
+/*! v0.10.8 */
 (function webpackUniversalModuleDefinition(root, factory) {
 	if(typeof exports === 'object' && typeof module === 'object')
 		module.exports = factory();
@@ -13835,7 +13835,7 @@ var ThinLiteProtocol = function (_P2PProtocol) {
         setTimeout(function () {
           var blockLocators = _this2.blockchain.getLocatorsSync();
           peer.sendJson(getBlocks({ blockLocators: blockLocators }));
-        }, 60000);
+        }, 20000);
       }
 
       // TODO
@@ -13958,7 +13958,7 @@ var P2PProtocol = function (_EventEmitter) {
         if (_this.node.peers(nodeTypes).length < minPeerNum) {
           _this.litenode.broadcastJson(fetchPeers({ nodeTypes: nodeTypes }));
         }
-      }, 40000));
+      }, 10000));
 
       // periodically persist peer urls
       _this.intervalTimers.push(setInterval(_this.persistPeerUrls, 120000));

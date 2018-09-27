@@ -1,4 +1,4 @@
-/*! v0.10.6 */
+/*! v0.10.8 */
 module.exports =
 /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
@@ -1143,7 +1143,7 @@ class ThinLiteProtocol extends P2PProtocol {
       setTimeout(() => {
         let blockLocators = this.blockchain.getLocatorsSync();
         peer.sendJson(getBlocks({ blockLocators }));
-      }, 60000);
+      }, 20000);
     }
 
     // TODO
@@ -1241,7 +1241,7 @@ class P2PProtocol extends EventEmitter {
           if (this.node.peers(nodeTypes).length < minPeerNum) {
             this.litenode.broadcastJson(fetchPeers({ nodeTypes }));
           }
-        }, 40000)
+        }, 10000)
       );
 
       // periodically persist peer urls
