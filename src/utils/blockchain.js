@@ -32,6 +32,7 @@ const chunkSize = 1024;
  * - `error`    opposite of `ready`
  * - `push`     when a newly mined block is pushed into blockchain
  * - `switch`   when a subchain (either off or on main brnach) is appended
+ * - `update`   when a block is updated (i.e. body is indexed, this is for "thin" node only)
  */
 class Blockchain extends EventEmitter {
   constructor(store) {
@@ -172,6 +173,25 @@ class Blockchain extends EventEmitter {
     );
 
     this.emit('switch', blocks, prevHead);
+    // resolve nothing when success
+    // reject with error when error
+  }
+
+  /**
+   * Same as always, always pass valid block here.
+   * And note that you can update block only if that
+   * block currently is on the main branch.
+   * 
+   * If you are trying to update a non-existent block
+   * or that block is not on the main branch, nothing
+   * will happen.
+   */
+  async updateBlock(block) {
+    if (this.onMainBranchSync(block.hash)) {
+      await this.store.writeBlock(block);
+    }
+
+    this.emit('update', block, this.getHeadBlockIdSync());
     // resolve nothing when success
     // reject with error when error
   }

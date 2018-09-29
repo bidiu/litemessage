@@ -3,7 +3,7 @@ const LiteProtocolStore = require('./store');
 const HandshakeManager = require('./handshake');
 const Blockchain = require('../utils/blockchain');
 const {
-  verifyHeader, verifyHeaderChain
+  verifyHeader, verifyHeaderChain, verifyBlock
 } = require('../utils/litecrypto');
 const {
   messageTypes, messageValidators, getHeaders, getBlocks
@@ -40,6 +40,7 @@ class ThinLiteProtocol extends P2PProtocol {
     super(node, { nodeTypes: AUTO_CONN_NODE_TYPES });
     this.invHandler = this.invHandler.bind(this);
     this.headersHandler = this.headersHandler.bind(this);
+    this.dataHandler = this.dataHandler.bind(this);
     this.peerConnectHandler = this.peerConnectHandler.bind(this);
 
     this.litestore = new LiteProtocolStore(node.db);
@@ -59,6 +60,7 @@ class ThinLiteProtocol extends P2PProtocol {
     // register message/connection handlers
     this.litenode.on(`message/${messageTypes.inv}`, this.invHandler);
     this.litenode.on(`message/${messageTypes.headers}`, this.headersHandler);
+    this.litenode.on(`message/${messageTypes.data}`, this.dataHandler);
     this.litenode.on('peerconnect', this.peerConnectHandler);
 
     this.handshake = new HandshakeManager(this);
@@ -194,6 +196,25 @@ class ThinLiteProtocol extends P2PProtocol {
 
     // TODO
     // peer._resolver = new InventoryResolver(peer, this);
+  }
+
+  async dataHandler({ messageType, ...payload }, peer) {
+    try {
+      messageValidators[messageType](payload);
+      let { blocks } = payload;
+
+      // filter out invalid blocks and those that aren't on main branch
+      blocks = blocks.filter(block => verifyBlock(block) 
+        && this.blockchain.onMainBranchSync(block.hash));
+      
+      for (let block of blocks) {
+        // index body (litemessages) of the block
+        this.blockchain.updateBlock(block);
+      }
+
+    } catch (err) {
+      console.warn(err);
+    }
   }
 
   close() {

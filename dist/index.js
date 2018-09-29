@@ -1,4 +1,4 @@
-/*! v0.10.8 */
+/*! v0.10.9-3-g829b6fd */
 module.exports =
 /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
@@ -94,6 +94,273 @@ module.exports = require("events");
 
 /***/ }),
 /* 1 */
+/***/ (function(module, exports) {
+
+const messageTypes = Object.freeze({
+  info: 'lite/info',
+  infoAck: 'lite/info_ack',
+
+  getBlocks: 'lite/get_blocks',
+  inv: 'lite/inv',
+  getData: 'lite/get_data',
+  data: 'lite/data',
+  getDataPartial: 'lite/get_data_partial',
+  dataPartial: 'lite/data_partial',
+  partialNotFound: 'lite/partial_not_found',
+
+  getPendingMsgs: 'lite/get_pending_msgs',
+
+  getHeaders: 'lite/get_headers',
+  headers: 'lite/headers',
+  locateLitemsgs: 'lite/locate_litemsgs',
+  litemsgLocators: 'lite/litemsg_locators',
+});
+
+const info = ({ uuid, nodeType, daemonPort }) => ({
+  messageType: messageTypes.info,
+  uuid,
+  nodeType,
+  daemonPort
+});
+
+info.validate = ({ uuid, nodeType, daemonPort }) => {
+  if (typeof uuid !== 'string') {
+    throw new Error('lite/: Invalid uuid.');
+  }
+  if (nodeType !== 'full' && nodeType !== 'thin') {
+    throw new Error('lite/: Invalid node type.');
+  }
+  if (daemonPort !== undefined && (typeof daemonPort !== 'number' 
+      || daemonPort <= 1024 || daemonPort > 65535)) {
+    throw new Error('lite/: Invalid daemon port.');
+  }
+  if (nodeType === 'full' && !daemonPort) {
+    throw new Error('lite/: Invalid daemon port.');
+  }
+};
+
+const infoAck = () => ({
+  messageType: messageTypes.infoAck
+});
+
+infoAck.validate = () => {
+  // nothing here
+}
+
+const getBlocks = ({ blockLocators }) => ({
+  messageType: messageTypes.getBlocks,
+  blockLocators
+});
+
+getBlocks.validate = ({ blockLocators }) => {
+  if (!(blockLocators instanceof Array)) {
+    throw new Error('lite/: Invalid block locators.');
+  }
+};
+
+/**
+ * both params are list of ids
+ */
+const inv = ({ blocks = [], litemsgs = [] }) => ({
+  messageType: messageTypes.inv,
+  blocks,
+  litemsgs
+});
+
+inv.validate = ({ blocks, litemsgs }) => {
+  if (!(blocks instanceof Array)) {
+    throw new Error('lite/: Invalid blocks.');
+  }
+  if (!(litemsgs instanceof Array)) {
+    throw new Error('lite/: Invalid lite messages.');
+  }
+};
+
+/**
+ * both params are list of ids
+ */
+const getData = ({ blocks = [], litemsgs = [] }) => ({
+  messageType: messageTypes.getData,
+  blocks,
+  litemsgs
+});
+
+getData.validate = ({ blocks, litemsgs }) => {
+  if (!(blocks instanceof Array)) {
+    throw new Error('lite/: Invalid blocks.');
+  }
+  if (!(litemsgs instanceof Array)) {
+    throw new Error('lite/: Invalid lite messages.');
+  }
+};
+
+const data = ({ blocks = [], litemsgs = [] }) => ({
+  messageType: messageTypes.data,
+  blocks,
+  litemsgs
+});
+
+data.validate = ({ blocks, litemsgs }) => {
+  if (!(blocks instanceof Array)) {
+    throw new Error('lite/: Invalid blocks.');
+  }
+  if (!(litemsgs instanceof Array)) {
+    throw new Error('lite/: Invalid lite messages.');
+  }
+};
+
+const getDataPartial = ({ merkleDigest, blocks }) => ({
+  messageType: messageTypes.getDataPartial,
+  merkleDigest,
+  blocks
+});
+
+getDataPartial.validate = ({ merkleDigest, blocks }) => {
+  if (typeof merkleDigest !== 'string') {
+    throw new Error('lite/: Invalid merkle digest.');
+  }
+  if (!(blocks instanceof Array)) {
+    throw new Error('lite/: Invalid blocks.');
+  }
+};
+
+const dataPartial = ({ merkleDigest, blocks }) => ({
+  messageType: messageTypes.dataPartial,
+  merkleDigest,
+  blocks
+});
+
+dataPartial.validate = ({ merkleDigest, blocks }) => {
+  if (typeof merkleDigest !== 'string') {
+    throw new Error('lite/: Invalid merkle digest.');
+  }
+  if (!(blocks instanceof Array)) {
+    throw new Error('lite/: Invalid blocks.');
+  }
+};
+
+const partialNotFound = ({ merkleDigest, blocks }) => ({
+  messageType: messageTypes.partialNotFound,
+  merkleDigest,
+  blocks
+});
+
+partialNotFound.validate = ({ merkleDigest, blocks }) => {
+  if (typeof merkleDigest !== 'string') {
+    throw new Error('lite/: Invalid merkle digest.');
+  }
+  if (!(blocks instanceof Array)) {
+    throw new Error('lite/: Invalid blocks.');
+  }
+};
+
+const getPendingMsgs = () => ({
+  messageType: messageTypes.getPendingMsgs
+});
+
+getPendingMsgs.validate = () => {
+  // nothing
+};
+
+const getHeaders = ({ blocks }) => ({
+  messageType: messageTypes.getHeaders,
+  blocks
+});
+
+getHeaders.validate = ({ blocks }) => {
+  if (!(blocks instanceof Array)) {
+    throw new Error('lite/: Invalid blocks.');
+  }
+};
+
+const headers = ({ blocks }) => ({
+  messageType: messageTypes.headers,
+  blocks
+});
+
+headers.validate = ({ blocks }) => {
+  if (!(blocks instanceof Array)) {
+    throw new Error('lite/: Invalid block headers.');
+  }
+}
+
+/**
+ * @param {*} options
+ *      `litemsgs` - ids
+ */
+const locateLitemsgs = ({ litemsgs }) => ({
+  messageType: messageTypes.locateLitemsgs,
+  litemsgs
+});
+
+locateLitemsgs.validate = ({ litemsgs }) => {
+  if (!(litemsgs instanceof Array)) {
+    throw new Error('lite/: Invalid lite message ids.');
+  }
+};
+
+/**
+ * `litemsgs` is an array of litemsg ids. 
+ * `blocks` is an array of blocks. 
+ * `lookup` stores the relation between `litemsgs` and `blocks`.
+ * 
+ * The number of elements in `lookup` MUST be the same as `litemsgs`.
+ * Each element in `lookup` is a block id. For instance, id of the 
+ * block which first litemessage is located is the first element of
+ * `lookup.`
+ * 
+ * In case a litemessage is not in any block, the corresponding
+ * element in `lookup` MUST be undefined (or any falsy value).
+ */
+const litemsgLocators = ({ litemsgs, blocks, lookup }) => ({
+  messageType: messageTypes.litemsgLocators,
+  litemsgs,
+  blocks,
+  lookup
+});
+
+litemsgLocators.validate = ({ litemsgs, blocks, lookup }) => {
+  // TODO verify the lookup array is correct
+};
+
+// validators
+const messageValidators = Object.freeze({
+  [messageTypes.info]: info.validate,
+  [messageTypes.infoAck]: infoAck.validate,
+  [messageTypes.getBlocks]: getBlocks.validate,
+  [messageTypes.inv]: inv.validate,
+  [messageTypes.getData]: getData.validate,
+  [messageTypes.data]: data.validate,
+  [messageTypes.getDataPartial]: getDataPartial.validate,
+  [messageTypes.dataPartial]: dataPartial.validate,
+  [messageTypes.partialNotFound]: partialNotFound.validate,
+  [messageTypes.getPendingMsgs]: getPendingMsgs.validate,
+  [messageTypes.getHeaders]: getHeaders.validate,
+  [messageTypes.headers]: headers.validate,
+  [messageTypes.locateLitemsgs]: locateLitemsgs.validate,
+  [messageTypes.litemsgLocators]: litemsgLocators.validate,
+});
+
+exports.messageTypes = messageTypes;
+exports.messageValidators = messageValidators;
+exports.info = info;
+exports.infoAck = infoAck;
+exports.getBlocks = getBlocks;
+exports.inv = inv;
+exports.getData = getData;
+exports.data = data;
+exports.getDataPartial = getDataPartial;
+exports.dataPartial = dataPartial;
+exports.partialNotFound = partialNotFound;
+exports.getPendingMsgs = getPendingMsgs;
+exports.getHeaders = getHeaders;
+exports.headers = headers;
+exports.locateLitemsgs = locateLitemsgs;
+exports.litemsgLocators = litemsgLocators;
+
+
+/***/ }),
+/* 2 */
 /***/ (function(module, exports, __webpack_require__) {
 
 if (true) {
@@ -405,273 +672,6 @@ if (true) {
 
 
 /***/ }),
-/* 2 */
-/***/ (function(module, exports) {
-
-const messageTypes = Object.freeze({
-  info: 'lite/info',
-  infoAck: 'lite/info_ack',
-
-  getBlocks: 'lite/get_blocks',
-  inv: 'lite/inv',
-  getData: 'lite/get_data',
-  data: 'lite/data',
-  getDataPartial: 'lite/get_data_partial',
-  dataPartial: 'lite/data_partial',
-  partialNotFound: 'lite/partial_not_found',
-
-  getPendingMsgs: 'lite/get_pending_msgs',
-
-  getHeaders: 'lite/get_headers',
-  headers: 'lite/headers',
-  locateLitemsgs: 'lite/locate_litemsgs',
-  litemsgLocators: 'lite/litemsg_locators',
-});
-
-const info = ({ uuid, nodeType, daemonPort }) => ({
-  messageType: messageTypes.info,
-  uuid,
-  nodeType,
-  daemonPort
-});
-
-info.validate = ({ uuid, nodeType, daemonPort }) => {
-  if (typeof uuid !== 'string') {
-    throw new Error('lite/: Invalid uuid.');
-  }
-  if (nodeType !== 'full' && nodeType !== 'thin') {
-    throw new Error('lite/: Invalid node type.');
-  }
-  if (daemonPort !== undefined && (typeof daemonPort !== 'number' 
-      || daemonPort <= 1024 || daemonPort > 65535)) {
-    throw new Error('lite/: Invalid daemon port.');
-  }
-  if (nodeType === 'full' && !daemonPort) {
-    throw new Error('lite/: Invalid daemon port.');
-  }
-};
-
-const infoAck = () => ({
-  messageType: messageTypes.infoAck
-});
-
-infoAck.validate = () => {
-  // nothing here
-}
-
-const getBlocks = ({ blockLocators }) => ({
-  messageType: messageTypes.getBlocks,
-  blockLocators
-});
-
-getBlocks.validate = ({ blockLocators }) => {
-  if (!(blockLocators instanceof Array)) {
-    throw new Error('lite/: Invalid block locators.');
-  }
-};
-
-/**
- * both params are list of ids
- */
-const inv = ({ blocks = [], litemsgs = [] }) => ({
-  messageType: messageTypes.inv,
-  blocks,
-  litemsgs
-});
-
-inv.validate = ({ blocks, litemsgs }) => {
-  if (!(blocks instanceof Array)) {
-    throw new Error('lite/: Invalid blocks.');
-  }
-  if (!(litemsgs instanceof Array)) {
-    throw new Error('lite/: Invalid lite messages.');
-  }
-};
-
-/**
- * both params are list of ids
- */
-const getData = ({ blocks = [], litemsgs = [] }) => ({
-  messageType: messageTypes.getData,
-  blocks,
-  litemsgs
-});
-
-getData.validate = ({ blocks, litemsgs }) => {
-  if (!(blocks instanceof Array)) {
-    throw new Error('lite/: Invalid blocks.');
-  }
-  if (!(litemsgs instanceof Array)) {
-    throw new Error('lite/: Invalid lite messages.');
-  }
-};
-
-const data = ({ blocks = [], litemsgs = [] }) => ({
-  messageType: messageTypes.data,
-  blocks,
-  litemsgs
-});
-
-data.validate = ({ blocks, litemsgs }) => {
-  if (!(blocks instanceof Array)) {
-    throw new Error('lite/: Invalid blocks.');
-  }
-  if (!(litemsgs instanceof Array)) {
-    throw new Error('lite/: Invalid lite messages.');
-  }
-};
-
-const getDataPartial = ({ merkleDigest, blocks }) => ({
-  messageType: messageTypes.getDataPartial,
-  merkleDigest,
-  blocks
-});
-
-getDataPartial.validate = ({ merkleDigest, blocks }) => {
-  if (typeof merkleDigest !== 'string') {
-    throw new Error('lite/: Invalid merkle digest.');
-  }
-  if (!(blocks instanceof Array)) {
-    throw new Error('lite/: Invalid blocks.');
-  }
-};
-
-const dataPartial = ({ merkleDigest, blocks }) => ({
-  messageType: messageTypes.dataPartial,
-  merkleDigest,
-  blocks
-});
-
-dataPartial.validate = ({ merkleDigest, blocks }) => {
-  if (typeof merkleDigest !== 'string') {
-    throw new Error('lite/: Invalid merkle digest.');
-  }
-  if (!(blocks instanceof Array)) {
-    throw new Error('lite/: Invalid blocks.');
-  }
-};
-
-const partialNotFound = ({ merkleDigest, blocks }) => ({
-  messageType: messageTypes.partialNotFound,
-  merkleDigest,
-  blocks
-});
-
-partialNotFound.validate = ({ merkleDigest, blocks }) => {
-  if (typeof merkleDigest !== 'string') {
-    throw new Error('lite/: Invalid merkle digest.');
-  }
-  if (!(blocks instanceof Array)) {
-    throw new Error('lite/: Invalid blocks.');
-  }
-};
-
-const getPendingMsgs = () => ({
-  messageType: messageTypes.getPendingMsgs
-});
-
-getPendingMsgs.validate = () => {
-  // nothing
-};
-
-const getHeaders = ({ blocks }) => ({
-  messageType: messageTypes.getHeaders,
-  blocks
-});
-
-getHeaders.validate = ({ blocks }) => {
-  if (!(blocks instanceof Array)) {
-    throw new Error('lite/: Invalid blocks.');
-  }
-};
-
-const headers = ({ blocks }) => ({
-  messageType: messageTypes.headers,
-  blocks
-});
-
-headers.validate = ({ blocks }) => {
-  if (!(blocks instanceof Array)) {
-    throw new Error('lite/: Invalid block headers.');
-  }
-}
-
-/**
- * @param {*} options
- *      `litemsgs` - ids
- */
-const locateLitemsgs = ({ litemsgs }) => ({
-  messageType: messageTypes.locateLitemsgs,
-  litemsgs
-});
-
-locateLitemsgs.validate = ({ litemsgs }) => {
-  if (!(litemsgs instanceof Array)) {
-    throw new Error('lite/: Invalid lite message ids.');
-  }
-};
-
-/**
- * `litemsgs` is an array of litemsg ids. 
- * `blocks` is an array of blocks. 
- * `lookup` stores the relation between `litemsgs` and `blocks`.
- * 
- * The number of elements in `lookup` MUST be the same as `litemsgs`.
- * Each element in `lookup` is a block id. For instance, id of the 
- * block which first litemessage is located is the first element of
- * `lookup.`
- * 
- * In case a litemessage is not in any block, the corresponding
- * element in `lookup` MUST be undefined (or any falsy value).
- */
-const litemsgLocators = ({ litemsgs, blocks, lookup }) => ({
-  messageType: messageTypes.litemsgLocators,
-  litemsgs,
-  blocks,
-  lookup
-});
-
-litemsgLocators.validate = ({ litemsgs, blocks, lookup }) => {
-  // TODO verify the lookup array is correct
-};
-
-// validators
-const messageValidators = Object.freeze({
-  [messageTypes.info]: info.validate,
-  [messageTypes.infoAck]: infoAck.validate,
-  [messageTypes.getBlocks]: getBlocks.validate,
-  [messageTypes.inv]: inv.validate,
-  [messageTypes.getData]: getData.validate,
-  [messageTypes.data]: data.validate,
-  [messageTypes.getDataPartial]: getDataPartial.validate,
-  [messageTypes.dataPartial]: dataPartial.validate,
-  [messageTypes.partialNotFound]: partialNotFound.validate,
-  [messageTypes.getPendingMsgs]: getPendingMsgs.validate,
-  [messageTypes.getHeaders]: getHeaders.validate,
-  [messageTypes.headers]: headers.validate,
-  [messageTypes.locateLitemsgs]: locateLitemsgs.validate,
-  [messageTypes.litemsgLocators]: litemsgLocators.validate,
-});
-
-exports.messageTypes = messageTypes;
-exports.messageValidators = messageValidators;
-exports.info = info;
-exports.infoAck = infoAck;
-exports.getBlocks = getBlocks;
-exports.inv = inv;
-exports.getData = getData;
-exports.data = data;
-exports.getDataPartial = getDataPartial;
-exports.dataPartial = dataPartial;
-exports.partialNotFound = partialNotFound;
-exports.getPendingMsgs = getPendingMsgs;
-exports.getHeaders = getHeaders;
-exports.headers = headers;
-exports.locateLitemsgs = locateLitemsgs;
-exports.litemsgLocators = litemsgLocators;
-
-
-/***/ }),
 /* 3 */
 /***/ (function(module, exports) {
 
@@ -959,11 +959,11 @@ const LiteProtocolStore = __webpack_require__(12);
 const HandshakeManager = __webpack_require__(13);
 const Blockchain = __webpack_require__(14);
 const {
-  verifyHeader, verifyHeaderChain
-} = __webpack_require__(1);
+  verifyHeader, verifyHeaderChain, verifyBlock
+} = __webpack_require__(2);
 const {
   messageTypes, messageValidators, getHeaders, getBlocks
-} = __webpack_require__(2);
+} = __webpack_require__(1);
 
 if (true) {
   // run in node
@@ -994,6 +994,7 @@ class ThinLiteProtocol extends P2PProtocol {
     super(node, { nodeTypes: AUTO_CONN_NODE_TYPES });
     this.invHandler = this.invHandler.bind(this);
     this.headersHandler = this.headersHandler.bind(this);
+    this.dataHandler = this.dataHandler.bind(this);
     this.peerConnectHandler = this.peerConnectHandler.bind(this);
 
     this.litestore = new LiteProtocolStore(node.db);
@@ -1013,6 +1014,7 @@ class ThinLiteProtocol extends P2PProtocol {
     // register message/connection handlers
     this.litenode.on(`message/${messageTypes.inv}`, this.invHandler);
     this.litenode.on(`message/${messageTypes.headers}`, this.headersHandler);
+    this.litenode.on(`message/${messageTypes.data}`, this.dataHandler);
     this.litenode.on('peerconnect', this.peerConnectHandler);
 
     this.handshake = new HandshakeManager(this);
@@ -1148,6 +1150,25 @@ class ThinLiteProtocol extends P2PProtocol {
 
     // TODO
     // peer._resolver = new InventoryResolver(peer, this);
+  }
+
+  async dataHandler({ messageType, ...payload }, peer) {
+    try {
+      messageValidators[messageType](payload);
+      let { blocks } = payload;
+
+      // filter out invalid blocks and those that aren't on main branch
+      blocks = blocks.filter(block => verifyBlock(block) 
+        && this.blockchain.onMainBranchSync(block.hash));
+      
+      for (let block of blocks) {
+        // index body (litemessages) of the block
+        this.blockchain.updateBlock(block);
+      }
+
+    } catch (err) {
+      console.warn(err);
+    }
   }
 
   close() {
@@ -1415,12 +1436,29 @@ class LiteProtocolStore {
     }
   }
 
-  // async writeBlock(block) {
-  //   if (typeof block.hash !== 'string') {
-  //     throw new Error('Invalid block hash.');
-  //   }
-  //   return this.db.put(genKey(`block_${block.hash}`), block);
-  // }
+  /**
+   * Blocks are meant to be immutable. Make sure use this operation
+   * with caution - you could potentially corrupt the blockchain.
+   */
+  async writeBlock(block, batchOps) {
+    if (typeof block.hash !== 'string') {
+      throw new Error('Invalid block hash.');
+    }
+
+    let ops = [
+      { type: 'put', key: genKey(`block_${block.hash}`), value: JSON.stringify(block) }
+    ];
+    if (block.litemsgs) {
+      for (let litemsg of block.litemsgs) {
+        ops.push({ type: 'put', key: genKey(`litemsg_${litemsg.hash}`), value: block.hash });
+      }
+    }
+    if (batchOps) {
+      ops = [...ops, ...batchOps];
+    }
+
+    return this.db.batch(ops);
+  }
 
   /**
    * Return the whole block specified by the given block id.
@@ -1502,7 +1540,7 @@ const Peer = __webpack_require__(31);
 const {
   messageValidators, info, infoAck,
   messageTypes: { info: infoType, infoAck: infoAckType }
-} = __webpack_require__(2);
+} = __webpack_require__(1);
 const { getCurTimestamp } = __webpack_require__(4);
 const { getSocketAddress } = __webpack_require__(3);
 
@@ -1745,6 +1783,7 @@ const chunkSize = 1024;
  * - `error`    opposite of `ready`
  * - `push`     when a newly mined block is pushed into blockchain
  * - `switch`   when a subchain (either off or on main brnach) is appended
+ * - `update`   when a block is updated (i.e. body is indexed, this is for "thin" node only)
  */
 class Blockchain extends EventEmitter {
   constructor(store) {
@@ -1885,6 +1924,25 @@ class Blockchain extends EventEmitter {
     );
 
     this.emit('switch', blocks, prevHead);
+    // resolve nothing when success
+    // reject with error when error
+  }
+
+  /**
+   * Same as always, always pass valid block here.
+   * And note that you can update block only if that
+   * block currently is on the main branch.
+   * 
+   * If you are trying to update a non-existent block
+   * or that block is not on the main branch, nothing
+   * will happen.
+   */
+  async updateBlock(block) {
+    if (this.onMainBranchSync(block.hash)) {
+      await this.store.writeBlock(block);
+    }
+
+    this.emit('update', block, this.getHeadBlockIdSync());
     // resolve nothing when success
     // reject with error when error
   }
@@ -2249,10 +2307,10 @@ const {
   messageTypes, messageValidators, getBlocks, 
   inv, data, getPendingMsgs, headers, 
   litemsgLocators
-} = __webpack_require__(2);
+} = __webpack_require__(1);
 const {
   verifyBlock, verifyLitemsg, calcMerkleRoot, verifySubchain
-} = __webpack_require__(1);
+} = __webpack_require__(2);
 const { pickItems } = __webpack_require__(5);
 const { getCurTimestamp } = __webpack_require__(4);
 
@@ -2702,7 +2760,7 @@ module.exports = LiteProtocol;
 /* 17 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const { sha256 } = __webpack_require__(1);
+const { sha256 } = __webpack_require__(2);
 
 /**
  * Note for genesis block, its `height` must be 0, and `prevBlock` be `undefined`.
@@ -2745,9 +2803,9 @@ if (true) {
   exports.createLitemsg = __webpack_require__(45);
   exports.LiteProtocol = __webpack_require__(16);
   exports.ThinLiteProtocol = __webpack_require__(9);
-  module.exports = exports =  { ...exports, ...__webpack_require__(2) };
+  module.exports = exports =  { ...exports, ...__webpack_require__(1) };
 
-  module.exports = exports = { ...exports, ...__webpack_require__(1) };
+  module.exports = exports = { ...exports, ...__webpack_require__(2) };
   module.exports = exports = { ...exports, ...__webpack_require__(4) };
   
 } else {}
@@ -3388,6 +3446,8 @@ module.exports = require("leveldown");
 
 const Node = __webpack_require__(6);
 const ThinLiteProtocol = __webpack_require__(9);
+const { getData } = __webpack_require__(1);
+const { pickItems } = __webpack_require__(5);
 
 const NODE_TYPE = 'thin';
 
@@ -3398,6 +3458,23 @@ class ThinNode extends Node {
 
   static get nodeType() {
     return NODE_TYPE;
+  }
+
+  /**
+   * Fetch body (litemessage) of a given block.
+   * 
+   * By default, if possible, it will ask 3 fullnode
+   * peers, just to make sure the body could be fetched
+   * successfully.
+   * 
+   * Currently you cannot get notified at this class
+   * when the body is fetched successfully. To get
+   * notified, please have a look at the `Blockchain`
+   * utility, which has low level event for that.
+   */
+  fetchBlockBody(blockId) {
+    pickItems(this.peers('full'), 3)
+      .forEach(peer => peer.sendJson(getData({ blocks: [blockId] })));
   }
 
   close() {
@@ -3685,7 +3762,7 @@ module.exports = FullNode;
 /* 42 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const { mine } = __webpack_require__(1);
+const { mine } = __webpack_require__(2);
 const createBlock = __webpack_require__(17);
 
 /**
@@ -3749,7 +3826,7 @@ module.exports = Miner;
 const {
   messageTypes, messageValidators, dataPartial, 
   partialNotFound
-} = __webpack_require__(2);
+} = __webpack_require__(1);
 
 /**
  * This inventory resolve handler is used to serve requests
@@ -3809,11 +3886,11 @@ module.exports = InvResolveHandler;
 
 const { sliceItems } = __webpack_require__(5);
 const { getCurTimestamp } = __webpack_require__(4);
-const { calcMerkleRoot, verifyBlock } = __webpack_require__(1);
+const { calcMerkleRoot, verifyBlock } = __webpack_require__(2);
 const {
   messageTypes, messageValidators, getData, data,
   getDataPartial
-} = __webpack_require__(2);
+} = __webpack_require__(1);
 
 /**
  * Abstraction of the inventory (only for blocks) to resolve.
@@ -4080,7 +4157,7 @@ module.exports = InventoryResolver;
 /* 45 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const { sha256 } = __webpack_require__(1);
+const { sha256 } = __webpack_require__(2);
 
 /**
  * @param {string} ver      version number (now hardcoded to 1, I don't have time :|)

@@ -1,4 +1,4 @@
-/*! v0.10.8 */
+/*! v0.10.9-3-g829b6fd */
 (function webpackUniversalModuleDefinition(root, factory) {
 	if(typeof exports === 'object' && typeof module === 'object')
 		module.exports = factory();
@@ -92,7 +92,7 @@ return /******/ (function(modules) { // webpackBootstrap
 /******/
 /******/
 /******/ 	// Load entry module and return exports
-/******/ 	return __webpack_require__(__webpack_require__.s = 32);
+/******/ 	return __webpack_require__(__webpack_require__.s = 33);
 /******/ })
 /************************************************************************/
 /******/ ([
@@ -355,9 +355,9 @@ if (typeof Object.create === 'function') {
 
 
 
-var base64 = __webpack_require__(41)
-var ieee754 = __webpack_require__(42)
-var isArray = __webpack_require__(15)
+var base64 = __webpack_require__(42)
+var ieee754 = __webpack_require__(43)
+var isArray = __webpack_require__(16)
 
 exports.Buffer = Buffer
 exports.SlowBuffer = SlowBuffer
@@ -2191,8 +2191,8 @@ var util = __webpack_require__(6);
 util.inherits = __webpack_require__(2);
 /*</replacement>*/
 
-var Readable = __webpack_require__(19);
-var Writable = __webpack_require__(22);
+var Readable = __webpack_require__(20);
+var Writable = __webpack_require__(23);
 
 util.inherits(Duplex, Readable);
 
@@ -3781,7 +3781,7 @@ function isPrimitive(arg) {
 }
 exports.isPrimitive = isPrimitive;
 
-exports.isBuffer = __webpack_require__(38);
+exports.isBuffer = __webpack_require__(39);
 
 function objectToString(o) {
   return Object.prototype.toString.call(o);
@@ -3849,9 +3849,9 @@ function hasOwnProperty(obj, prop) {
 /* 10 */
 /***/ (function(module, exports, __webpack_require__) {
 
-exports.AbstractLevelDOWN = __webpack_require__(40)
-exports.AbstractIterator = __webpack_require__(16)
-exports.AbstractChainedBatch = __webpack_require__(17)
+exports.AbstractLevelDOWN = __webpack_require__(41)
+exports.AbstractIterator = __webpack_require__(17)
+exports.AbstractChainedBatch = __webpack_require__(18)
 
 
 /***/ }),
@@ -4008,6 +4008,350 @@ function extend() {
 
 /***/ }),
 /* 14 */
+/***/ (function(module, exports) {
+
+var _Object$freeze;
+
+function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
+
+var messageTypes = Object.freeze({
+  info: 'lite/info',
+  infoAck: 'lite/info_ack',
+
+  getBlocks: 'lite/get_blocks',
+  inv: 'lite/inv',
+  getData: 'lite/get_data',
+  data: 'lite/data',
+  getDataPartial: 'lite/get_data_partial',
+  dataPartial: 'lite/data_partial',
+  partialNotFound: 'lite/partial_not_found',
+
+  getPendingMsgs: 'lite/get_pending_msgs',
+
+  getHeaders: 'lite/get_headers',
+  headers: 'lite/headers',
+  locateLitemsgs: 'lite/locate_litemsgs',
+  litemsgLocators: 'lite/litemsg_locators'
+});
+
+var info = function info(_ref) {
+  var uuid = _ref.uuid,
+      nodeType = _ref.nodeType,
+      daemonPort = _ref.daemonPort;
+  return {
+    messageType: messageTypes.info,
+    uuid: uuid,
+    nodeType: nodeType,
+    daemonPort: daemonPort
+  };
+};
+
+info.validate = function (_ref2) {
+  var uuid = _ref2.uuid,
+      nodeType = _ref2.nodeType,
+      daemonPort = _ref2.daemonPort;
+
+  if (typeof uuid !== 'string') {
+    throw new Error('lite/: Invalid uuid.');
+  }
+  if (nodeType !== 'full' && nodeType !== 'thin') {
+    throw new Error('lite/: Invalid node type.');
+  }
+  if (daemonPort !== undefined && (typeof daemonPort !== 'number' || daemonPort <= 1024 || daemonPort > 65535)) {
+    throw new Error('lite/: Invalid daemon port.');
+  }
+  if (nodeType === 'full' && !daemonPort) {
+    throw new Error('lite/: Invalid daemon port.');
+  }
+};
+
+var infoAck = function infoAck() {
+  return {
+    messageType: messageTypes.infoAck
+  };
+};
+
+infoAck.validate = function () {
+  // nothing here
+};
+
+var getBlocks = function getBlocks(_ref3) {
+  var blockLocators = _ref3.blockLocators;
+  return {
+    messageType: messageTypes.getBlocks,
+    blockLocators: blockLocators
+  };
+};
+
+getBlocks.validate = function (_ref4) {
+  var blockLocators = _ref4.blockLocators;
+
+  if (!(blockLocators instanceof Array)) {
+    throw new Error('lite/: Invalid block locators.');
+  }
+};
+
+/**
+ * both params are list of ids
+ */
+var inv = function inv(_ref5) {
+  var _ref5$blocks = _ref5.blocks,
+      blocks = _ref5$blocks === undefined ? [] : _ref5$blocks,
+      _ref5$litemsgs = _ref5.litemsgs,
+      litemsgs = _ref5$litemsgs === undefined ? [] : _ref5$litemsgs;
+  return {
+    messageType: messageTypes.inv,
+    blocks: blocks,
+    litemsgs: litemsgs
+  };
+};
+
+inv.validate = function (_ref6) {
+  var blocks = _ref6.blocks,
+      litemsgs = _ref6.litemsgs;
+
+  if (!(blocks instanceof Array)) {
+    throw new Error('lite/: Invalid blocks.');
+  }
+  if (!(litemsgs instanceof Array)) {
+    throw new Error('lite/: Invalid lite messages.');
+  }
+};
+
+/**
+ * both params are list of ids
+ */
+var getData = function getData(_ref7) {
+  var _ref7$blocks = _ref7.blocks,
+      blocks = _ref7$blocks === undefined ? [] : _ref7$blocks,
+      _ref7$litemsgs = _ref7.litemsgs,
+      litemsgs = _ref7$litemsgs === undefined ? [] : _ref7$litemsgs;
+  return {
+    messageType: messageTypes.getData,
+    blocks: blocks,
+    litemsgs: litemsgs
+  };
+};
+
+getData.validate = function (_ref8) {
+  var blocks = _ref8.blocks,
+      litemsgs = _ref8.litemsgs;
+
+  if (!(blocks instanceof Array)) {
+    throw new Error('lite/: Invalid blocks.');
+  }
+  if (!(litemsgs instanceof Array)) {
+    throw new Error('lite/: Invalid lite messages.');
+  }
+};
+
+var data = function data(_ref9) {
+  var _ref9$blocks = _ref9.blocks,
+      blocks = _ref9$blocks === undefined ? [] : _ref9$blocks,
+      _ref9$litemsgs = _ref9.litemsgs,
+      litemsgs = _ref9$litemsgs === undefined ? [] : _ref9$litemsgs;
+  return {
+    messageType: messageTypes.data,
+    blocks: blocks,
+    litemsgs: litemsgs
+  };
+};
+
+data.validate = function (_ref10) {
+  var blocks = _ref10.blocks,
+      litemsgs = _ref10.litemsgs;
+
+  if (!(blocks instanceof Array)) {
+    throw new Error('lite/: Invalid blocks.');
+  }
+  if (!(litemsgs instanceof Array)) {
+    throw new Error('lite/: Invalid lite messages.');
+  }
+};
+
+var getDataPartial = function getDataPartial(_ref11) {
+  var merkleDigest = _ref11.merkleDigest,
+      blocks = _ref11.blocks;
+  return {
+    messageType: messageTypes.getDataPartial,
+    merkleDigest: merkleDigest,
+    blocks: blocks
+  };
+};
+
+getDataPartial.validate = function (_ref12) {
+  var merkleDigest = _ref12.merkleDigest,
+      blocks = _ref12.blocks;
+
+  if (typeof merkleDigest !== 'string') {
+    throw new Error('lite/: Invalid merkle digest.');
+  }
+  if (!(blocks instanceof Array)) {
+    throw new Error('lite/: Invalid blocks.');
+  }
+};
+
+var dataPartial = function dataPartial(_ref13) {
+  var merkleDigest = _ref13.merkleDigest,
+      blocks = _ref13.blocks;
+  return {
+    messageType: messageTypes.dataPartial,
+    merkleDigest: merkleDigest,
+    blocks: blocks
+  };
+};
+
+dataPartial.validate = function (_ref14) {
+  var merkleDigest = _ref14.merkleDigest,
+      blocks = _ref14.blocks;
+
+  if (typeof merkleDigest !== 'string') {
+    throw new Error('lite/: Invalid merkle digest.');
+  }
+  if (!(blocks instanceof Array)) {
+    throw new Error('lite/: Invalid blocks.');
+  }
+};
+
+var partialNotFound = function partialNotFound(_ref15) {
+  var merkleDigest = _ref15.merkleDigest,
+      blocks = _ref15.blocks;
+  return {
+    messageType: messageTypes.partialNotFound,
+    merkleDigest: merkleDigest,
+    blocks: blocks
+  };
+};
+
+partialNotFound.validate = function (_ref16) {
+  var merkleDigest = _ref16.merkleDigest,
+      blocks = _ref16.blocks;
+
+  if (typeof merkleDigest !== 'string') {
+    throw new Error('lite/: Invalid merkle digest.');
+  }
+  if (!(blocks instanceof Array)) {
+    throw new Error('lite/: Invalid blocks.');
+  }
+};
+
+var getPendingMsgs = function getPendingMsgs() {
+  return {
+    messageType: messageTypes.getPendingMsgs
+  };
+};
+
+getPendingMsgs.validate = function () {
+  // nothing
+};
+
+var getHeaders = function getHeaders(_ref17) {
+  var blocks = _ref17.blocks;
+  return {
+    messageType: messageTypes.getHeaders,
+    blocks: blocks
+  };
+};
+
+getHeaders.validate = function (_ref18) {
+  var blocks = _ref18.blocks;
+
+  if (!(blocks instanceof Array)) {
+    throw new Error('lite/: Invalid blocks.');
+  }
+};
+
+var headers = function headers(_ref19) {
+  var blocks = _ref19.blocks;
+  return {
+    messageType: messageTypes.headers,
+    blocks: blocks
+  };
+};
+
+headers.validate = function (_ref20) {
+  var blocks = _ref20.blocks;
+
+  if (!(blocks instanceof Array)) {
+    throw new Error('lite/: Invalid block headers.');
+  }
+};
+
+/**
+ * @param {*} options
+ *      `litemsgs` - ids
+ */
+var locateLitemsgs = function locateLitemsgs(_ref21) {
+  var litemsgs = _ref21.litemsgs;
+  return {
+    messageType: messageTypes.locateLitemsgs,
+    litemsgs: litemsgs
+  };
+};
+
+locateLitemsgs.validate = function (_ref22) {
+  var litemsgs = _ref22.litemsgs;
+
+  if (!(litemsgs instanceof Array)) {
+    throw new Error('lite/: Invalid lite message ids.');
+  }
+};
+
+/**
+ * `litemsgs` is an array of litemsg ids. 
+ * `blocks` is an array of blocks. 
+ * `lookup` stores the relation between `litemsgs` and `blocks`.
+ * 
+ * The number of elements in `lookup` MUST be the same as `litemsgs`.
+ * Each element in `lookup` is a block id. For instance, id of the 
+ * block which first litemessage is located is the first element of
+ * `lookup.`
+ * 
+ * In case a litemessage is not in any block, the corresponding
+ * element in `lookup` MUST be undefined (or any falsy value).
+ */
+var litemsgLocators = function litemsgLocators(_ref23) {
+  var litemsgs = _ref23.litemsgs,
+      blocks = _ref23.blocks,
+      lookup = _ref23.lookup;
+  return {
+    messageType: messageTypes.litemsgLocators,
+    litemsgs: litemsgs,
+    blocks: blocks,
+    lookup: lookup
+  };
+};
+
+litemsgLocators.validate = function (_ref24) {
+  // TODO verify the lookup array is correct
+
+  var litemsgs = _ref24.litemsgs,
+      blocks = _ref24.blocks,
+      lookup = _ref24.lookup;
+};
+
+// validators
+var messageValidators = Object.freeze((_Object$freeze = {}, _defineProperty(_Object$freeze, messageTypes.info, info.validate), _defineProperty(_Object$freeze, messageTypes.infoAck, infoAck.validate), _defineProperty(_Object$freeze, messageTypes.getBlocks, getBlocks.validate), _defineProperty(_Object$freeze, messageTypes.inv, inv.validate), _defineProperty(_Object$freeze, messageTypes.getData, getData.validate), _defineProperty(_Object$freeze, messageTypes.data, data.validate), _defineProperty(_Object$freeze, messageTypes.getDataPartial, getDataPartial.validate), _defineProperty(_Object$freeze, messageTypes.dataPartial, dataPartial.validate), _defineProperty(_Object$freeze, messageTypes.partialNotFound, partialNotFound.validate), _defineProperty(_Object$freeze, messageTypes.getPendingMsgs, getPendingMsgs.validate), _defineProperty(_Object$freeze, messageTypes.getHeaders, getHeaders.validate), _defineProperty(_Object$freeze, messageTypes.headers, headers.validate), _defineProperty(_Object$freeze, messageTypes.locateLitemsgs, locateLitemsgs.validate), _defineProperty(_Object$freeze, messageTypes.litemsgLocators, litemsgLocators.validate), _Object$freeze));
+
+exports.messageTypes = messageTypes;
+exports.messageValidators = messageValidators;
+exports.info = info;
+exports.infoAck = infoAck;
+exports.getBlocks = getBlocks;
+exports.inv = inv;
+exports.getData = getData;
+exports.data = data;
+exports.getDataPartial = getDataPartial;
+exports.dataPartial = dataPartial;
+exports.partialNotFound = partialNotFound;
+exports.getPendingMsgs = getPendingMsgs;
+exports.getHeaders = getHeaders;
+exports.headers = headers;
+exports.locateLitemsgs = locateLitemsgs;
+exports.litemsgLocators = litemsgLocators;
+
+/***/ }),
+/* 15 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -4018,14 +4362,14 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-var uuidv1 = __webpack_require__(34);
-var levelup = __webpack_require__(37);
-var LiteNode = __webpack_require__(57);
+var uuidv1 = __webpack_require__(35);
+var levelup = __webpack_require__(38);
+var LiteNode = __webpack_require__(58);
 
 if (false) { var EventEmitter, leveldb, fs; } else {
   // run in browser
 
-  var leveldb = __webpack_require__(65);
+  var leveldb = __webpack_require__(66);
   var EventEmitter = __webpack_require__(7);
 }
 
@@ -4111,7 +4455,7 @@ var Node = function (_EventEmitter) {
 module.exports = Node;
 
 /***/ }),
-/* 15 */
+/* 16 */
 /***/ (function(module, exports) {
 
 var toString = {}.toString;
@@ -4122,7 +4466,7 @@ module.exports = Array.isArray || function (arr) {
 
 
 /***/ }),
-/* 16 */
+/* 17 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /* WEBPACK VAR INJECTION */(function(process) {/* Copyright (c) 2017 Rod Vagg, MIT License */
@@ -4185,7 +4529,7 @@ module.exports = AbstractIterator
 /* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(0)))
 
 /***/ }),
-/* 17 */
+/* 18 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /* WEBPACK VAR INJECTION */(function(process) {/* Copyright (c) 2017 Rod Vagg, MIT License */
@@ -4280,20 +4624,20 @@ module.exports = AbstractChainedBatch
 /* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(0)))
 
 /***/ }),
-/* 18 */
+/* 19 */
 /***/ (function(module, exports, __webpack_require__) {
 
-exports = module.exports = __webpack_require__(19);
+exports = module.exports = __webpack_require__(20);
 exports.Stream = exports;
 exports.Readable = exports;
-exports.Writable = __webpack_require__(22);
+exports.Writable = __webpack_require__(23);
 exports.Duplex = __webpack_require__(4);
-exports.Transform = __webpack_require__(24);
-exports.PassThrough = __webpack_require__(51);
+exports.Transform = __webpack_require__(25);
+exports.PassThrough = __webpack_require__(52);
 
 
 /***/ }),
-/* 19 */
+/* 20 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -4328,7 +4672,7 @@ var pna = __webpack_require__(11);
 module.exports = Readable;
 
 /*<replacement>*/
-var isArray = __webpack_require__(15);
+var isArray = __webpack_require__(16);
 /*</replacement>*/
 
 /*<replacement>*/
@@ -4346,7 +4690,7 @@ var EElistenerCount = function (emitter, type) {
 /*</replacement>*/
 
 /*<replacement>*/
-var Stream = __webpack_require__(20);
+var Stream = __webpack_require__(21);
 /*</replacement>*/
 
 /*<replacement>*/
@@ -4368,7 +4712,7 @@ util.inherits = __webpack_require__(2);
 /*</replacement>*/
 
 /*<replacement>*/
-var debugUtil = __webpack_require__(45);
+var debugUtil = __webpack_require__(46);
 var debug = void 0;
 if (debugUtil && debugUtil.debuglog) {
   debug = debugUtil.debuglog('stream');
@@ -4377,8 +4721,8 @@ if (debugUtil && debugUtil.debuglog) {
 }
 /*</replacement>*/
 
-var BufferList = __webpack_require__(46);
-var destroyImpl = __webpack_require__(21);
+var BufferList = __webpack_require__(47);
+var destroyImpl = __webpack_require__(22);
 var StringDecoder;
 
 util.inherits(Readable, Stream);
@@ -4468,7 +4812,7 @@ function ReadableState(options, stream) {
   this.decoder = null;
   this.encoding = null;
   if (options.encoding) {
-    if (!StringDecoder) StringDecoder = __webpack_require__(23).StringDecoder;
+    if (!StringDecoder) StringDecoder = __webpack_require__(24).StringDecoder;
     this.decoder = new StringDecoder(options.encoding);
     this.encoding = options.encoding;
   }
@@ -4624,7 +4968,7 @@ Readable.prototype.isPaused = function () {
 
 // backwards compatibility.
 Readable.prototype.setEncoding = function (enc) {
-  if (!StringDecoder) StringDecoder = __webpack_require__(23).StringDecoder;
+  if (!StringDecoder) StringDecoder = __webpack_require__(24).StringDecoder;
   this._readableState.decoder = new StringDecoder(enc);
   this._readableState.encoding = enc;
   return this;
@@ -5319,14 +5663,14 @@ function indexOf(xs, x) {
 /* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(1), __webpack_require__(0)))
 
 /***/ }),
-/* 20 */
+/* 21 */
 /***/ (function(module, exports, __webpack_require__) {
 
 module.exports = __webpack_require__(8).EventEmitter;
 
 
 /***/ }),
-/* 21 */
+/* 22 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -5406,7 +5750,7 @@ module.exports = {
 };
 
 /***/ }),
-/* 22 */
+/* 23 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -5482,12 +5826,12 @@ util.inherits = __webpack_require__(2);
 
 /*<replacement>*/
 var internalUtil = {
-  deprecate: __webpack_require__(50)
+  deprecate: __webpack_require__(51)
 };
 /*</replacement>*/
 
 /*<replacement>*/
-var Stream = __webpack_require__(20);
+var Stream = __webpack_require__(21);
 /*</replacement>*/
 
 /*<replacement>*/
@@ -5503,7 +5847,7 @@ function _isUint8Array(obj) {
 
 /*</replacement>*/
 
-var destroyImpl = __webpack_require__(21);
+var destroyImpl = __webpack_require__(22);
 
 util.inherits(Writable, Stream);
 
@@ -6097,10 +6441,10 @@ Writable.prototype._destroy = function (err, cb) {
   this.end();
   cb(err);
 };
-/* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(0), __webpack_require__(48).setImmediate, __webpack_require__(1)))
+/* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(0), __webpack_require__(49).setImmediate, __webpack_require__(1)))
 
 /***/ }),
-/* 23 */
+/* 24 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -6402,7 +6746,7 @@ function simpleEnd(buf) {
 }
 
 /***/ }),
-/* 24 */
+/* 25 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -6622,7 +6966,7 @@ function done(stream, er, data) {
 }
 
 /***/ }),
-/* 25 */
+/* 26 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /* Copyright (c) 2012-2017 LevelUP contributors
@@ -6631,7 +6975,7 @@ function done(stream, er, data) {
  * <https://github.com/rvagg/node-levelup/blob/master/LICENSE.md>
  */
 
-var createError = __webpack_require__(53).create
+var createError = __webpack_require__(54).create
 var LevelUPError = createError('LevelUPError')
 var NotFoundError = createError('NotFoundError', LevelUPError)
 
@@ -6650,7 +6994,7 @@ module.exports = {
 
 
 /***/ }),
-/* 26 */
+/* 27 */
 /***/ (function(module, exports) {
 
 /* Copyright (c) 2012-2018 LevelUP contributors
@@ -6675,7 +7019,7 @@ module.exports = promisify
 
 
 /***/ }),
-/* 27 */
+/* 28 */
 /***/ (function(module, exports) {
 
 /**
@@ -6696,13 +7040,13 @@ var getCurTimestamp = function getCurTimestamp() {
 exports.getCurTimestamp = getCurTimestamp;
 
 /***/ }),
-/* 28 */
+/* 29 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 /* WEBPACK VAR INJECTION */(function(Buffer) {
 
-var toBuffer = __webpack_require__(68)
+var toBuffer = __webpack_require__(69)
 
 module.exports = function (value) {
   if (value instanceof Uint8Array) return toBuffer(value)
@@ -6713,358 +7057,96 @@ module.exports = function (value) {
 /* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(3).Buffer))
 
 /***/ }),
-/* 29 */
+/* 30 */
 /***/ (function(module, exports, __webpack_require__) {
 
-module.exports = __webpack_require__(70)
+module.exports = __webpack_require__(71)
 
-
-/***/ }),
-/* 30 */
-/***/ (function(module, exports) {
-
-var _Object$freeze;
-
-function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
-
-var messageTypes = Object.freeze({
-  info: 'lite/info',
-  infoAck: 'lite/info_ack',
-
-  getBlocks: 'lite/get_blocks',
-  inv: 'lite/inv',
-  getData: 'lite/get_data',
-  data: 'lite/data',
-  getDataPartial: 'lite/get_data_partial',
-  dataPartial: 'lite/data_partial',
-  partialNotFound: 'lite/partial_not_found',
-
-  getPendingMsgs: 'lite/get_pending_msgs',
-
-  getHeaders: 'lite/get_headers',
-  headers: 'lite/headers',
-  locateLitemsgs: 'lite/locate_litemsgs',
-  litemsgLocators: 'lite/litemsg_locators'
-});
-
-var info = function info(_ref) {
-  var uuid = _ref.uuid,
-      nodeType = _ref.nodeType,
-      daemonPort = _ref.daemonPort;
-  return {
-    messageType: messageTypes.info,
-    uuid: uuid,
-    nodeType: nodeType,
-    daemonPort: daemonPort
-  };
-};
-
-info.validate = function (_ref2) {
-  var uuid = _ref2.uuid,
-      nodeType = _ref2.nodeType,
-      daemonPort = _ref2.daemonPort;
-
-  if (typeof uuid !== 'string') {
-    throw new Error('lite/: Invalid uuid.');
-  }
-  if (nodeType !== 'full' && nodeType !== 'thin') {
-    throw new Error('lite/: Invalid node type.');
-  }
-  if (daemonPort !== undefined && (typeof daemonPort !== 'number' || daemonPort <= 1024 || daemonPort > 65535)) {
-    throw new Error('lite/: Invalid daemon port.');
-  }
-  if (nodeType === 'full' && !daemonPort) {
-    throw new Error('lite/: Invalid daemon port.');
-  }
-};
-
-var infoAck = function infoAck() {
-  return {
-    messageType: messageTypes.infoAck
-  };
-};
-
-infoAck.validate = function () {
-  // nothing here
-};
-
-var getBlocks = function getBlocks(_ref3) {
-  var blockLocators = _ref3.blockLocators;
-  return {
-    messageType: messageTypes.getBlocks,
-    blockLocators: blockLocators
-  };
-};
-
-getBlocks.validate = function (_ref4) {
-  var blockLocators = _ref4.blockLocators;
-
-  if (!(blockLocators instanceof Array)) {
-    throw new Error('lite/: Invalid block locators.');
-  }
-};
-
-/**
- * both params are list of ids
- */
-var inv = function inv(_ref5) {
-  var _ref5$blocks = _ref5.blocks,
-      blocks = _ref5$blocks === undefined ? [] : _ref5$blocks,
-      _ref5$litemsgs = _ref5.litemsgs,
-      litemsgs = _ref5$litemsgs === undefined ? [] : _ref5$litemsgs;
-  return {
-    messageType: messageTypes.inv,
-    blocks: blocks,
-    litemsgs: litemsgs
-  };
-};
-
-inv.validate = function (_ref6) {
-  var blocks = _ref6.blocks,
-      litemsgs = _ref6.litemsgs;
-
-  if (!(blocks instanceof Array)) {
-    throw new Error('lite/: Invalid blocks.');
-  }
-  if (!(litemsgs instanceof Array)) {
-    throw new Error('lite/: Invalid lite messages.');
-  }
-};
-
-/**
- * both params are list of ids
- */
-var getData = function getData(_ref7) {
-  var _ref7$blocks = _ref7.blocks,
-      blocks = _ref7$blocks === undefined ? [] : _ref7$blocks,
-      _ref7$litemsgs = _ref7.litemsgs,
-      litemsgs = _ref7$litemsgs === undefined ? [] : _ref7$litemsgs;
-  return {
-    messageType: messageTypes.getData,
-    blocks: blocks,
-    litemsgs: litemsgs
-  };
-};
-
-getData.validate = function (_ref8) {
-  var blocks = _ref8.blocks,
-      litemsgs = _ref8.litemsgs;
-
-  if (!(blocks instanceof Array)) {
-    throw new Error('lite/: Invalid blocks.');
-  }
-  if (!(litemsgs instanceof Array)) {
-    throw new Error('lite/: Invalid lite messages.');
-  }
-};
-
-var data = function data(_ref9) {
-  var _ref9$blocks = _ref9.blocks,
-      blocks = _ref9$blocks === undefined ? [] : _ref9$blocks,
-      _ref9$litemsgs = _ref9.litemsgs,
-      litemsgs = _ref9$litemsgs === undefined ? [] : _ref9$litemsgs;
-  return {
-    messageType: messageTypes.data,
-    blocks: blocks,
-    litemsgs: litemsgs
-  };
-};
-
-data.validate = function (_ref10) {
-  var blocks = _ref10.blocks,
-      litemsgs = _ref10.litemsgs;
-
-  if (!(blocks instanceof Array)) {
-    throw new Error('lite/: Invalid blocks.');
-  }
-  if (!(litemsgs instanceof Array)) {
-    throw new Error('lite/: Invalid lite messages.');
-  }
-};
-
-var getDataPartial = function getDataPartial(_ref11) {
-  var merkleDigest = _ref11.merkleDigest,
-      blocks = _ref11.blocks;
-  return {
-    messageType: messageTypes.getDataPartial,
-    merkleDigest: merkleDigest,
-    blocks: blocks
-  };
-};
-
-getDataPartial.validate = function (_ref12) {
-  var merkleDigest = _ref12.merkleDigest,
-      blocks = _ref12.blocks;
-
-  if (typeof merkleDigest !== 'string') {
-    throw new Error('lite/: Invalid merkle digest.');
-  }
-  if (!(blocks instanceof Array)) {
-    throw new Error('lite/: Invalid blocks.');
-  }
-};
-
-var dataPartial = function dataPartial(_ref13) {
-  var merkleDigest = _ref13.merkleDigest,
-      blocks = _ref13.blocks;
-  return {
-    messageType: messageTypes.dataPartial,
-    merkleDigest: merkleDigest,
-    blocks: blocks
-  };
-};
-
-dataPartial.validate = function (_ref14) {
-  var merkleDigest = _ref14.merkleDigest,
-      blocks = _ref14.blocks;
-
-  if (typeof merkleDigest !== 'string') {
-    throw new Error('lite/: Invalid merkle digest.');
-  }
-  if (!(blocks instanceof Array)) {
-    throw new Error('lite/: Invalid blocks.');
-  }
-};
-
-var partialNotFound = function partialNotFound(_ref15) {
-  var merkleDigest = _ref15.merkleDigest,
-      blocks = _ref15.blocks;
-  return {
-    messageType: messageTypes.partialNotFound,
-    merkleDigest: merkleDigest,
-    blocks: blocks
-  };
-};
-
-partialNotFound.validate = function (_ref16) {
-  var merkleDigest = _ref16.merkleDigest,
-      blocks = _ref16.blocks;
-
-  if (typeof merkleDigest !== 'string') {
-    throw new Error('lite/: Invalid merkle digest.');
-  }
-  if (!(blocks instanceof Array)) {
-    throw new Error('lite/: Invalid blocks.');
-  }
-};
-
-var getPendingMsgs = function getPendingMsgs() {
-  return {
-    messageType: messageTypes.getPendingMsgs
-  };
-};
-
-getPendingMsgs.validate = function () {
-  // nothing
-};
-
-var getHeaders = function getHeaders(_ref17) {
-  var blocks = _ref17.blocks;
-  return {
-    messageType: messageTypes.getHeaders,
-    blocks: blocks
-  };
-};
-
-getHeaders.validate = function (_ref18) {
-  var blocks = _ref18.blocks;
-
-  if (!(blocks instanceof Array)) {
-    throw new Error('lite/: Invalid blocks.');
-  }
-};
-
-var headers = function headers(_ref19) {
-  var blocks = _ref19.blocks;
-  return {
-    messageType: messageTypes.headers,
-    blocks: blocks
-  };
-};
-
-headers.validate = function (_ref20) {
-  var blocks = _ref20.blocks;
-
-  if (!(blocks instanceof Array)) {
-    throw new Error('lite/: Invalid block headers.');
-  }
-};
-
-/**
- * @param {*} options
- *      `litemsgs` - ids
- */
-var locateLitemsgs = function locateLitemsgs(_ref21) {
-  var litemsgs = _ref21.litemsgs;
-  return {
-    messageType: messageTypes.locateLitemsgs,
-    litemsgs: litemsgs
-  };
-};
-
-locateLitemsgs.validate = function (_ref22) {
-  var litemsgs = _ref22.litemsgs;
-
-  if (!(litemsgs instanceof Array)) {
-    throw new Error('lite/: Invalid lite message ids.');
-  }
-};
-
-/**
- * `litemsgs` is an array of litemsg ids. 
- * `blocks` is an array of blocks. 
- * `lookup` stores the relation between `litemsgs` and `blocks`.
- * 
- * The number of elements in `lookup` MUST be the same as `litemsgs`.
- * Each element in `lookup` is a block id. For instance, id of the 
- * block which first litemessage is located is the first element of
- * `lookup.`
- * 
- * In case a litemessage is not in any block, the corresponding
- * element in `lookup` MUST be undefined (or any falsy value).
- */
-var litemsgLocators = function litemsgLocators(_ref23) {
-  var litemsgs = _ref23.litemsgs,
-      blocks = _ref23.blocks,
-      lookup = _ref23.lookup;
-  return {
-    messageType: messageTypes.litemsgLocators,
-    litemsgs: litemsgs,
-    blocks: blocks,
-    lookup: lookup
-  };
-};
-
-litemsgLocators.validate = function (_ref24) {
-  // TODO verify the lookup array is correct
-
-  var litemsgs = _ref24.litemsgs,
-      blocks = _ref24.blocks,
-      lookup = _ref24.lookup;
-};
-
-// validators
-var messageValidators = Object.freeze((_Object$freeze = {}, _defineProperty(_Object$freeze, messageTypes.info, info.validate), _defineProperty(_Object$freeze, messageTypes.infoAck, infoAck.validate), _defineProperty(_Object$freeze, messageTypes.getBlocks, getBlocks.validate), _defineProperty(_Object$freeze, messageTypes.inv, inv.validate), _defineProperty(_Object$freeze, messageTypes.getData, getData.validate), _defineProperty(_Object$freeze, messageTypes.data, data.validate), _defineProperty(_Object$freeze, messageTypes.getDataPartial, getDataPartial.validate), _defineProperty(_Object$freeze, messageTypes.dataPartial, dataPartial.validate), _defineProperty(_Object$freeze, messageTypes.partialNotFound, partialNotFound.validate), _defineProperty(_Object$freeze, messageTypes.getPendingMsgs, getPendingMsgs.validate), _defineProperty(_Object$freeze, messageTypes.getHeaders, getHeaders.validate), _defineProperty(_Object$freeze, messageTypes.headers, headers.validate), _defineProperty(_Object$freeze, messageTypes.locateLitemsgs, locateLitemsgs.validate), _defineProperty(_Object$freeze, messageTypes.litemsgLocators, litemsgLocators.validate), _Object$freeze));
-
-exports.messageTypes = messageTypes;
-exports.messageValidators = messageValidators;
-exports.info = info;
-exports.infoAck = infoAck;
-exports.getBlocks = getBlocks;
-exports.inv = inv;
-exports.getData = getData;
-exports.data = data;
-exports.getDataPartial = getDataPartial;
-exports.dataPartial = dataPartial;
-exports.partialNotFound = partialNotFound;
-exports.getPendingMsgs = getPendingMsgs;
-exports.getHeaders = getHeaders;
-exports.headers = headers;
-exports.locateLitemsgs = locateLitemsgs;
-exports.litemsgLocators = litemsgLocators;
 
 /***/ }),
 /* 31 */
+/***/ (function(module, exports, __webpack_require__) {
+
+function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
+
+if (false) { var path; } else {
+  // run in browser
+}
+
+var isValidJson = function isValidJson(json) {
+  if (typeof json !== 'string' || !json) {
+    return false;
+  }
+
+  try {
+    JSON.parse(json);
+    return true;
+  } catch (e) {}
+  return false;
+};
+
+/**
+ * From 0 (inclusive) to `max` (exclusive).
+ */
+var randomInt = function randomInt(max) {
+  return Math.floor(Math.random() * Math.floor(max));
+};
+
+/**
+ * Randomly pick `num` items from an array. Note that original array 
+ * won't be altered. And also the order of items won't be preserved 
+ * in the picked array.
+ */
+var pickItems = function pickItems(array, num) {
+  var copiedArray = [].concat(_toConsumableArray(array));
+  var picked = [];
+  num = Math.min(array.length, num);
+  for (var i = 0; i < num; i++) {
+    picked.push.apply(picked, _toConsumableArray(copiedArray.splice(randomInt(copiedArray.length), 1)));
+  }
+  return picked;
+};
+
+var sliceItems = function sliceItems(array, slices) {
+  slices = Math.max(Math.min(array.length, slices), 1);
+
+  var l = Math.floor(array.length / slices);
+  var sliced = [];
+
+  for (var i = 0; i < slices; i++) {
+    if (i + 1 === slices) {
+      sliced.push(array.slice(l * i));
+    } else {
+      sliced.push(array.slice(l * i, l * (i + 1)));
+    }
+  }
+  return sliced;
+};
+
+var parseChunk = function parseChunk(buffer) {
+  if (buffer.length % 32) {
+    throw new Error('Invalid chunk buffer.');
+  }
+
+  var hashes = [];
+  for (var i = 0; i < buffer.length; i += 32) {
+    hashes.push(buffer.slice(i, i + 32).toString('hex'));
+  }
+  return hashes;
+};
+
+if (false) { var getAbsRootPath; } else {
+  // run in browser
+}
+
+exports.isValidJson = isValidJson;
+exports.randomInt = randomInt;
+exports.pickItems = pickItems;
+exports.sliceItems = sliceItems;
+exports.parseChunk = parseChunk;
+
+/***/ }),
+/* 32 */
 /***/ (function(module, exports, __webpack_require__) {
 
 function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
@@ -7419,7 +7501,7 @@ if (false) {} else {
 }
 
 /***/ }),
-/* 32 */
+/* 33 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
@@ -7427,16 +7509,16 @@ var _extends = Object.assign || function (target) { for (var i = 1; i < argument
 if (false) {} else {
   // browser (output as umd)
 
-  __webpack_require__(33);
+  __webpack_require__(34);
 
-  exports.Node = __webpack_require__(14);
-  exports.ThinNode = __webpack_require__(77);
+  exports.Node = __webpack_require__(15);
+  exports.ThinNode = __webpack_require__(78);
 
-  module.exports = exports = _extends({}, exports, __webpack_require__(31));
+  module.exports = exports = _extends({}, exports, __webpack_require__(32));
 }
 
 /***/ }),
-/* 33 */
+/* 34 */
 /***/ (function(module, exports) {
 
 /**
@@ -8163,11 +8245,11 @@ if (false) {} else {
 
 
 /***/ }),
-/* 34 */
+/* 35 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var rng = __webpack_require__(35);
-var bytesToUuid = __webpack_require__(36);
+var rng = __webpack_require__(36);
+var bytesToUuid = __webpack_require__(37);
 
 // **`v1()` - Generate time-based UUID**
 //
@@ -8278,7 +8360,7 @@ module.exports = v1;
 
 
 /***/ }),
-/* 35 */
+/* 36 */
 /***/ (function(module, exports) {
 
 // Unique ID creation requires a high quality random # generator.  In the
@@ -8316,7 +8398,7 @@ if (getRandomValues) {
 
 
 /***/ }),
-/* 36 */
+/* 37 */
 /***/ (function(module, exports) {
 
 /**
@@ -8345,7 +8427,7 @@ module.exports = bytesToUuid;
 
 
 /***/ }),
-/* 37 */
+/* 38 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /* WEBPACK VAR INJECTION */(function(process) {/* Copyright (c) 2012-2018 LevelUP contributors
@@ -8357,12 +8439,12 @@ module.exports = bytesToUuid;
 var EventEmitter = __webpack_require__(8).EventEmitter
 var inherits = __webpack_require__(9).inherits
 var extend = __webpack_require__(13)
-var DeferredLevelDOWN = __webpack_require__(39)
-var IteratorStream = __webpack_require__(44)
-var Batch = __webpack_require__(52)
-var errors = __webpack_require__(25)
-var assert = __webpack_require__(56)
-var promisify = __webpack_require__(26)
+var DeferredLevelDOWN = __webpack_require__(40)
+var IteratorStream = __webpack_require__(45)
+var Batch = __webpack_require__(53)
+var errors = __webpack_require__(26)
+var assert = __webpack_require__(57)
+var promisify = __webpack_require__(27)
 
 var WriteError = errors.WriteError
 var ReadError = errors.ReadError
@@ -8659,7 +8741,7 @@ module.exports = LevelUP.default = LevelUP
 /* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(0)))
 
 /***/ }),
-/* 38 */
+/* 39 */
 /***/ (function(module, exports) {
 
 module.exports = function isBuffer(arg) {
@@ -8670,12 +8752,12 @@ module.exports = function isBuffer(arg) {
 }
 
 /***/ }),
-/* 39 */
+/* 40 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var util = __webpack_require__(9)
 var AbstractLevelDOWN = __webpack_require__(10).AbstractLevelDOWN
-var DeferredIterator = __webpack_require__(43)
+var DeferredIterator = __webpack_require__(44)
 var deferrables = 'put get del batch'.split(' ')
 
 function DeferredLevelDOWN (db) {
@@ -8764,14 +8846,14 @@ module.exports.DeferredIterator = DeferredIterator
 
 
 /***/ }),
-/* 40 */
+/* 41 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /* WEBPACK VAR INJECTION */(function(process, Buffer) {/* Copyright (c) 2017 Rod Vagg, MIT License */
 
 var xtend = __webpack_require__(13)
-var AbstractIterator = __webpack_require__(16)
-var AbstractChainedBatch = __webpack_require__(17)
+var AbstractIterator = __webpack_require__(17)
+var AbstractChainedBatch = __webpack_require__(18)
 var hasOwnProperty = Object.prototype.hasOwnProperty
 var rangeOptions = 'start end gt gte lt lte'.split(' ')
 
@@ -9034,7 +9116,7 @@ module.exports = AbstractLevelDOWN
 /* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(0), __webpack_require__(3).Buffer))
 
 /***/ }),
-/* 41 */
+/* 42 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -9192,7 +9274,7 @@ function fromByteArray (uint8) {
 
 
 /***/ }),
-/* 42 */
+/* 43 */
 /***/ (function(module, exports) {
 
 exports.read = function (buffer, offset, isLE, mLen, nBytes) {
@@ -9282,7 +9364,7 @@ exports.write = function (buffer, value, offset, isLE, mLen, nBytes) {
 
 
 /***/ }),
-/* 43 */
+/* 44 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var util = __webpack_require__(9)
@@ -9320,11 +9402,11 @@ module.exports = DeferredIterator
 
 
 /***/ }),
-/* 44 */
+/* 45 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var inherits = __webpack_require__(2)
-var Readable = __webpack_require__(18).Readable
+var Readable = __webpack_require__(19).Readable
 var extend = __webpack_require__(13)
 
 module.exports = ReadStream
@@ -9376,13 +9458,13 @@ ReadStream.prototype._cleanup = function () {
 
 
 /***/ }),
-/* 45 */
+/* 46 */
 /***/ (function(module, exports) {
 
 /* (ignored) */
 
 /***/ }),
-/* 46 */
+/* 47 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -9391,7 +9473,7 @@ ReadStream.prototype._cleanup = function () {
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 var Buffer = __webpack_require__(5).Buffer;
-var util = __webpack_require__(47);
+var util = __webpack_require__(48);
 
 function copyBuffer(src, target, offset) {
   src.copy(target, offset);
@@ -9467,13 +9549,13 @@ if (util && util.inspect && util.inspect.custom) {
 }
 
 /***/ }),
-/* 47 */
+/* 48 */
 /***/ (function(module, exports) {
 
 /* (ignored) */
 
 /***/ }),
-/* 48 */
+/* 49 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /* WEBPACK VAR INJECTION */(function(global) {var scope = (typeof global !== "undefined" && global) ||
@@ -9529,7 +9611,7 @@ exports._unrefActive = exports.active = function(item) {
 };
 
 // setimmediate attaches itself to the global object
-__webpack_require__(49);
+__webpack_require__(50);
 // On some exotic environments, it's not clear which object `setimmediate` was
 // able to install onto.  Search each possibility in the same order as the
 // `setimmediate` library.
@@ -9543,7 +9625,7 @@ exports.clearImmediate = (typeof self !== "undefined" && self.clearImmediate) ||
 /* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(1)))
 
 /***/ }),
-/* 49 */
+/* 50 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /* WEBPACK VAR INJECTION */(function(global, process) {(function (global, undefined) {
@@ -9736,7 +9818,7 @@ exports.clearImmediate = (typeof self !== "undefined" && self.clearImmediate) ||
 /* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(1), __webpack_require__(0)))
 
 /***/ }),
-/* 50 */
+/* 51 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /* WEBPACK VAR INJECTION */(function(global) {
@@ -9810,7 +9892,7 @@ function config (name) {
 /* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(1)))
 
 /***/ }),
-/* 51 */
+/* 52 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -9843,7 +9925,7 @@ function config (name) {
 
 module.exports = PassThrough;
 
-var Transform = __webpack_require__(24);
+var Transform = __webpack_require__(25);
 
 /*<replacement>*/
 var util = __webpack_require__(6);
@@ -9863,7 +9945,7 @@ PassThrough.prototype._transform = function (chunk, encoding, cb) {
 };
 
 /***/ }),
-/* 52 */
+/* 53 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /* Copyright (c) 2012-2018 LevelUP contributors
@@ -9872,8 +9954,8 @@ PassThrough.prototype._transform = function (chunk, encoding, cb) {
  * <https://github.com/level/levelup/blob/master/LICENSE.md>
  */
 
-var WriteError = __webpack_require__(25).WriteError
-var promisify = __webpack_require__(26)
+var WriteError = __webpack_require__(26).WriteError
+var promisify = __webpack_require__(27)
 
 function Batch (levelup) {
   this._levelup = levelup
@@ -9948,7 +10030,7 @@ module.exports = Batch
 
 
 /***/ }),
-/* 53 */
+/* 54 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var all = module.exports.all = [
@@ -10262,15 +10344,15 @@ all.forEach(function (error) {
   module.exports.code[error.code] = error
 })
 
-module.exports.custom = __webpack_require__(54)(module.exports)
+module.exports.custom = __webpack_require__(55)(module.exports)
 module.exports.create = module.exports.custom.createError
 
 
 /***/ }),
-/* 54 */
+/* 55 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var prr = __webpack_require__(55)
+var prr = __webpack_require__(56)
 
 function init (type, message, cause) {
   if (!!message && typeof message != 'string') {
@@ -10330,7 +10412,7 @@ module.exports = function (errno) {
 
 
 /***/ }),
-/* 55 */
+/* 56 */
 /***/ (function(module, exports) {
 
 /*!
@@ -10398,7 +10480,7 @@ module.exports = function (errno) {
 })
 
 /***/ }),
-/* 56 */
+/* 57 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -10896,7 +10978,7 @@ var objectKeys = Object.keys || function (obj) {
 /* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(1)))
 
 /***/ }),
-/* 57 */
+/* 58 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -10907,12 +10989,12 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-var WSClient = __webpack_require__(58);
+var WSClient = __webpack_require__(59);
 
 var _require = __webpack_require__(12),
     getSocketAddress = _require.getSocketAddress;
 
-var _require2 = __webpack_require__(27),
+var _require2 = __webpack_require__(28),
     getCurTimestamp = _require2.getCurTimestamp;
 
 if (false) { var WSServer, EventEmitter; } else {
@@ -11274,7 +11356,7 @@ var LiteNode = function (_EventEmitter) {
 module.exports = LiteNode;
 
 /***/ }),
-/* 58 */
+/* 59 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
@@ -11300,7 +11382,7 @@ if (false) { var WebSocket, _require2, URL, EventEmitter; } else {
 
   // simple-websocket is an event-emitter based websocket
   // implementation, which supports running in browser
-  var WebSocket = __webpack_require__(59);
+  var WebSocket = __webpack_require__(60);
   // shim some methods
   Object.getPrototypeOf(WebSocket).close = function () {
     this.destroy();
@@ -11544,18 +11626,18 @@ var WSClient = function (_EventEmitter) {
 module.exports = WSClient;
 
 /***/ }),
-/* 59 */
+/* 60 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /* WEBPACK VAR INJECTION */(function(process, Buffer) {/* global WebSocket, DOMException */
 
 module.exports = Socket
 
-var debug = __webpack_require__(60)('simple-websocket')
+var debug = __webpack_require__(61)('simple-websocket')
 var inherits = __webpack_require__(2)
-var randombytes = __webpack_require__(63)
-var stream = __webpack_require__(18)
-var ws = __webpack_require__(64) // websockets in node - will be empty object in browser
+var randombytes = __webpack_require__(64)
+var stream = __webpack_require__(19)
+var ws = __webpack_require__(65) // websockets in node - will be empty object in browser
 
 var _WebSocket = typeof ws !== 'function' ? WebSocket : ws
 
@@ -11824,7 +11906,7 @@ Socket.prototype._debug = function () {
 /* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(0), __webpack_require__(3).Buffer))
 
 /***/ }),
-/* 60 */
+/* 61 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /* WEBPACK VAR INJECTION */(function(process) {/**
@@ -11833,7 +11915,7 @@ Socket.prototype._debug = function () {
  * Expose `debug()` as the module.
  */
 
-exports = module.exports = __webpack_require__(61);
+exports = module.exports = __webpack_require__(62);
 exports.log = log;
 exports.formatArgs = formatArgs;
 exports.save = save;
@@ -12026,7 +12108,7 @@ function localstorage() {
 /* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(0)))
 
 /***/ }),
-/* 61 */
+/* 62 */
 /***/ (function(module, exports, __webpack_require__) {
 
 
@@ -12042,7 +12124,7 @@ exports.coerce = coerce;
 exports.disable = disable;
 exports.enable = enable;
 exports.enabled = enabled;
-exports.humanize = __webpack_require__(62);
+exports.humanize = __webpack_require__(63);
 
 /**
  * Active `debug` instances.
@@ -12257,7 +12339,7 @@ function coerce(val) {
 
 
 /***/ }),
-/* 62 */
+/* 63 */
 /***/ (function(module, exports) {
 
 /**
@@ -12415,7 +12497,7 @@ function plural(ms, n, name) {
 
 
 /***/ }),
-/* 63 */
+/* 64 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -12461,13 +12543,13 @@ function randomBytes (size, cb) {
 /* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(1), __webpack_require__(0)))
 
 /***/ }),
-/* 64 */
+/* 65 */
 /***/ (function(module, exports) {
 
 /* (ignored) */
 
 /***/ }),
-/* 65 */
+/* 66 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -12479,10 +12561,10 @@ module.exports = Level
 
 var AbstractLevelDOWN = __webpack_require__(10).AbstractLevelDOWN
 var inherits = __webpack_require__(2)
-var Iterator = __webpack_require__(66)
-var mixedToBuffer = __webpack_require__(28)
-var setImmediate = __webpack_require__(29)
-var support = __webpack_require__(76)
+var Iterator = __webpack_require__(67)
+var mixedToBuffer = __webpack_require__(29)
+var setImmediate = __webpack_require__(30)
+var support = __webpack_require__(77)
 
 var DEFAULT_PREFIX = 'level-js-'
 
@@ -12689,7 +12771,7 @@ Level.destroy = function (location, prefix, callback) {
 /* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(3).Buffer))
 
 /***/ }),
-/* 66 */
+/* 67 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -12699,9 +12781,9 @@ Level.destroy = function (location, prefix, callback) {
 
 var inherits = __webpack_require__(2)
 var AbstractIterator = __webpack_require__(10).AbstractIterator
-var ltgt = __webpack_require__(67)
-var mixedToBuffer = __webpack_require__(28)
-var setImmediate = __webpack_require__(29)
+var ltgt = __webpack_require__(68)
+var mixedToBuffer = __webpack_require__(29)
+var setImmediate = __webpack_require__(30)
 var noop = function () {}
 
 module.exports = Iterator
@@ -12855,7 +12937,7 @@ Iterator.prototype._end = function (callback) {
 
 
 /***/ }),
-/* 67 */
+/* 68 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /* WEBPACK VAR INJECTION */(function(Buffer) {
@@ -13027,7 +13109,7 @@ exports.filter = function (range, compare) {
 /* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(3).Buffer))
 
 /***/ }),
-/* 68 */
+/* 69 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /* WEBPACK VAR INJECTION */(function(Buffer) {/**
@@ -13039,7 +13121,7 @@ exports.filter = function (range, compare) {
  * `npm install typedarray-to-buffer`
  */
 
-var isTypedArray = __webpack_require__(69).strict
+var isTypedArray = __webpack_require__(70).strict
 
 module.exports = function typedarrayToBuffer (arr) {
   if (isTypedArray(arr)) {
@@ -13059,7 +13141,7 @@ module.exports = function typedarrayToBuffer (arr) {
 /* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(3).Buffer))
 
 /***/ }),
-/* 69 */
+/* 70 */
 /***/ (function(module, exports) {
 
 module.exports      = isTypedArray
@@ -13106,17 +13188,17 @@ function isLooseTypedArray(arr) {
 
 
 /***/ }),
-/* 70 */
+/* 71 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 var types = [
-  __webpack_require__(71),
   __webpack_require__(72),
   __webpack_require__(73),
   __webpack_require__(74),
-  __webpack_require__(75)
+  __webpack_require__(75),
+  __webpack_require__(76)
 ];
 var draining;
 var currentQueue;
@@ -13209,7 +13291,7 @@ function immediate(task) {
 
 
 /***/ }),
-/* 71 */
+/* 72 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -13228,7 +13310,7 @@ exports.install = function (func) {
 /* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(0)))
 
 /***/ }),
-/* 72 */
+/* 73 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -13257,7 +13339,7 @@ exports.install = function (handle) {
 /* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(1)))
 
 /***/ }),
-/* 73 */
+/* 74 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -13282,7 +13364,7 @@ exports.install = function (func) {
 /* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(1)))
 
 /***/ }),
-/* 74 */
+/* 75 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -13313,7 +13395,7 @@ exports.install = function (handle) {
 /* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(1)))
 
 /***/ }),
-/* 75 */
+/* 76 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -13329,7 +13411,7 @@ exports.install = function (t) {
 };
 
 /***/ }),
-/* 76 */
+/* 77 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -13351,7 +13433,7 @@ exports.arrayKeys = exports.test([1])
 
 
 /***/ }),
-/* 77 */
+/* 78 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -13364,8 +13446,14 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-var Node = __webpack_require__(14);
-var ThinLiteProtocol = __webpack_require__(78);
+var Node = __webpack_require__(15);
+var ThinLiteProtocol = __webpack_require__(79);
+
+var _require = __webpack_require__(14),
+    getData = _require.getData;
+
+var _require2 = __webpack_require__(31),
+    pickItems = _require2.pickItems;
 
 var NODE_TYPE = 'thin';
 
@@ -13387,6 +13475,27 @@ var ThinNode = function (_Node) {
   }
 
   _createClass(ThinNode, [{
+    key: 'fetchBlockBody',
+
+
+    /**
+     * Fetch body (litemessage) of a given block.
+     * 
+     * By default, if possible, it will ask 3 fullnode
+     * peers, just to make sure the body could be fetched
+     * successfully.
+     * 
+     * Currently you cannot get notified at this class
+     * when the body is fetched successfully. To get
+     * notified, please have a look at the `Blockchain`
+     * utility, which has low level event for that.
+     */
+    value: function fetchBlockBody(blockId) {
+      pickItems(this.peers('full'), 3).forEach(function (peer) {
+        return peer.sendJson(getData({ blocks: [blockId] }));
+      });
+    }
+  }, {
     key: 'close',
     value: function close() {
       _get(ThinNode.prototype.__proto__ || Object.getPrototypeOf(ThinNode.prototype), 'close', this).call(this);
@@ -13404,7 +13513,7 @@ var ThinNode = function (_Node) {
 module.exports = ThinNode;
 
 /***/ }),
-/* 78 */
+/* 79 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /* WEBPACK VAR INJECTION */(function(process) {var _get = function get(object, property, receiver) { if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { return get(parent, property, receiver); } } else if ("value" in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } };
@@ -13423,16 +13532,17 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-var P2PProtocol = __webpack_require__(79);
+var P2PProtocol = __webpack_require__(80);
 var LiteProtocolStore = __webpack_require__(83);
 var HandshakeManager = __webpack_require__(84);
 var Blockchain = __webpack_require__(86);
 
-var _require = __webpack_require__(31),
+var _require = __webpack_require__(32),
     verifyHeader = _require.verifyHeader,
-    verifyHeaderChain = _require.verifyHeaderChain;
+    verifyHeaderChain = _require.verifyHeaderChain,
+    verifyBlock = _require.verifyBlock;
 
-var _require2 = __webpack_require__(30),
+var _require2 = __webpack_require__(14),
     messageTypes = _require2.messageTypes,
     messageValidators = _require2.messageValidators,
     getHeaders = _require2.getHeaders,
@@ -13475,6 +13585,7 @@ var ThinLiteProtocol = function (_P2PProtocol) {
 
     _this.invHandler = _this.invHandler.bind(_this);
     _this.headersHandler = _this.headersHandler.bind(_this);
+    _this.dataHandler = _this.dataHandler.bind(_this);
     _this.peerConnectHandler = _this.peerConnectHandler.bind(_this);
 
     _this.litestore = new LiteProtocolStore(node.db);
@@ -13499,6 +13610,7 @@ var ThinLiteProtocol = function (_P2PProtocol) {
       // register message/connection handlers
       this.litenode.on('message/' + messageTypes.inv, this.invHandler);
       this.litenode.on('message/' + messageTypes.headers, this.headersHandler);
+      this.litenode.on('message/' + messageTypes.data, this.dataHandler);
       this.litenode.on('peerconnect', this.peerConnectHandler);
 
       this.handshake = new HandshakeManager(this);
@@ -13842,6 +13954,100 @@ var ThinLiteProtocol = function (_P2PProtocol) {
       // peer._resolver = new InventoryResolver(peer, this);
     }
   }, {
+    key: 'dataHandler',
+    value: function () {
+      var _ref7 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee4(_ref6, peer) {
+        var _this3 = this;
+
+        var messageType = _ref6.messageType,
+            payload = _objectWithoutProperties(_ref6, ['messageType']);
+
+        var blocks, _iteratorNormalCompletion2, _didIteratorError2, _iteratorError2, _iterator2, _step2, block;
+
+        return regeneratorRuntime.wrap(function _callee4$(_context4) {
+          while (1) {
+            switch (_context4.prev = _context4.next) {
+              case 0:
+                _context4.prev = 0;
+
+                messageValidators[messageType](payload);
+                blocks = payload.blocks;
+
+                // filter out invalid blocks and those that aren't on main branch
+
+                blocks = blocks.filter(function (block) {
+                  return verifyBlock(block) && _this3.blockchain.onMainBranchSync(block.hash);
+                });
+
+                _iteratorNormalCompletion2 = true;
+                _didIteratorError2 = false;
+                _iteratorError2 = undefined;
+                _context4.prev = 7;
+                for (_iterator2 = blocks[Symbol.iterator](); !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+                  block = _step2.value;
+
+                  // index body (litemessages) of the block
+                  this.blockchain.updateBlock(block);
+                }
+
+                _context4.next = 15;
+                break;
+
+              case 11:
+                _context4.prev = 11;
+                _context4.t0 = _context4['catch'](7);
+                _didIteratorError2 = true;
+                _iteratorError2 = _context4.t0;
+
+              case 15:
+                _context4.prev = 15;
+                _context4.prev = 16;
+
+                if (!_iteratorNormalCompletion2 && _iterator2.return) {
+                  _iterator2.return();
+                }
+
+              case 18:
+                _context4.prev = 18;
+
+                if (!_didIteratorError2) {
+                  _context4.next = 21;
+                  break;
+                }
+
+                throw _iteratorError2;
+
+              case 21:
+                return _context4.finish(18);
+
+              case 22:
+                return _context4.finish(15);
+
+              case 23:
+                _context4.next = 28;
+                break;
+
+              case 25:
+                _context4.prev = 25;
+                _context4.t1 = _context4['catch'](0);
+
+                console.warn(_context4.t1);
+
+              case 28:
+              case 'end':
+                return _context4.stop();
+            }
+          }
+        }, _callee4, this, [[0, 25], [7, 11, 15, 23], [16,, 18, 22]]);
+      }));
+
+      function dataHandler(_x6, _x7) {
+        return _ref7.apply(this, arguments);
+      }
+
+      return dataHandler;
+    }()
+  }, {
     key: 'close',
     value: function close() {
       this.handshake.close();
@@ -13856,7 +14062,7 @@ module.exports = ThinLiteProtocol;
 /* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(0)))
 
 /***/ }),
-/* 79 */
+/* 80 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /* WEBPACK VAR INJECTION */(function(process) {var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -13871,15 +14077,15 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-var P2PProtocolStore = __webpack_require__(80);
+var P2PProtocolStore = __webpack_require__(81);
 
-var _require = __webpack_require__(81),
+var _require = __webpack_require__(82),
     messageTypes = _require.messageTypes,
     messageValidators = _require.messageValidators,
     fetchPeers = _require.fetchPeers,
     returnPeers = _require.returnPeers;
 
-var _require2 = __webpack_require__(82),
+var _require2 = __webpack_require__(31),
     pickItems = _require2.pickItems;
 
 if (false) { var lookup, _require4, promisify, dns, _require3, URL, EventEmitter; } else {
@@ -14151,7 +14357,7 @@ module.exports = P2PProtocol;
 /* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(0)))
 
 /***/ }),
-/* 80 */
+/* 81 */
 /***/ (function(module, exports) {
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -14259,7 +14465,7 @@ var P2PProtocolStore = function () {
 module.exports = P2PProtocolStore;
 
 /***/ }),
-/* 81 */
+/* 82 */
 /***/ (function(module, exports) {
 
 var _Object$freeze;
@@ -14335,88 +14541,6 @@ exports.messageTypes = messageTypes;
 exports.messageValidators = messageValidators;
 exports.fetchPeers = fetchPeers;
 exports.returnPeers = returnPeers;
-
-/***/ }),
-/* 82 */
-/***/ (function(module, exports, __webpack_require__) {
-
-function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
-
-if (false) { var path; } else {
-  // run in browser
-}
-
-var isValidJson = function isValidJson(json) {
-  if (typeof json !== 'string' || !json) {
-    return false;
-  }
-
-  try {
-    JSON.parse(json);
-    return true;
-  } catch (e) {}
-  return false;
-};
-
-/**
- * From 0 (inclusive) to `max` (exclusive).
- */
-var randomInt = function randomInt(max) {
-  return Math.floor(Math.random() * Math.floor(max));
-};
-
-/**
- * Randomly pick `num` items from an array. Note that original array 
- * won't be altered. And also the order of items won't be preserved 
- * in the picked array.
- */
-var pickItems = function pickItems(array, num) {
-  var copiedArray = [].concat(_toConsumableArray(array));
-  var picked = [];
-  num = Math.min(array.length, num);
-  for (var i = 0; i < num; i++) {
-    picked.push.apply(picked, _toConsumableArray(copiedArray.splice(randomInt(copiedArray.length), 1)));
-  }
-  return picked;
-};
-
-var sliceItems = function sliceItems(array, slices) {
-  slices = Math.max(Math.min(array.length, slices), 1);
-
-  var l = Math.floor(array.length / slices);
-  var sliced = [];
-
-  for (var i = 0; i < slices; i++) {
-    if (i + 1 === slices) {
-      sliced.push(array.slice(l * i));
-    } else {
-      sliced.push(array.slice(l * i, l * (i + 1)));
-    }
-  }
-  return sliced;
-};
-
-var parseChunk = function parseChunk(buffer) {
-  if (buffer.length % 32) {
-    throw new Error('Invalid chunk buffer.');
-  }
-
-  var hashes = [];
-  for (var i = 0; i < buffer.length; i += 32) {
-    hashes.push(buffer.slice(i, i + 32).toString('hex'));
-  }
-  return hashes;
-};
-
-if (false) { var getAbsRootPath; } else {
-  // run in browser
-}
-
-exports.isValidJson = isValidJson;
-exports.randomInt = randomInt;
-exports.pickItems = pickItems;
-exports.sliceItems = sliceItems;
-exports.parseChunk = parseChunk;
 
 /***/ }),
 /* 83 */
@@ -14623,12 +14747,100 @@ var LiteProtocolStore = function () {
       return readHeadBlock;
     }()
 
-    // async writeBlock(block) {
-    //   if (typeof block.hash !== 'string') {
-    //     throw new Error('Invalid block hash.');
-    //   }
-    //   return this.db.put(genKey(`block_${block.hash}`), block);
-    // }
+    /**
+     * Blocks are meant to be immutable. Make sure use this operation
+     * with caution - you could potentially corrupt the blockchain.
+     */
+
+  }, {
+    key: 'writeBlock',
+    value: function () {
+      var _ref5 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee5(block, batchOps) {
+        var ops, _iteratorNormalCompletion, _didIteratorError, _iteratorError, _iterator, _step, litemsg;
+
+        return regeneratorRuntime.wrap(function _callee5$(_context5) {
+          while (1) {
+            switch (_context5.prev = _context5.next) {
+              case 0:
+                if (!(typeof block.hash !== 'string')) {
+                  _context5.next = 2;
+                  break;
+                }
+
+                throw new Error('Invalid block hash.');
+
+              case 2:
+                ops = [{ type: 'put', key: genKey('block_' + block.hash), value: JSON.stringify(block) }];
+
+                if (!block.litemsgs) {
+                  _context5.next = 23;
+                  break;
+                }
+
+                _iteratorNormalCompletion = true;
+                _didIteratorError = false;
+                _iteratorError = undefined;
+                _context5.prev = 7;
+
+                for (_iterator = block.litemsgs[Symbol.iterator](); !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+                  litemsg = _step.value;
+
+                  ops.push({ type: 'put', key: genKey('litemsg_' + litemsg.hash), value: block.hash });
+                }
+                _context5.next = 15;
+                break;
+
+              case 11:
+                _context5.prev = 11;
+                _context5.t0 = _context5['catch'](7);
+                _didIteratorError = true;
+                _iteratorError = _context5.t0;
+
+              case 15:
+                _context5.prev = 15;
+                _context5.prev = 16;
+
+                if (!_iteratorNormalCompletion && _iterator.return) {
+                  _iterator.return();
+                }
+
+              case 18:
+                _context5.prev = 18;
+
+                if (!_didIteratorError) {
+                  _context5.next = 21;
+                  break;
+                }
+
+                throw _iteratorError;
+
+              case 21:
+                return _context5.finish(18);
+
+              case 22:
+                return _context5.finish(15);
+
+              case 23:
+                if (batchOps) {
+                  ops = [].concat(_toConsumableArray(ops), _toConsumableArray(batchOps));
+                }
+
+                return _context5.abrupt('return', this.db.batch(ops));
+
+              case 25:
+              case 'end':
+                return _context5.stop();
+            }
+          }
+        }, _callee5, this, [[7, 11, 15, 23], [16,, 18, 22]]);
+      }));
+
+      function writeBlock(_x4, _x5) {
+        return _ref5.apply(this, arguments);
+      }
+
+      return writeBlock;
+    }()
 
     /**
      * Return the whole block specified by the given block id.
@@ -14638,44 +14850,44 @@ var LiteProtocolStore = function () {
   }, {
     key: 'readBlock',
     value: function () {
-      var _ref5 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee5(blockId) {
+      var _ref6 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee6(blockId) {
         var buf;
-        return regeneratorRuntime.wrap(function _callee5$(_context5) {
+        return regeneratorRuntime.wrap(function _callee6$(_context6) {
           while (1) {
-            switch (_context5.prev = _context5.next) {
+            switch (_context6.prev = _context6.next) {
               case 0:
-                _context5.prev = 0;
-                _context5.next = 3;
+                _context6.prev = 0;
+                _context6.next = 3;
                 return this.db.get(genKey('block_' + blockId));
 
               case 3:
-                buf = _context5.sent;
-                return _context5.abrupt('return', JSON.parse(buf.toString()));
+                buf = _context6.sent;
+                return _context6.abrupt('return', JSON.parse(buf.toString()));
 
               case 7:
-                _context5.prev = 7;
-                _context5.t0 = _context5['catch'](0);
+                _context6.prev = 7;
+                _context6.t0 = _context6['catch'](0);
 
-                if (!_context5.t0.notFound) {
-                  _context5.next = 11;
+                if (!_context6.t0.notFound) {
+                  _context6.next = 11;
                   break;
                 }
 
-                return _context5.abrupt('return', undefined);
+                return _context6.abrupt('return', undefined);
 
               case 11:
-                throw _context5.t0;
+                throw _context6.t0;
 
               case 12:
               case 'end':
-                return _context5.stop();
+                return _context6.stop();
             }
           }
-        }, _callee5, this, [[0, 7]]);
+        }, _callee6, this, [[0, 7]]);
       }));
 
-      function readBlock(_x4) {
-        return _ref5.apply(this, arguments);
+      function readBlock(_x6) {
+        return _ref6.apply(this, arguments);
       }
 
       return readBlock;
@@ -14688,15 +14900,15 @@ var LiteProtocolStore = function () {
   }, {
     key: 'appendBlock',
     value: function () {
-      var _ref6 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee6(block, batchOps) {
-        var ops, _iteratorNormalCompletion, _didIteratorError, _iteratorError, _iterator, _step, litemsg;
+      var _ref7 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee7(block, batchOps) {
+        var ops, _iteratorNormalCompletion2, _didIteratorError2, _iteratorError2, _iterator2, _step2, litemsg;
 
-        return regeneratorRuntime.wrap(function _callee6$(_context6) {
+        return regeneratorRuntime.wrap(function _callee7$(_context7) {
           while (1) {
-            switch (_context6.prev = _context6.next) {
+            switch (_context7.prev = _context7.next) {
               case 0:
                 if (!(typeof block.hash !== 'string')) {
-                  _context6.next = 2;
+                  _context7.next = 2;
                   break;
                 }
 
@@ -14706,70 +14918,70 @@ var LiteProtocolStore = function () {
                 ops = [{ type: 'put', key: genKey('block_' + block.hash), value: JSON.stringify(block) }, { type: 'put', key: genKey('head_block'), value: block.hash }];
 
                 if (!block.litemsgs) {
-                  _context6.next = 23;
+                  _context7.next = 23;
                   break;
                 }
 
-                _iteratorNormalCompletion = true;
-                _didIteratorError = false;
-                _iteratorError = undefined;
-                _context6.prev = 7;
+                _iteratorNormalCompletion2 = true;
+                _didIteratorError2 = false;
+                _iteratorError2 = undefined;
+                _context7.prev = 7;
 
-                for (_iterator = block.litemsgs[Symbol.iterator](); !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
-                  litemsg = _step.value;
+                for (_iterator2 = block.litemsgs[Symbol.iterator](); !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+                  litemsg = _step2.value;
 
                   ops.push({ type: 'put', key: genKey('litemsg_' + litemsg.hash), value: block.hash });
                 }
-                _context6.next = 15;
+                _context7.next = 15;
                 break;
 
               case 11:
-                _context6.prev = 11;
-                _context6.t0 = _context6['catch'](7);
-                _didIteratorError = true;
-                _iteratorError = _context6.t0;
+                _context7.prev = 11;
+                _context7.t0 = _context7['catch'](7);
+                _didIteratorError2 = true;
+                _iteratorError2 = _context7.t0;
 
               case 15:
-                _context6.prev = 15;
-                _context6.prev = 16;
+                _context7.prev = 15;
+                _context7.prev = 16;
 
-                if (!_iteratorNormalCompletion && _iterator.return) {
-                  _iterator.return();
+                if (!_iteratorNormalCompletion2 && _iterator2.return) {
+                  _iterator2.return();
                 }
 
               case 18:
-                _context6.prev = 18;
+                _context7.prev = 18;
 
-                if (!_didIteratorError) {
-                  _context6.next = 21;
+                if (!_didIteratorError2) {
+                  _context7.next = 21;
                   break;
                 }
 
-                throw _iteratorError;
+                throw _iteratorError2;
 
               case 21:
-                return _context6.finish(18);
+                return _context7.finish(18);
 
               case 22:
-                return _context6.finish(15);
+                return _context7.finish(15);
 
               case 23:
                 if (batchOps) {
                   ops = [].concat(_toConsumableArray(ops), _toConsumableArray(batchOps));
                 }
 
-                return _context6.abrupt('return', this.db.batch(ops));
+                return _context7.abrupt('return', this.db.batch(ops));
 
               case 25:
               case 'end':
-                return _context6.stop();
+                return _context7.stop();
             }
           }
-        }, _callee6, this, [[7, 11, 15, 23], [16,, 18, 22]]);
+        }, _callee7, this, [[7, 11, 15, 23], [16,, 18, 22]]);
       }));
 
-      function appendBlock(_x5, _x6) {
-        return _ref6.apply(this, arguments);
+      function appendBlock(_x7, _x8) {
+        return _ref7.apply(this, arguments);
       }
 
       return appendBlock;
@@ -14785,39 +14997,39 @@ var LiteProtocolStore = function () {
   }, {
     key: 'appendBlocksAt',
     value: function () {
-      var _ref7 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee7(blocks, batchOps) {
-        var headBlock, ops, _iteratorNormalCompletion2, _didIteratorError2, _iteratorError2, _iterator2, _step2, block, _iteratorNormalCompletion3, _didIteratorError3, _iteratorError3, _iterator3, _step3, litemsg;
+      var _ref8 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee8(blocks, batchOps) {
+        var headBlock, ops, _iteratorNormalCompletion3, _didIteratorError3, _iteratorError3, _iterator3, _step3, block, _iteratorNormalCompletion4, _didIteratorError4, _iteratorError4, _iterator4, _step4, litemsg;
 
-        return regeneratorRuntime.wrap(function _callee7$(_context7) {
+        return regeneratorRuntime.wrap(function _callee8$(_context8) {
           while (1) {
-            switch (_context7.prev = _context7.next) {
+            switch (_context8.prev = _context8.next) {
               case 0:
                 if (blocks.length) {
-                  _context7.next = 2;
+                  _context8.next = 2;
                   break;
                 }
 
-                return _context7.abrupt('return');
+                return _context8.abrupt('return');
 
               case 2:
                 headBlock = blocks[blocks.length - 1];
                 ops = [];
-                _iteratorNormalCompletion2 = true;
-                _didIteratorError2 = false;
-                _iteratorError2 = undefined;
-                _context7.prev = 7;
-                _iterator2 = blocks[Symbol.iterator]();
+                _iteratorNormalCompletion3 = true;
+                _didIteratorError3 = false;
+                _iteratorError3 = undefined;
+                _context8.prev = 7;
+                _iterator3 = blocks[Symbol.iterator]();
 
               case 9:
-                if (_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done) {
-                  _context7.next = 37;
+                if (_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done) {
+                  _context8.next = 37;
                   break;
                 }
 
-                block = _step2.value;
+                block = _step3.value;
 
                 if (!(typeof block.hash !== 'string')) {
-                  _context7.next = 13;
+                  _context8.next = 13;
                   break;
                 }
 
@@ -14828,91 +15040,91 @@ var LiteProtocolStore = function () {
                 ops.push({ type: 'put', key: genKey('block_' + block.hash), value: JSON.stringify(block) });
 
                 if (!block.litemsgs) {
-                  _context7.next = 34;
+                  _context8.next = 34;
                   break;
                 }
 
-                _iteratorNormalCompletion3 = true;
-                _didIteratorError3 = false;
-                _iteratorError3 = undefined;
-                _context7.prev = 18;
+                _iteratorNormalCompletion4 = true;
+                _didIteratorError4 = false;
+                _iteratorError4 = undefined;
+                _context8.prev = 18;
 
-                for (_iterator3 = block.litemsgs[Symbol.iterator](); !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
-                  litemsg = _step3.value;
+                for (_iterator4 = block.litemsgs[Symbol.iterator](); !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
+                  litemsg = _step4.value;
 
                   ops.push({ type: 'put', key: genKey('litemsg_' + litemsg.hash), value: block.hash });
                 }
-                _context7.next = 26;
+                _context8.next = 26;
                 break;
 
               case 22:
-                _context7.prev = 22;
-                _context7.t0 = _context7['catch'](18);
-                _didIteratorError3 = true;
-                _iteratorError3 = _context7.t0;
+                _context8.prev = 22;
+                _context8.t0 = _context8['catch'](18);
+                _didIteratorError4 = true;
+                _iteratorError4 = _context8.t0;
 
               case 26:
-                _context7.prev = 26;
-                _context7.prev = 27;
+                _context8.prev = 26;
+                _context8.prev = 27;
+
+                if (!_iteratorNormalCompletion4 && _iterator4.return) {
+                  _iterator4.return();
+                }
+
+              case 29:
+                _context8.prev = 29;
+
+                if (!_didIteratorError4) {
+                  _context8.next = 32;
+                  break;
+                }
+
+                throw _iteratorError4;
+
+              case 32:
+                return _context8.finish(29);
+
+              case 33:
+                return _context8.finish(26);
+
+              case 34:
+                _iteratorNormalCompletion3 = true;
+                _context8.next = 9;
+                break;
+
+              case 37:
+                _context8.next = 43;
+                break;
+
+              case 39:
+                _context8.prev = 39;
+                _context8.t1 = _context8['catch'](7);
+                _didIteratorError3 = true;
+                _iteratorError3 = _context8.t1;
+
+              case 43:
+                _context8.prev = 43;
+                _context8.prev = 44;
 
                 if (!_iteratorNormalCompletion3 && _iterator3.return) {
                   _iterator3.return();
                 }
 
-              case 29:
-                _context7.prev = 29;
+              case 46:
+                _context8.prev = 46;
 
                 if (!_didIteratorError3) {
-                  _context7.next = 32;
+                  _context8.next = 49;
                   break;
                 }
 
                 throw _iteratorError3;
 
-              case 32:
-                return _context7.finish(29);
-
-              case 33:
-                return _context7.finish(26);
-
-              case 34:
-                _iteratorNormalCompletion2 = true;
-                _context7.next = 9;
-                break;
-
-              case 37:
-                _context7.next = 43;
-                break;
-
-              case 39:
-                _context7.prev = 39;
-                _context7.t1 = _context7['catch'](7);
-                _didIteratorError2 = true;
-                _iteratorError2 = _context7.t1;
-
-              case 43:
-                _context7.prev = 43;
-                _context7.prev = 44;
-
-                if (!_iteratorNormalCompletion2 && _iterator2.return) {
-                  _iterator2.return();
-                }
-
-              case 46:
-                _context7.prev = 46;
-
-                if (!_didIteratorError2) {
-                  _context7.next = 49;
-                  break;
-                }
-
-                throw _iteratorError2;
-
               case 49:
-                return _context7.finish(46);
+                return _context8.finish(46);
 
               case 50:
-                return _context7.finish(43);
+                return _context8.finish(43);
 
               case 51:
                 ops.push({ type: 'put', key: genKey('head_block'), value: headBlock.hash });
@@ -14921,18 +15133,18 @@ var LiteProtocolStore = function () {
                   ops = [].concat(_toConsumableArray(ops), _toConsumableArray(batchOps));
                 }
 
-                return _context7.abrupt('return', this.db.batch(ops));
+                return _context8.abrupt('return', this.db.batch(ops));
 
               case 54:
               case 'end':
-                return _context7.stop();
+                return _context8.stop();
             }
           }
-        }, _callee7, this, [[7, 39, 43, 51], [18, 22, 26, 34], [27,, 29, 33], [44,, 46, 50]]);
+        }, _callee8, this, [[7, 39, 43, 51], [18, 22, 26, 34], [27,, 29, 33], [44,, 46, 50]]);
       }));
 
-      function appendBlocksAt(_x7, _x8) {
-        return _ref7.apply(this, arguments);
+      function appendBlocksAt(_x9, _x10) {
+        return _ref8.apply(this, arguments);
       }
 
       return appendBlocksAt;
@@ -14969,7 +15181,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 
 var Peer = __webpack_require__(85);
 
-var _require = __webpack_require__(30),
+var _require = __webpack_require__(14),
     messageValidators = _require.messageValidators,
     info = _require.info,
     infoAck = _require.infoAck,
@@ -14977,7 +15189,7 @@ var _require = __webpack_require__(30),
     infoType = _require$messageTypes.info,
     infoAckType = _require$messageTypes.infoAck;
 
-var _require2 = __webpack_require__(27),
+var _require2 = __webpack_require__(28),
     getCurTimestamp = _require2.getCurTimestamp;
 
 var _require3 = __webpack_require__(12),
@@ -15363,6 +15575,7 @@ var chunkSize = 1024;
  * - `error`    opposite of `ready`
  * - `push`     when a newly mined block is pushed into blockchain
  * - `switch`   when a subchain (either off or on main brnach) is appended
+ * - `update`   when a block is updated (i.e. body is indexed, this is for "thin" node only)
  */
 
 var Blockchain = function (_EventEmitter) {
@@ -15737,25 +15950,36 @@ var Blockchain = function (_EventEmitter) {
     }()
 
     /**
-     * Return the head block, or `undefined` when there's no
-     * block on the blockchain.
+     * Same as always, always pass valid block here.
+     * And note that you can update block only if that
+     * block currently is on the main branch.
+     * 
+     * If you are trying to update a non-existent block
+     * or that block is not on the main branch, nothing
+     * will happen.
      */
 
   }, {
-    key: 'getHeadBlock',
+    key: 'updateBlock',
     value: function () {
-      var _ref7 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee6() {
-        var blockId;
+      var _ref7 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee6(block) {
         return regeneratorRuntime.wrap(function _callee6$(_context6) {
           while (1) {
             switch (_context6.prev = _context6.next) {
               case 0:
-                _context6.next = 2;
-                return this.store.readHeadBlock();
+                if (!this.onMainBranchSync(block.hash)) {
+                  _context6.next = 3;
+                  break;
+                }
 
-              case 2:
-                blockId = _context6.sent;
-                return _context6.abrupt('return', this.getBlock(blockId));
+                _context6.next = 3;
+                return this.store.writeBlock(block);
+
+              case 3:
+
+                this.emit('update', block, this.getHeadBlockIdSync());
+                // resolve nothing when success
+                // reject with error when error
 
               case 4:
               case 'end':
@@ -15765,8 +15989,44 @@ var Blockchain = function (_EventEmitter) {
         }, _callee6, this);
       }));
 
-      function getHeadBlock() {
+      function updateBlock(_x5) {
         return _ref7.apply(this, arguments);
+      }
+
+      return updateBlock;
+    }()
+
+    /**
+     * Return the head block, or `undefined` when there's no
+     * block on the blockchain.
+     */
+
+  }, {
+    key: 'getHeadBlock',
+    value: function () {
+      var _ref8 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee7() {
+        var blockId;
+        return regeneratorRuntime.wrap(function _callee7$(_context7) {
+          while (1) {
+            switch (_context7.prev = _context7.next) {
+              case 0:
+                _context7.next = 2;
+                return this.store.readHeadBlock();
+
+              case 2:
+                blockId = _context7.sent;
+                return _context7.abrupt('return', this.getBlock(blockId));
+
+              case 4:
+              case 'end':
+                return _context7.stop();
+            }
+          }
+        }, _callee7, this);
+      }));
+
+      function getHeadBlock() {
+        return _ref8.apply(this, arguments);
       }
 
       return getHeadBlock;
@@ -15802,29 +16062,29 @@ var Blockchain = function (_EventEmitter) {
   }, {
     key: 'getCurHeight',
     value: function () {
-      var _ref8 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee7() {
+      var _ref9 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee8() {
         var block;
-        return regeneratorRuntime.wrap(function _callee7$(_context7) {
+        return regeneratorRuntime.wrap(function _callee8$(_context8) {
           while (1) {
-            switch (_context7.prev = _context7.next) {
+            switch (_context8.prev = _context8.next) {
               case 0:
-                _context7.next = 2;
+                _context8.next = 2;
                 return this.getHeadBlock();
 
               case 2:
-                block = _context7.sent;
-                return _context7.abrupt('return', block ? block.height : -1);
+                block = _context8.sent;
+                return _context8.abrupt('return', block ? block.height : -1);
 
               case 4:
               case 'end':
-                return _context7.stop();
+                return _context8.stop();
             }
           }
-        }, _callee7, this);
+        }, _callee8, this);
       }));
 
       function getCurHeight() {
-        return _ref8.apply(this, arguments);
+        return _ref9.apply(this, arguments);
       }
 
       return getCurHeight;
@@ -15907,14 +16167,14 @@ var Blockchain = function (_EventEmitter) {
   }, {
     key: 'getBlockAt',
     value: function () {
-      var _ref9 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee8(height) {
+      var _ref10 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee9(height) {
         var blockId;
-        return regeneratorRuntime.wrap(function _callee8$(_context8) {
+        return regeneratorRuntime.wrap(function _callee9$(_context9) {
           while (1) {
-            switch (_context8.prev = _context8.next) {
+            switch (_context9.prev = _context9.next) {
               case 0:
                 if (!(height >= this.blockchain.length)) {
-                  _context8.next = 2;
+                  _context9.next = 2;
                   break;
                 }
 
@@ -15922,18 +16182,18 @@ var Blockchain = function (_EventEmitter) {
 
               case 2:
                 blockId = this.blockchain[height];
-                return _context8.abrupt('return', this.getBlock(blockId));
+                return _context9.abrupt('return', this.getBlock(blockId));
 
               case 4:
               case 'end':
-                return _context8.stop();
+                return _context9.stop();
             }
           }
-        }, _callee8, this);
+        }, _callee9, this);
       }));
 
-      function getBlockAt(_x5) {
-        return _ref9.apply(this, arguments);
+      function getBlockAt(_x6) {
+        return _ref10.apply(this, arguments);
       }
 
       return getBlockAt;
@@ -15948,34 +16208,34 @@ var Blockchain = function (_EventEmitter) {
   }, {
     key: 'getBlocks',
     value: function () {
-      var _ref10 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee9() {
+      var _ref11 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee10() {
         var reverse = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : true;
         var blocks;
-        return regeneratorRuntime.wrap(function _callee9$(_context9) {
+        return regeneratorRuntime.wrap(function _callee10$(_context10) {
           while (1) {
-            switch (_context9.prev = _context9.next) {
+            switch (_context10.prev = _context10.next) {
               case 0:
-                _context9.next = 2;
+                _context10.next = 2;
                 return Promise.all(this.blockchain.map(this.getBlock, this));
 
               case 2:
-                blocks = _context9.sent;
+                blocks = _context10.sent;
 
                 if (reverse) {
                   blocks.reverse();
                 }
-                return _context9.abrupt('return', blocks);
+                return _context10.abrupt('return', blocks);
 
               case 5:
               case 'end':
-                return _context9.stop();
+                return _context10.stop();
             }
           }
-        }, _callee9, this);
+        }, _callee10, this);
       }));
 
       function getBlocks() {
-        return _ref10.apply(this, arguments);
+        return _ref11.apply(this, arguments);
       }
 
       return getBlocks;
@@ -16001,27 +16261,27 @@ var Blockchain = function (_EventEmitter) {
   }, {
     key: 'getSubBlockchain',
     value: function () {
-      var _ref11 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee10(until) {
+      var _ref12 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee11(until) {
         var len = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 100;
         var i, hashes;
-        return regeneratorRuntime.wrap(function _callee10$(_context10) {
+        return regeneratorRuntime.wrap(function _callee11$(_context11) {
           while (1) {
-            switch (_context10.prev = _context10.next) {
+            switch (_context11.prev = _context11.next) {
               case 0:
                 i = this.blockchain.indexOf(until);
                 hashes = i < 0 ? this.blockchain.slice(-len) : this.blockchain.slice(Math.max(0, i - len), i);
-                return _context10.abrupt('return', Promise.all(hashes.map(this.getBlock, this)));
+                return _context11.abrupt('return', Promise.all(hashes.map(this.getBlock, this)));
 
               case 3:
               case 'end':
-                return _context10.stop();
+                return _context11.stop();
             }
           }
-        }, _callee10, this);
+        }, _callee11, this);
       }));
 
-      function getSubBlockchain(_x8) {
-        return _ref11.apply(this, arguments);
+      function getSubBlockchain(_x9) {
+        return _ref12.apply(this, arguments);
       }
 
       return getSubBlockchain;
@@ -16035,23 +16295,23 @@ var Blockchain = function (_EventEmitter) {
   }, {
     key: 'getBlock',
     value: function () {
-      var _ref12 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee11(blockId) {
-        return regeneratorRuntime.wrap(function _callee11$(_context11) {
+      var _ref13 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee12(blockId) {
+        return regeneratorRuntime.wrap(function _callee12$(_context12) {
           while (1) {
-            switch (_context11.prev = _context11.next) {
+            switch (_context12.prev = _context12.next) {
               case 0:
-                return _context11.abrupt('return', this.store.readBlock(blockId));
+                return _context12.abrupt('return', this.store.readBlock(blockId));
 
               case 1:
               case 'end':
-                return _context11.stop();
+                return _context12.stop();
             }
           }
-        }, _callee11, this);
+        }, _callee12, this);
       }));
 
-      function getBlock(_x9) {
-        return _ref12.apply(this, arguments);
+      function getBlock(_x10) {
+        return _ref13.apply(this, arguments);
       }
 
       return getBlock;
@@ -16093,38 +16353,38 @@ var Blockchain = function (_EventEmitter) {
   }, {
     key: 'hasBlock',
     value: function () {
-      var _ref13 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee12(blockId) {
+      var _ref14 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee13(blockId) {
         var onMainBranch = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : true;
-        return regeneratorRuntime.wrap(function _callee12$(_context12) {
+        return regeneratorRuntime.wrap(function _callee13$(_context13) {
           while (1) {
-            switch (_context12.prev = _context12.next) {
+            switch (_context13.prev = _context13.next) {
               case 0:
                 if (!onMainBranch) {
-                  _context12.next = 2;
+                  _context13.next = 2;
                   break;
                 }
 
-                return _context12.abrupt('return', this.blockchain.includes(blockId));
+                return _context13.abrupt('return', this.blockchain.includes(blockId));
 
               case 2:
-                _context12.next = 4;
+                _context13.next = 4;
                 return this.getBlock(blockId);
 
               case 4:
-                _context12.t0 = _context12.sent;
-                _context12.t1 = undefined;
-                return _context12.abrupt('return', _context12.t0 !== _context12.t1);
+                _context13.t0 = _context13.sent;
+                _context13.t1 = undefined;
+                return _context13.abrupt('return', _context13.t0 !== _context13.t1);
 
               case 7:
               case 'end':
-                return _context12.stop();
+                return _context13.stop();
             }
           }
-        }, _callee12, this);
+        }, _callee13, this);
       }));
 
-      function hasBlock(_x11) {
-        return _ref13.apply(this, arguments);
+      function hasBlock(_x12) {
+        return _ref14.apply(this, arguments);
       }
 
       return hasBlock;

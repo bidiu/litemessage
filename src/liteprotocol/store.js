@@ -70,12 +70,29 @@ class LiteProtocolStore {
     }
   }
 
-  // async writeBlock(block) {
-  //   if (typeof block.hash !== 'string') {
-  //     throw new Error('Invalid block hash.');
-  //   }
-  //   return this.db.put(genKey(`block_${block.hash}`), block);
-  // }
+  /**
+   * Blocks are meant to be immutable. Make sure use this operation
+   * with caution - you could potentially corrupt the blockchain.
+   */
+  async writeBlock(block, batchOps) {
+    if (typeof block.hash !== 'string') {
+      throw new Error('Invalid block hash.');
+    }
+
+    let ops = [
+      { type: 'put', key: genKey(`block_${block.hash}`), value: JSON.stringify(block) }
+    ];
+    if (block.litemsgs) {
+      for (let litemsg of block.litemsgs) {
+        ops.push({ type: 'put', key: genKey(`litemsg_${litemsg.hash}`), value: block.hash });
+      }
+    }
+    if (batchOps) {
+      ops = [...ops, ...batchOps];
+    }
+
+    return this.db.batch(ops);
+  }
 
   /**
    * Return the whole block specified by the given block id.
