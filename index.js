@@ -5,7 +5,9 @@ if (BUILD_TARGET === 'node') {
   exports.ThinNode = require('./src/clients/thinnode');
   exports.FullNode = require('./src/clients/fullnode');
 
+  exports.createBlock = require('./src/liteprotocol/entities/block');
   exports.createLitemsg = require('./src/liteprotocol/entities/litemsg');
+
   exports.LiteProtocol = require('./src/liteprotocol/liteprotocol');
   exports.ThinLiteProtocol = require('./src/liteprotocol/thinprotocol');
   module.exports = exports =  { ...exports, ...require('./src/liteprotocol/messages') };
@@ -17,6 +19,9 @@ if (BUILD_TARGET === 'node') {
   // browser (output as umd)
 
   require("regenerator-runtime/runtime");
+
+  exports.createBlock = require('./src/liteprotocol/entities/block');
+  exports.createLitemsg = require('./src/liteprotocol/entities/litemsg');
 
   exports.Node = require('./src/clients/node');
   exports.ThinNode = require('./src/clients/thinnode');

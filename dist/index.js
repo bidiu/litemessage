@@ -1,4 +1,4 @@
-/*! v0.10.9-3-g829b6fd */
+/*! v0.10.10 */
 module.exports =
 /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
@@ -366,7 +366,7 @@ exports.litemsgLocators = litemsgLocators;
 if (true) {
   // node
 
-  var path = __webpack_require__(11);
+  var path = __webpack_require__(12);
   var crypto = __webpack_require__(32);
   var { fork } = __webpack_require__(33);
   var Promise = __webpack_require__(34);
@@ -771,7 +771,7 @@ exports.getCurTimestamp = getCurTimestamp;
 
 if (true) {
   // run in node
-  var path = __webpack_require__(11);
+  var path = __webpack_require__(12);
 } else {}
 
 const isValidJson = (json) => {
@@ -946,18 +946,51 @@ module.exports = require("url");
 
 /***/ }),
 /* 8 */
+/***/ (function(module, exports, __webpack_require__) {
+
+const { sha256 } = __webpack_require__(2);
+
+/**
+ * Note for genesis block, its `height` must be 0, and `prevBlock` be `undefined`.
+ * 
+ * All fields together except `litemsgs` are called block header, while `litemsgs`
+ * is called block body.
+ * 
+ * @param {*} ver         version number (now hardcoded to 1, I don't have time :|)
+ * @param {*} time        timestamp (unix time)
+ * @param {*} height
+ * @param {*} prevBlock   previous block's id
+ * @param {*} merkleRoot  merkle root
+ * @param {*} bits        difficulty
+ * @param {*} nonce       nonce
+ * @param {*} litemsgs    an array of litemessages (not ids)
+ */
+const createBlock = (ver, time, height, prevBlock, merkleRoot, bits, nonce, litemsgs) => {
+  let hash = undefined;
+  if (typeof nonce === 'number') {
+    // only calculate hash when `nonce` is given
+    hash = sha256(`${ver}${time}${height}${prevBlock}${merkleRoot}${bits}${nonce}`);
+  }
+  return { ver, time, height, prevBlock, merkleRoot, bits, nonce, litemsgs, hash };
+};
+
+module.exports = createBlock;
+
+
+/***/ }),
+/* 9 */
 /***/ (function(module, exports) {
 
 module.exports = require("ws");
 
 /***/ }),
-/* 9 */
+/* 10 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const P2PProtocol = __webpack_require__(10);
-const LiteProtocolStore = __webpack_require__(12);
-const HandshakeManager = __webpack_require__(13);
-const Blockchain = __webpack_require__(14);
+const P2PProtocol = __webpack_require__(11);
+const LiteProtocolStore = __webpack_require__(13);
+const HandshakeManager = __webpack_require__(14);
+const Blockchain = __webpack_require__(15);
 const {
   verifyHeader, verifyHeaderChain, verifyBlock
 } = __webpack_require__(2);
@@ -967,7 +1000,7 @@ const {
 
 if (true) {
   // run in node
-  var createRestServer = __webpack_require__(15);
+  var createRestServer = __webpack_require__(16);
 } else {}
 
 // protocol version
@@ -1181,7 +1214,7 @@ module.exports = ThinLiteProtocol;
 
 
 /***/ }),
-/* 10 */
+/* 11 */
 /***/ (function(module, exports, __webpack_require__) {
 
 const P2PProtocolStore = __webpack_require__(27);
@@ -1355,13 +1388,13 @@ module.exports = P2PProtocol;
 
 
 /***/ }),
-/* 11 */
+/* 12 */
 /***/ (function(module, exports) {
 
 module.exports = require("path");
 
 /***/ }),
-/* 12 */
+/* 13 */
 /***/ (function(module, exports) {
 
 const prefix = 'lite/';
@@ -1533,7 +1566,7 @@ module.exports = LiteProtocolStore;
 
 
 /***/ }),
-/* 13 */
+/* 14 */
 /***/ (function(module, exports, __webpack_require__) {
 
 const Peer = __webpack_require__(31);
@@ -1746,7 +1779,7 @@ module.exports = HandshakeManager;
 
 
 /***/ }),
-/* 14 */
+/* 15 */
 /***/ (function(module, exports, __webpack_require__) {
 
 const EventEmitter = __webpack_require__(0);
@@ -2131,7 +2164,7 @@ module.exports = Blockchain;
 
 
 /***/ }),
-/* 15 */
+/* 16 */
 /***/ (function(module, exports, __webpack_require__) {
 
 const http = __webpack_require__(36);
@@ -2291,18 +2324,18 @@ module.exports = createRestServer;
 
 
 /***/ }),
-/* 16 */
+/* 17 */
 /***/ (function(module, exports, __webpack_require__) {
 
-const P2PProtocol = __webpack_require__(10);
-const LiteProtocolStore = __webpack_require__(12);
+const P2PProtocol = __webpack_require__(11);
+const LiteProtocolStore = __webpack_require__(13);
 const Miner = __webpack_require__(42);
-const Blockchain = __webpack_require__(14);
-const HandshakeManager = __webpack_require__(13);
+const Blockchain = __webpack_require__(15);
+const HandshakeManager = __webpack_require__(14);
 const InvResolveHandler = __webpack_require__(43);
 const InventoryResolver = __webpack_require__(44);
-const createRestServer = __webpack_require__(15);
-const createBlock = __webpack_require__(17);
+const createRestServer = __webpack_require__(16);
+const createBlock = __webpack_require__(8);
 const {
   messageTypes, messageValidators, getBlocks, 
   inv, data, getPendingMsgs, headers, 
@@ -2757,39 +2790,6 @@ module.exports = LiteProtocol;
 
 
 /***/ }),
-/* 17 */
-/***/ (function(module, exports, __webpack_require__) {
-
-const { sha256 } = __webpack_require__(2);
-
-/**
- * Note for genesis block, its `height` must be 0, and `prevBlock` be `undefined`.
- * 
- * All fields together except `litemsgs` are called block header, while `litemsgs`
- * is called block body.
- * 
- * @param {*} ver         version number (now hardcoded to 1, I don't have time :|)
- * @param {*} time        timestamp (unix time)
- * @param {*} height
- * @param {*} prevBlock   previous block's id
- * @param {*} merkleRoot  merkle root
- * @param {*} bits        difficulty
- * @param {*} nonce       nonce
- * @param {*} litemsgs    an array of litemessages (not ids)
- */
-const createBlock = (ver, time, height, prevBlock, merkleRoot, bits, nonce, litemsgs) => {
-  let hash = undefined;
-  if (typeof nonce === 'number') {
-    // only calculate hash when `nonce` is given
-    hash = sha256(`${ver}${time}${height}${prevBlock}${merkleRoot}${bits}${nonce}`);
-  }
-  return { ver, time, height, prevBlock, merkleRoot, bits, nonce, litemsgs, hash };
-};
-
-module.exports = createBlock;
-
-
-/***/ }),
 /* 18 */
 /***/ (function(module, exports, __webpack_require__) {
 
@@ -2800,9 +2800,11 @@ if (true) {
   exports.ThinNode = __webpack_require__(26);
   exports.FullNode = __webpack_require__(41);
 
+  exports.createBlock = __webpack_require__(8);
   exports.createLitemsg = __webpack_require__(45);
-  exports.LiteProtocol = __webpack_require__(16);
-  exports.ThinLiteProtocol = __webpack_require__(9);
+
+  exports.LiteProtocol = __webpack_require__(17);
+  exports.ThinLiteProtocol = __webpack_require__(10);
   module.exports = exports =  { ...exports, ...__webpack_require__(1) };
 
   module.exports = exports = { ...exports, ...__webpack_require__(2) };
@@ -3094,7 +3096,7 @@ if (true) {
 
   var EventEmitter = __webpack_require__(0);
   var { URL } = __webpack_require__(7);
-  var WebSocket = __webpack_require__(8);
+  var WebSocket = __webpack_require__(9);
 
 } else { var WebSocket, URL, EventEmitter; }
 
@@ -3253,7 +3255,7 @@ module.exports = WSClient;
 /***/ (function(module, exports, __webpack_require__) {
 
 const EventEmitter = __webpack_require__(0);
-const WebSocket = __webpack_require__(8);
+const WebSocket = __webpack_require__(9);
 const { URL } = __webpack_require__(7);
 const { getSocketAddress, getSocketInfo } = __webpack_require__(3);
 
@@ -3445,7 +3447,7 @@ module.exports = require("leveldown");
 /***/ (function(module, exports, __webpack_require__) {
 
 const Node = __webpack_require__(6);
-const ThinLiteProtocol = __webpack_require__(9);
+const ThinLiteProtocol = __webpack_require__(10);
 const { getData } = __webpack_require__(1);
 const { pickItems } = __webpack_require__(5);
 
@@ -3718,7 +3720,7 @@ module.exports = require("body-parser");
 /***/ (function(module, exports, __webpack_require__) {
 
 const Node = __webpack_require__(6);
-const LiteProtocol = __webpack_require__(16);
+const LiteProtocol = __webpack_require__(17);
 
 const NODE_TYPE = 'full';
 
@@ -3763,7 +3765,7 @@ module.exports = FullNode;
 /***/ (function(module, exports, __webpack_require__) {
 
 const { mine } = __webpack_require__(2);
-const createBlock = __webpack_require__(17);
+const createBlock = __webpack_require__(8);
 
 /**
  * mining manager : )
