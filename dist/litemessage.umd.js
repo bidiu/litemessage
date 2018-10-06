@@ -1,4 +1,4 @@
-/*! v0.10.10 */
+/*! v0.10.11 */
 (function webpackUniversalModuleDefinition(root, factory) {
 	if(typeof exports === 'object' && typeof module === 'object')
 		module.exports = factory();
@@ -4340,31 +4340,6 @@ exports.getReadyState = getReadyState;
 /* 14 */
 /***/ (function(module, exports) {
 
-module.exports = extend
-
-var hasOwnProperty = Object.prototype.hasOwnProperty;
-
-function extend() {
-    var target = {}
-
-    for (var i = 0; i < arguments.length; i++) {
-        var source = arguments[i]
-
-        for (var key in source) {
-            if (hasOwnProperty.call(source, key)) {
-                target[key] = source[key]
-            }
-        }
-    }
-
-    return target
-}
-
-
-/***/ }),
-/* 15 */
-/***/ (function(module, exports) {
-
 var _Object$freeze;
 
 function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
@@ -4704,6 +4679,31 @@ exports.getHeaders = getHeaders;
 exports.headers = headers;
 exports.locateLitemsgs = locateLitemsgs;
 exports.litemsgLocators = litemsgLocators;
+
+/***/ }),
+/* 15 */
+/***/ (function(module, exports) {
+
+module.exports = extend
+
+var hasOwnProperty = Object.prototype.hasOwnProperty;
+
+function extend() {
+    var target = {}
+
+    for (var i = 0; i < arguments.length; i++) {
+        var source = arguments[i]
+
+        for (var key in source) {
+            if (hasOwnProperty.call(source, key)) {
+                target[key] = source[key]
+            }
+        }
+    }
+
+    return target
+}
+
 
 /***/ }),
 /* 16 */
@@ -7516,6 +7516,7 @@ if (false) {} else {
 
   exports.Node = __webpack_require__(17);
   exports.ThinNode = __webpack_require__(82);
+  module.exports = exports = _extends({}, exports, __webpack_require__(14));
 
   module.exports = exports = _extends({}, exports, __webpack_require__(8));
 }
@@ -9282,7 +9283,7 @@ module.exports = bytesToUuid;
 
 var EventEmitter = __webpack_require__(9).EventEmitter
 var inherits = __webpack_require__(10).inherits
-var extend = __webpack_require__(14)
+var extend = __webpack_require__(15)
 var DeferredLevelDOWN = __webpack_require__(46)
 var IteratorStream = __webpack_require__(49)
 var Batch = __webpack_require__(57)
@@ -9695,7 +9696,7 @@ module.exports.DeferredIterator = DeferredIterator
 
 /* WEBPACK VAR INJECTION */(function(process, Buffer) {/* Copyright (c) 2017 Rod Vagg, MIT License */
 
-var xtend = __webpack_require__(14)
+var xtend = __webpack_require__(15)
 var AbstractIterator = __webpack_require__(18)
 var AbstractChainedBatch = __webpack_require__(19)
 var hasOwnProperty = Object.prototype.hasOwnProperty
@@ -10003,7 +10004,7 @@ module.exports = DeferredIterator
 
 var inherits = __webpack_require__(3)
 var Readable = __webpack_require__(20).Readable
-var extend = __webpack_require__(14)
+var extend = __webpack_require__(15)
 
 module.exports = ReadStream
 inherits(ReadStream, Readable)
@@ -14045,7 +14046,7 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 var Node = __webpack_require__(17);
 var ThinLiteProtocol = __webpack_require__(83);
 
-var _require = __webpack_require__(15),
+var _require = __webpack_require__(14),
     getData = _require.getData;
 
 var _require2 = __webpack_require__(32),
@@ -14138,7 +14139,7 @@ var _require = __webpack_require__(8),
     verifyHeaderChain = _require.verifyHeaderChain,
     verifyBlock = _require.verifyBlock;
 
-var _require2 = __webpack_require__(15),
+var _require2 = __webpack_require__(14),
     messageTypes = _require2.messageTypes,
     messageValidators = _require2.messageValidators,
     getHeaders = _require2.getHeaders,
@@ -15777,7 +15778,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 
 var Peer = __webpack_require__(89);
 
-var _require = __webpack_require__(15),
+var _require = __webpack_require__(14),
     messageValidators = _require.messageValidators,
     info = _require.info,
     infoAck = _require.infoAck,

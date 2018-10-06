@@ -25,6 +25,7 @@ if (BUILD_TARGET === 'node') {
 
   exports.Node = require('./src/clients/node');
   exports.ThinNode = require('./src/clients/thinnode');
+  module.exports = exports =  { ...exports, ...require('./src/liteprotocol/messages') };
 
   module.exports = exports = { ...exports, ...require('./src/utils/litecrypto') };
 }
