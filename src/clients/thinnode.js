@@ -14,6 +14,8 @@ const NODE_TYPE = 'thin';
 class ThinNode extends Node {
   constructor(dbPath, { protocolClass = ThinLiteProtocol, initPeerUrls = [], port, debug } = {}) {
     super(NODE_TYPE, dbPath, port, protocolClass, initPeerUrls, debug, true);
+    this.litemsgLocatorsHandler = this.litemsgLocatorsHandler.bind(this);
+
     this.litenode.on(`message/${messageTypes.litemsgLocators}`, this.litemsgLocatorsHandler);
   }
 
@@ -21,7 +23,7 @@ class ThinNode extends Node {
     return NODE_TYPE;
   }
 
-  litemsgLocatorsHandler = ({ messageType, ...payload }, peer) => {
+  litemsgLocatorsHandler({ messageType, ...payload }, peer) {
     try {
       messageValidators[messageType](payload);
       let { litemsgs, lookup } = payload;
@@ -35,7 +37,7 @@ class ThinNode extends Node {
     } catch (err) {
       console.error(err);
     }
-  };
+  }
 
   /**
    * By default, if possible, it will ask 3 fullnode

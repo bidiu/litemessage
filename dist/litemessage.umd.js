@@ -1,4 +1,4 @@
-/*! v0.10.11 */
+/*! v0.10.13 */
 (function webpackUniversalModuleDefinition(root, factory) {
 	if(typeof exports === 'object' && typeof module === 'object')
 		module.exports = factory();
@@ -4809,6 +4809,7 @@ var Node = function (_EventEmitter) {
   }, {
     key: 'close',
     value: function close() {
+      this.removeAllListeners();
       this.protocol.close();
       this.litenode.close();
       this.db.close();
@@ -14037,6 +14038,8 @@ var _createClass = function () { function defineProperties(target, props) { for 
 
 var _get = function get(object, property, receiver) { if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { return get(parent, property, receiver); } } else if ("value" in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } };
 
+function _objectWithoutProperties(obj, keys) { var target = {}; for (var i in obj) { if (keys.indexOf(i) >= 0) continue; if (!Object.prototype.hasOwnProperty.call(obj, i)) continue; target[i] = obj[i]; } return target; }
+
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
@@ -14047,12 +14050,20 @@ var Node = __webpack_require__(17);
 var ThinLiteProtocol = __webpack_require__(83);
 
 var _require = __webpack_require__(14),
-    getData = _require.getData;
+    messageValidators = _require.messageValidators,
+    messageTypes = _require.messageTypes,
+    getData = _require.getData,
+    _locateLitemsgs = _require.locateLitemsgs;
 
 var _require2 = __webpack_require__(32),
     pickItems = _require2.pickItems;
 
 var NODE_TYPE = 'thin';
+
+/**
+ * Events:
+ *  - locators
+ */
 
 var ThinNode = function (_Node) {
   _inherits(ThinNode, _Node);
@@ -14068,12 +14079,53 @@ var ThinNode = function (_Node) {
 
     _classCallCheck(this, ThinNode);
 
-    return _possibleConstructorReturn(this, (ThinNode.__proto__ || Object.getPrototypeOf(ThinNode)).call(this, NODE_TYPE, dbPath, port, protocolClass, initPeerUrls, debug, true));
+    var _this = _possibleConstructorReturn(this, (ThinNode.__proto__ || Object.getPrototypeOf(ThinNode)).call(this, NODE_TYPE, dbPath, port, protocolClass, initPeerUrls, debug, true));
+
+    _this.litemsgLocatorsHandler = _this.litemsgLocatorsHandler.bind(_this);
+
+    _this.litenode.on('message/' + messageTypes.litemsgLocators, _this.litemsgLocatorsHandler);
+    return _this;
   }
 
   _createClass(ThinNode, [{
-    key: 'fetchBlockBody',
+    key: 'litemsgLocatorsHandler',
+    value: function litemsgLocatorsHandler(_ref2, peer) {
+      var messageType = _ref2.messageType,
+          payload = _objectWithoutProperties(_ref2, ['messageType']);
 
+      try {
+        messageValidators[messageType](payload);
+        var litemsgs = payload.litemsgs,
+            lookup = payload.lookup;
+
+        var locators = [];
+
+        for (var i = 0; i < litemsgs.length; i++) {
+          locators.push([litemsgs[i], lookup[i]]);
+        }
+        this.emit('locators', locators);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    /**
+     * By default, if possible, it will ask 3 fullnode
+     * peers, just to make sure the body could be fetched
+     * successfully.
+     * 
+     * To get notified by the result, you should bind a 
+     * listener on the event `locators` BEFORE calling
+     * this method.
+     */
+
+  }, {
+    key: 'locateLitemsgs',
+    value: function locateLitemsgs(litemsgs) {
+      pickItems(this.peers('full'), 3).forEach(function (peer) {
+        return peer.sendJson(_locateLitemsgs({ litemsgs: litemsgs }));
+      });
+    }
 
     /**
      * Fetch body (litemessage) of a given block.
@@ -14087,6 +14139,9 @@ var ThinNode = function (_Node) {
      * notified, please have a look at the `Blockchain`
      * utility, which has low level event for that.
      */
+
+  }, {
+    key: 'fetchBlockBody',
     value: function fetchBlockBody(blockId) {
       pickItems(this.peers('full'), 3).forEach(function (peer) {
         return peer.sendJson(getData({ blocks: [blockId] }));

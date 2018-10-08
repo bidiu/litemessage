@@ -73,10 +73,10 @@ class Node extends EventEmitter {
    * Do the cleanup.
    */
   close() {
+    this.removeAllListeners();
     this.protocol.close();
     this.litenode.close();
     this.db.close();
-    this.removeAllListeners();
   }
 }
 
