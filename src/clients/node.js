@@ -76,6 +76,7 @@ class Node extends EventEmitter {
     this.protocol.close();
     this.litenode.close();
     this.db.close();
+    this.removeAllListeners();
   }
 }
 
