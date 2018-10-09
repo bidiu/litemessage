@@ -176,11 +176,29 @@ class LiteProtocol extends P2PProtocol {
   }
 
   /**
+   * Check for repeated litemessages. If any,
+   * this method will return true.
+   * 
+   * It accepts a optional `untilHeight`.
+   */
+  async checkChainForRepeatedLitemsgs(blocks, untilHeight) {
+    for (let block of blocks) {
+      for (let litemsg of block.litemsgs) {
+        if (await this.blockchain.litemsgOnMainBranch(litemsg.hash, untilHeight)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
    * If the given litemessage id is in LevelDB's litemessage index
-   * or it's in the pending pool, the return value will be `true`.
+   * (only opn main branch), or it's in the pending pool, the return 
+   * value will be `true`.
    */
   async hasLitemsg(litemsgId) {
-    return (await this.litestore.hasLitemsg(litemsgId))
+    return (await this.blockchain.litemsgOnMainBranch(litemsgId))
       || this.inLitemsgPool(litemsgId);
   }
 
@@ -323,9 +341,11 @@ class LiteProtocol extends P2PProtocol {
           let block = blocks[0];
 
           if (block.prevBlock === headBlockId) {
-            this.cleanPoolAndRestartMining(blocks);
-            this.blockchain.append(block);
-            relayBlocks.push(block);
+            if (!(await this.checkChainForRepeatedLitemsgs(blocks))) {
+              this.cleanPoolAndRestartMining(blocks);
+              this.blockchain.append(block);
+              relayBlocks.push(block);
+            }
           } else {
             let blockLocators = this.blockchain.getLocatorsSync();
             peer.sendJson(getBlocks({ blockLocators }));
@@ -361,12 +381,15 @@ class LiteProtocol extends P2PProtocol {
                 undefined;
             }
 
-            if (headBlockId === this.blockchain.getHeadBlockIdSync()) {
-              this.cleanPoolAndRestartMining(blocks);
-              // switch the blockchain to another branch,
-              // for efficiency, don't await it finishing
-              // (no await here)
-              this.blockchain.appendAt([...extendedBlocks, ...blocks]);
+            let chainToSwitch = [...extendedBlocks, ...blocks];
+            if (!(await this.checkChainForRepeatedLitemsgs(chainToSwitch, chainToSwitch[0].height))) {
+              if (headBlockId === this.blockchain.getHeadBlockIdSync()) {
+                this.cleanPoolAndRestartMining(blocks);
+                // switch the blockchain to another branch,
+                // for efficiency, don't await it finishing
+                // (no await here)
+                this.blockchain.appendAt(chainToSwitch);
+              }
             }
           }
         }

@@ -16,8 +16,6 @@ const chunkSize = 1024;
  * for interacting with persistant storage medium. Take `LiteProtocol`'s
  * implementation as an example.
  * 
- * This blockchain abstraction here is (should) be protocol-agnostic.
- * 
  * One assumption using this blockchain abstraction here is that you MUST 
  * always only persist valid blocks (it doesn't have to be in the main branch 
  * in the long run, but it must be a valid block). And you append elder blocks 
@@ -373,6 +371,22 @@ class Blockchain extends EventEmitter {
     }
 
     return await this.getBlock(blockId) !== undefined;
+  }
+
+  /**
+   * @param {*} litemsgId 
+   * @param {*} untilHeight exclusive (optional)
+   */
+  async litemsgOnMainBranch(litemsgId, untilHeight = Number.MAX_SAFE_INTEGER) {
+    let blockId = await this.store.readLitemsg(litemsgId);
+    if (!blockId || !this.onMainBranchSync(blockId)) { return false; }
+    
+    let block = await this.getBlock(blockId);
+    if (block.height >= untilHeight) {
+      return false;
+    } else {
+      return true;
+    }
   }
 }
 

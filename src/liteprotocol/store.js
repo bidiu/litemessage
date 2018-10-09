@@ -50,6 +50,10 @@ class LiteProtocolStore {
   //   return this.db.put(genKey(`litemsg_${litemsg.hash}`), litemsg);
   // }
 
+  /**
+   * If the given litemessage is off main branch, this method
+   * will still return true.
+   */
   async hasLitemsg(litemsgId) {
     return (await this.readLitemsg(litemsgId)) !== undefined;
   }

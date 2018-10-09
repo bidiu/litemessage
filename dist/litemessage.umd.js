@@ -1,4 +1,4 @@
-/*! v0.10.13 */
+/*! v0.10.13-1-gec31e96 */
 (function webpackUniversalModuleDefinition(root, factory) {
 	if(typeof exports === 'object' && typeof module === 'object')
 		module.exports = factory();
@@ -15315,6 +15315,11 @@ var LiteProtocolStore = function () {
     //   return this.db.put(genKey(`litemsg_${litemsg.hash}`), litemsg);
     // }
 
+    /**
+     * If the given litemessage is off main branch, this method
+     * will still return true.
+     */
+
   }, {
     key: 'hasLitemsg',
     value: function () {
@@ -16211,8 +16216,6 @@ var chunkSize = 1024;
  * for interacting with persistant storage medium. Take `LiteProtocol`'s
  * implementation as an example.
  * 
- * This blockchain abstraction here is (should) be protocol-agnostic.
- * 
  * One assumption using this blockchain abstraction here is that you MUST 
  * always only persist valid blocks (it doesn't have to be in the main branch 
  * in the long run, but it must be a valid block). And you append elder blocks 
@@ -17040,6 +17043,66 @@ var Blockchain = function (_EventEmitter) {
       }
 
       return hasBlock;
+    }()
+
+    /**
+     * @param {*} litemsgId 
+     * @param {*} untilHeight exclusive (optional)
+     */
+
+  }, {
+    key: 'litemsgOnMainBranch',
+    value: function () {
+      var _ref15 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee14(litemsgId) {
+        var untilHeight = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : Number.MAX_SAFE_INTEGER;
+        var blockId, block;
+        return regeneratorRuntime.wrap(function _callee14$(_context14) {
+          while (1) {
+            switch (_context14.prev = _context14.next) {
+              case 0:
+                _context14.next = 2;
+                return this.store.readLitemsg(litemsgId);
+
+              case 2:
+                blockId = _context14.sent;
+
+                if (!(!blockId || !this.onMainBranchSync(blockId))) {
+                  _context14.next = 5;
+                  break;
+                }
+
+                return _context14.abrupt('return', false);
+
+              case 5:
+                _context14.next = 7;
+                return this.getBlock(blockId);
+
+              case 7:
+                block = _context14.sent;
+
+                if (!(block.height >= untilHeight)) {
+                  _context14.next = 12;
+                  break;
+                }
+
+                return _context14.abrupt('return', false);
+
+              case 12:
+                return _context14.abrupt('return', true);
+
+              case 13:
+              case 'end':
+                return _context14.stop();
+            }
+          }
+        }, _callee14, this);
+      }));
+
+      function litemsgOnMainBranch(_x14) {
+        return _ref15.apply(this, arguments);
+      }
+
+      return litemsgOnMainBranch;
     }()
   }, {
     key: 'ready',

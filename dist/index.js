@@ -1,4 +1,4 @@
-/*! v0.10.13 */
+/*! v0.10.13-1-gec31e96 */
 module.exports =
 /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
@@ -1450,6 +1450,10 @@ class LiteProtocolStore {
   //   return this.db.put(genKey(`litemsg_${litemsg.hash}`), litemsg);
   // }
 
+  /**
+   * If the given litemessage is off main branch, this method
+   * will still return true.
+   */
   async hasLitemsg(litemsgId) {
     return (await this.readLitemsg(litemsgId)) !== undefined;
   }
@@ -1800,8 +1804,6 @@ const chunkSize = 1024;
  * injected with an store (using LevelDB / IndexedDB) interface implementation
  * for interacting with persistant storage medium. Take `LiteProtocol`'s
  * implementation as an example.
- * 
- * This blockchain abstraction here is (should) be protocol-agnostic.
  * 
  * One assumption using this blockchain abstraction here is that you MUST 
  * always only persist valid blocks (it doesn't have to be in the main branch 
@@ -2159,6 +2161,22 @@ class Blockchain extends EventEmitter {
 
     return await this.getBlock(blockId) !== undefined;
   }
+
+  /**
+   * @param {*} litemsgId 
+   * @param {*} untilHeight exclusive (optional)
+   */
+  async litemsgOnMainBranch(litemsgId, untilHeight = Number.MAX_SAFE_INTEGER) {
+    let blockId = await this.store.readLitemsg(litemsgId);
+    if (!blockId || !this.onMainBranchSync(blockId)) { return false; }
+    
+    let block = await this.getBlock(blockId);
+    if (block.height >= untilHeight) {
+      return false;
+    } else {
+      return true;
+    }
+  }
 }
 
 module.exports = Blockchain;
@@ -2506,11 +2524,29 @@ class LiteProtocol extends P2PProtocol {
   }
 
   /**
+   * Check for repeated litemessages. If any,
+   * this method will return true.
+   * 
+   * It accepts a optional `untilHeight`.
+   */
+  async checkChainForRepeatedLitemsgs(blocks, untilHeight) {
+    for (let block of blocks) {
+      for (let litemsg of block.litemsgs) {
+        if (await this.blockchain.litemsgOnMainBranch(litemsg.hash, untilHeight)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
    * If the given litemessage id is in LevelDB's litemessage index
-   * or it's in the pending pool, the return value will be `true`.
+   * (only opn main branch), or it's in the pending pool, the return 
+   * value will be `true`.
    */
   async hasLitemsg(litemsgId) {
-    return (await this.litestore.hasLitemsg(litemsgId))
+    return (await this.blockchain.litemsgOnMainBranch(litemsgId))
       || this.inLitemsgPool(litemsgId);
   }
 
@@ -2653,9 +2689,11 @@ class LiteProtocol extends P2PProtocol {
           let block = blocks[0];
 
           if (block.prevBlock === headBlockId) {
-            this.cleanPoolAndRestartMining(blocks);
-            this.blockchain.append(block);
-            relayBlocks.push(block);
+            if (!(await this.checkChainForRepeatedLitemsgs(blocks))) {
+              this.cleanPoolAndRestartMining(blocks);
+              this.blockchain.append(block);
+              relayBlocks.push(block);
+            }
           } else {
             let blockLocators = this.blockchain.getLocatorsSync();
             peer.sendJson(getBlocks({ blockLocators }));
@@ -2691,12 +2729,15 @@ class LiteProtocol extends P2PProtocol {
                 undefined;
             }
 
-            if (headBlockId === this.blockchain.getHeadBlockIdSync()) {
-              this.cleanPoolAndRestartMining(blocks);
-              // switch the blockchain to another branch,
-              // for efficiency, don't await it finishing
-              // (no await here)
-              this.blockchain.appendAt([...extendedBlocks, ...blocks]);
+            let chainToSwitch = [...extendedBlocks, ...blocks];
+            if (!(await this.checkChainForRepeatedLitemsgs(chainToSwitch, chainToSwitch[0].height))) {
+              if (headBlockId === this.blockchain.getHeadBlockIdSync()) {
+                this.cleanPoolAndRestartMining(blocks);
+                // switch the blockchain to another branch,
+                // for efficiency, don't await it finishing
+                // (no await here)
+                this.blockchain.appendAt(chainToSwitch);
+              }
             }
           }
         }
