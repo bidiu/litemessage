@@ -40,16 +40,12 @@ class ThinNode extends Node {
   }
 
   /**
-   * By default, if possible, it will ask 3 fullnode
-   * peers, just to make sure the body could be fetched
-   * successfully.
-   * 
    * To get notified by the result, you should bind a 
    * listener on the event `locators` BEFORE calling
    * this method.
    */
   locateLitemsgs(litemsgs) {
-    pickItems(this.peers('full'), 3)
+    pickItems(this.peers('full'), 1)
       .forEach(peer => peer.sendJson(locateLitemsgs({ litemsgs })));
   }
 
