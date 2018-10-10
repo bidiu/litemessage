@@ -23,9 +23,9 @@ if (BUILD_TARGET === 'node') {
  */
 class Node extends EventEmitter {
   constructor(nodeType, dbPath, port, protocolClass, initPeerUrls, debug, noserver) {
-    if (new.target === Node) {
-      throw new TypeError("Cannot construct Node instances directly.");
-    }
+    // if (new.target === Node) {
+    //   throw new TypeError("Cannot construct Node instances directly.");
+    // }
 
     super();
 
