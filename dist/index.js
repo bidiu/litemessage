@@ -1,4 +1,4 @@
-/*! v0.10.13-1-gec31e96 */
+/*! v0.10.16 */
 module.exports =
 /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
@@ -879,9 +879,9 @@ if (true) {
  */
 class Node extends EventEmitter {
   constructor(nodeType, dbPath, port, protocolClass, initPeerUrls, debug, noserver) {
-    if (new.target === Node) {
-      throw new TypeError("Cannot construct Node instances directly.");
-    }
+    // if (new.target === Node) {
+    //   throw new TypeError("Cannot construct Node instances directly.");
+    // }
 
     super();
 
@@ -1266,9 +1266,9 @@ class P2PProtocol extends EventEmitter {
   constructor(node, { nodeTypes = [], minPeerNum = 8 } = {}) {
     super();
 
-    if (new.target === P2PProtocol) {
-      throw new TypeError("Cannot construct P2PProtocol instances directly.");
-    }
+    // if (new.target === P2PProtocol) {
+    //   throw new TypeError("Cannot construct P2PProtocol instances directly.");
+    // }
 
     this.persistPeerUrls = this.persistPeerUrls.bind(this);
     this.fetchPeersHandler = this.fetchPeersHandler.bind(this);
@@ -3530,16 +3530,12 @@ class ThinNode extends Node {
   }
 
   /**
-   * By default, if possible, it will ask 3 fullnode
-   * peers, just to make sure the body could be fetched
-   * successfully.
-   * 
    * To get notified by the result, you should bind a 
    * listener on the event `locators` BEFORE calling
    * this method.
    */
   locateLitemsgs(litemsgs) {
-    pickItems(this.peers('full'), 3)
+    pickItems(this.peers('full'), 1)
       .forEach(peer => peer.sendJson(locateLitemsgs({ litemsgs })));
   }
 

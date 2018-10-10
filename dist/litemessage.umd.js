@@ -1,4 +1,4 @@
-/*! v0.10.13-1-gec31e96 */
+/*! v0.10.16 */
 (function webpackUniversalModuleDefinition(root, factory) {
 	if(typeof exports === 'object' && typeof module === 'object')
 		module.exports = factory();
@@ -4751,12 +4751,11 @@ var Node = function (_EventEmitter) {
   function Node(nodeType, dbPath, port, protocolClass, initPeerUrls, debug, noserver) {
     _classCallCheck(this, Node);
 
-    if (new.target === Node) {
-      throw new TypeError("Cannot construct Node instances directly.");
-    }
-
     // some necessary info
     var _this = _possibleConstructorReturn(this, (Node.__proto__ || Object.getPrototypeOf(Node)).call(this));
+    // if (new.target === Node) {
+    //   throw new TypeError("Cannot construct Node instances directly.");
+    // }
 
     _this.uuid = uuidv1();
     _this.nodeType = nodeType;
@@ -14110,10 +14109,6 @@ var ThinNode = function (_Node) {
     }
 
     /**
-     * By default, if possible, it will ask 3 fullnode
-     * peers, just to make sure the body could be fetched
-     * successfully.
-     * 
      * To get notified by the result, you should bind a 
      * listener on the event `locators` BEFORE calling
      * this method.
@@ -14122,7 +14117,7 @@ var ThinNode = function (_Node) {
   }, {
     key: 'locateLitemsgs',
     value: function locateLitemsgs(litemsgs) {
-      pickItems(this.peers('full'), 3).forEach(function (peer) {
+      pickItems(this.peers('full'), 1).forEach(function (peer) {
         return peer.sendJson(_locateLitemsgs({ litemsgs: litemsgs }));
       });
     }
@@ -14785,11 +14780,11 @@ var P2PProtocol = function (_EventEmitter) {
 
     _classCallCheck(this, P2PProtocol);
 
-    var _this = _possibleConstructorReturn(this, (P2PProtocol.__proto__ || Object.getPrototypeOf(P2PProtocol)).call(this));
+    // if (new.target === P2PProtocol) {
+    //   throw new TypeError("Cannot construct P2PProtocol instances directly.");
+    // }
 
-    if (new.target === P2PProtocol) {
-      throw new TypeError("Cannot construct P2PProtocol instances directly.");
-    }
+    var _this = _possibleConstructorReturn(this, (P2PProtocol.__proto__ || Object.getPrototypeOf(P2PProtocol)).call(this));
 
     _this.persistPeerUrls = _this.persistPeerUrls.bind(_this);
     _this.fetchPeersHandler = _this.fetchPeersHandler.bind(_this);
